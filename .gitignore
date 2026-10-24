@@ -1,4 +1,4 @@
-node_modules/
+node_modl/
 .env
 .env.*
 !.env.example
@@ -11,3 +11,9 @@ npm-debug.log*
 .DS_Store
 thunder-tests/
 *.insomnia.json
+scripts/.sim-*.json
+scripts/.sim-*.json
+scripts/.sim-*.json
+scripts/.sim-*.json
+scripts/.sim-*.json
+node_modules/

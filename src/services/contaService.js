@@ -1,9 +1,8 @@
 const bcrypt = require('bcrypt');
 const contaRepository = require('../repositories/contaRepository');
 
-const PUBLIC_KEY_BASE64_LEN = 44; // Ed25519 = 32 bytes = 44 chars em base64
-const PUBLIC_KEY_HEX_LEN = 64;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const BASE64_REGEX = /^[A-Za-z0-9+/]+={0,2}$/;
 const ARGON2ID_PREFIX = '$argon2id$';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BCRYPT_ROUNDS = 12;
@@ -21,28 +20,30 @@ function validarEmail(email) {
   }
 }
 
-// senha_admin_hash é diferente de hash_cont_dono: essa é a senha do
-// PORTAL (vendas/suporte), não abre o cofre. Por isso PODE ser
-// hasheada aqui no backend com bcrypt — RN08/Zero-Knowledge se aplica
-// só às chaves que decifram o vault (Módulo 7, item 1).
+// Senha do PORTAL (não abre o cofre): pode ser hasheada aqui com bcrypt.
 function validarSenhaAdministrativa(senha) {
   if (typeof senha !== 'string' || senha.length < 8) {
     throw new ErroDeNegocio('senha_administrativa deve ter ao menos 8 caracteres.', 400);
   }
 }
 
+// Padrão único: Ed25519 em base64 (32 bytes -> 44 caracteres).
+// Reutilizada pelo authService.
 function validarPublicKey(publicKey) {
   if (typeof publicKey !== 'string' || publicKey.trim() === '') {
     throw new ErroDeNegocio('public_key é obrigatório.', 400);
   }
-  const tamanho = publicKey.length;
-  if (tamanho !== PUBLIC_KEY_BASE64_LEN && tamanho !== PUBLIC_KEY_HEX_LEN) {
-    throw new ErroDeNegocio('public_key inválida: formato incompatível com Ed25519.', 400);
+  if (
+    publicKey.length !== 44 ||
+    !BASE64_REGEX.test(publicKey) ||
+    Buffer.from(publicKey, 'base64').length !== 32
+  ) {
+    throw new ErroDeNegocio('public_key inválida: esperado base64 de 32 bytes (Ed25519).', 400);
   }
 }
 
-// Barreira Zero-Knowledge: se não começar com $argon2id$, é
-// provavelmente o segredo em texto claro. Bloqueia antes de salvar.
+// Barreira Zero-Knowledge: sem prefixo $argon2id$ provavelmente é texto claro.
+// É checagem de formato, não prova de que o hash foi calculado de verdade.
 function validarHashContDono(hashContDono) {
   if (typeof hashContDono !== 'string' || !hashContDono.startsWith(ARGON2ID_PREFIX)) {
     throw new ErroDeNegocio(
@@ -58,7 +59,7 @@ function validarFormatoId(id) {
   }
 }
 
-// Cadastro via WEB (portal institucional). Não envolve hardware.
+// Cadastro via WEB. Não envolve hardware.
 const cadastrarConta = async ({ email, senhaAdministrativa }) => {
   validarEmail(email);
   validarSenhaAdministrativa(senhaAdministrativa);
@@ -72,7 +73,7 @@ const cadastrarConta = async ({ email, senhaAdministrativa }) => {
   return contaRepository.criarConta({ email, senhaAdminHash });
 };
 
-// Pareamento via Desktop/Mobile. Exclusivo dessas plataformas (Módulo 7).
+// Pareamento via Desktop/Mobile.
 const parearHardware = async ({ contaId, publicKey, hashContDono }) => {
   validarFormatoId(contaId);
   validarPublicKey(publicKey);
@@ -96,8 +97,7 @@ const parearHardware = async ({ contaId, publicKey, hashContDono }) => {
 
   const contaAtualizada = await contaRepository.parearHardware({ contaId, publicKey, hashContDono });
   if (!contaAtualizada) {
-    // Corrida: status mudou entre a checagem acima e o UPDATE (WHERE
-    // status = PENDENTE_PAREAMENTO no repository pegou isso atomicamente).
+    // Corrida: o WHERE status = PENDENTE_PAREAMENTO do UPDATE pegou a mudança.
     throw new ErroDeNegocio('Conta não está mais pendente de pareamento.', 409);
   }
   return contaAtualizada;
@@ -116,5 +116,6 @@ module.exports = {
   cadastrarConta,
   parearHardware,
   buscarContaPorId,
+  validarPublicKey,
   ErroDeNegocio,
 };

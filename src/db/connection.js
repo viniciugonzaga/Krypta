@@ -1,15 +1,12 @@
 const { Pool } = require('pg');
-require('dotenv').config(); // Carrega as variáveis secretas do .env
+const { DATABASE_URL } = require('../config/env');
 
-// O Pool gere as ligações ao banco de dados de forma eficiente
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-});
+const pool = new Pool({ connectionString: DATABASE_URL });
 
-// Um teste rápido para verificar se a ligação funciona
+// Teste rápido de conexão na inicialização.
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error('Erro ao ligar ao banco de dados:', err.stack);
+    console.error('Erro ao ligar ao banco de dados:', err.message);
   } else {
     console.log('Ligação ao PostgreSQL efetuada com sucesso! Hora:', res.rows[0].now);
   }

@@ -1,6 +1,6 @@
-const app = require('./app.js');
-require('./db/connection.js');
-const PORT = 3000;
+// env primeiro: valida a configuração antes de carregar o resto.
+const { PORT } = require('./config/env');
+const app = require('./app');
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
