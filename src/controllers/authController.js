@@ -27,4 +27,10 @@ const verificarAssinatura = async (req, res) => {
   }
 };
 
-module.exports = { gerarChallenge, verificarAssinatura };
+// Só chega aqui com token válido e escopo 'hardware' (req.auth vem do middleware).
+const sessao = (req, res) => {
+  const { contaId, tipo, exp } = req.auth;
+  return res.status(200).json({ contaId, tipo, expira_em: new Date(exp * 1000).toISOString() });
+};
+
+module.exports = { gerarChallenge, verificarAssinatura, sessao };
