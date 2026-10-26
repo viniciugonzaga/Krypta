@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "test:auth": "node scripts/test-session.js",
     "test:admin": "node scripts/test-admin.js",
-    "test:backup": "node scripts/test-backup.js"
+    "test:backup": "node scripts/test-backup.js",
+    "test:pairing": "node scripts/test-pairing.js"
   },
   "keywords": [],
   "author": "",

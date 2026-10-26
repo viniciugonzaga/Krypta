@@ -1,10 +1,10 @@
 const express = require('express');
-const contaController = require('../controllers/contaController');
+const contaController = require('./../controllers/contaController');
+const { exigirToken } = require('../middlewares/authMiddleware');
 
-// Routes: só mapeia verbo + caminho -> Controller. Sem lógica aqui.
 const router = express.Router();
 
 router.post('/accounts', contaController.criarConta);
-router.get('/accounts/:id', contaController.buscarContaPorId);
+router.get('/accounts/:id', exigirToken(['admin_web', 'hardware']), contaController.buscarContaPorId);
 
 module.exports = router;

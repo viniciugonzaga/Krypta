@@ -3,7 +3,6 @@ const contaRepository = require('../repositories/contaRepository');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BASE64_REGEX = /^[A-Za-z0-9+/]+={0,2}$/;
-const ARGON2ID_PREFIX = '$argon2id$';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BCRYPT_ROUNDS = 12;
 
@@ -27,8 +26,7 @@ function validarSenhaAdministrativa(senha) {
   }
 }
 
-// Padrão único: Ed25519 em base64 (32 bytes -> 44 caracteres).
-// Reutilizada pelo authService.
+// Ed25519 em base64 (32 bytes -> 44 caracteres).
 function validarPublicKey(publicKey) {
   if (typeof publicKey !== 'string' || publicKey.trim() === '') {
     throw new ErroDeNegocio('public_key é obrigatório.', 400);
@@ -42,12 +40,18 @@ function validarPublicKey(publicKey) {
   }
 }
 
-// Barreira Zero-Knowledge: sem prefixo $argon2id$ provavelmente é texto claro.
-// É checagem de formato, não prova de que o hash foi calculado de verdade.
-function validarHashContDono(hashContDono) {
-  if (typeof hashContDono !== 'string' || !hashContDono.startsWith(ARGON2ID_PREFIX)) {
+// Prova derivada da CCP NO CLIENTE (32 bytes, base64). É checagem de formato:
+// a CCP em texto claro nunca tem esse formato, então é barrada aqui (RN08).
+// O servidor não consegue provar que a derivação foi feita com Argon2id.
+function validarProvaContingencia(prova) {
+  if (
+    typeof prova !== 'string' ||
+    prova.length !== 44 ||
+    !BASE64_REGEX.test(prova) ||
+    Buffer.from(prova, 'base64').length !== 32
+  ) {
     throw new ErroDeNegocio(
-      'hash_cont_dono inválido: deve ser um hash Argon2id gerado no cliente (RN08).',
+      'prova_cont_dono inválida: esperado base64 de 32 bytes derivados da CCP no cliente (RN08).',
       400
     );
   }
@@ -73,11 +77,11 @@ const cadastrarConta = async ({ email, senhaAdministrativa }) => {
   return contaRepository.criarConta({ email, senhaAdminHash });
 };
 
-// Pareamento via Desktop/Mobile.
-const parearHardware = async ({ contaId, publicKey, hashContDono }) => {
+// Pareamento via Desktop/Mobile. contaId vem do token admin_web, nunca do body.
+const parearHardware = async ({ contaId, publicKey, provaContDono }) => {
   validarFormatoId(contaId);
   validarPublicKey(publicKey);
-  validarHashContDono(hashContDono);
+  validarProvaContingencia(provaContDono);
 
   const conta = await contaRepository.obterContaPorId(contaId);
   if (!conta) {
@@ -95,6 +99,9 @@ const parearHardware = async ({ contaId, publicKey, hashContDono }) => {
     throw new ErroDeNegocio('Este hardware já está vinculado a outra conta (RN01).', 409);
   }
 
+  // Guarda bcrypt da prova: vazamento do banco não permite se autenticar.
+  const hashContDono = await bcrypt.hash(provaContDono, BCRYPT_ROUNDS);
+
   const contaAtualizada = await contaRepository.parearHardware({ contaId, publicKey, hashContDono });
   if (!contaAtualizada) {
     // Corrida: o WHERE status = PENDENTE_PAREAMENTO do UPDATE pegou a mudança.
@@ -103,8 +110,14 @@ const parearHardware = async ({ contaId, publicKey, hashContDono }) => {
   return contaAtualizada;
 };
 
-const buscarContaPorId = async (id) => {
+// Uma conta só enxerga a si mesma. 403 antes de consultar o banco,
+// para não revelar quais ids existem.
+const buscarContaPorId = async (id, solicitanteId) => {
   validarFormatoId(id);
+  if (id.toLowerCase() !== String(solicitanteId).toLowerCase()) {
+    throw new ErroDeNegocio('Acesso negado a esta conta.', 403);
+  }
+
   const conta = await contaRepository.obterContaPorId(id);
   if (!conta) {
     throw new ErroDeNegocio('Conta não encontrada.', 404);
@@ -117,5 +130,6 @@ module.exports = {
   parearHardware,
   buscarContaPorId,
   validarPublicKey,
+  validarProvaContingencia,
   ErroDeNegocio,
 };

@@ -2,8 +2,13 @@ const contaService = require('../services/contaService');
 
 const parear = async (req, res) => {
   try {
-    const { conta_id: contaId, public_key: publicKey, hash_cont_dono: hashContDono } = req.body;
-    const conta = await contaService.parearHardware({ contaId, publicKey, hashContDono });
+    const { public_key: publicKey, prova_cont_dono: provaContDono } = req.body;
+    // contaId vem do token admin_web: o cliente não escolhe qual conta parear.
+    const conta = await contaService.parearHardware({
+      contaId: req.auth.contaId,
+      publicKey,
+      provaContDono,
+    });
     return res.status(200).json(conta);
   } catch (erro) {
     if (erro instanceof contaService.ErroDeNegocio) {

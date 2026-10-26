@@ -16,7 +16,7 @@ const criarConta = async (req, res) => {
 
 const buscarContaPorId = async (req, res) => {
   try {
-    const conta = await contaService.buscarContaPorId(req.params.id);
+    const conta = await contaService.buscarContaPorId(req.params.id, req.auth.contaId);
     return res.status(200).json(conta);
   } catch (erro) {
     if (erro instanceof contaService.ErroDeNegocio) {

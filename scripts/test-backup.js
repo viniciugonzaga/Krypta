@@ -40,7 +40,8 @@ async function login() {
   // Base por tempo para o teste ser repetível (a versão só pode crescer).
   const base = Math.floor(Date.now() / 1000);
 
-  const antes = await req('GET', `/accounts/${keys.contaId}`);
+  const adminTk = (await req('POST', '/auth/admin-login', { corpo: { email: keys.email, senha_administrativa: 'senha12345' } })).body.token;
+  const antes = await req('GET', `/accounts/${keys.contaId}`, { token: adminTk });
 
   console.log('\n== PUT /backup ==');
   checar('versão nova', 200, await req('PUT', '/backup', { token, corpo: { version_counter: base, payload_cifrado: payload() } }));
@@ -63,7 +64,7 @@ async function login() {
   checar('GET em conta ATIVA bloqueado (RN04)', 403, await req('GET', '/backup', { token }));
 
   console.log('\n== TTL (RN11) ==');
-  const depois = await req('GET', `/accounts/${keys.contaId}`);
+  const depois = await req('GET', `/accounts/${keys.contaId}`, { token: adminTk });
   const avancou = new Date(depois.body.ultimo_sincronismo) > new Date(antes.body.ultimo_sincronismo);
   if (!avancou) falhas++;
   console.log(`${avancou ? 'OK   ' : 'FALHA'} ultimo_sincronismo avançou após backup`);
