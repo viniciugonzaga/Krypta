@@ -9,7 +9,8 @@
     "test:auth": "node scripts/test-session.js",
     "test:admin": "node scripts/test-admin.js",
     "test:backup": "node scripts/test-backup.js",
-    "test:pairing": "node scripts/test-pairing.js"
+    "test:pairing": "node scripts/test-pairing.js",
+    "test:recovery": "node scripts/test-recovery.js"
   },
   "keywords": [],
   "author": "",
