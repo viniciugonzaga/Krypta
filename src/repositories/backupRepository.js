@@ -1,12 +1,25 @@
 const pool = require('../db/connection');
 
-// Upsert com guarda anti-rollback no próprio SQL: só grava se a versão nova
-// for ESTRITAMENTE maior que a armazenada. Retorna null se foi rejeitado.
-// Atualiza ultimo_sincronismo (gatilho do TTL, RN11) na mesma transação.
-const salvarBackup = async ({ contaId, payload, versionCounter }) => {
+// Estado e versão checados DENTRO da transação, com a linha da conta travada
+// (FOR UPDATE): um Kill Switch concorrente não deixa passar upload em conta revogada.
+// Anti-rollback no SQL: só grava se a versão nova for ESTRITAMENTE maior.
+// Retorna { resultado: 'OK' | 'SEM_CONTA' | 'ESTADO' | 'VERSAO', ... }.
+const salvarBackup = async ({ contaId, payload, versionCounter, statusPermitidos }) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    const c = await client.query('SELECT status FROM contas WHERE id = $1 FOR UPDATE;', [contaId]);
+    if (c.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return { resultado: 'SEM_CONTA' };
+    }
+    const status = c.rows[0].status;
+    if (!statusPermitidos.includes(status)) {
+      await client.query('ROLLBACK');
+      return { resultado: 'ESTADO', status };
+    }
+
     const r = await client.query(
       `INSERT INTO backups (conta_id, payload_cifrado, version_counter)
        VALUES ($1, $2, $3)
@@ -18,18 +31,18 @@ const salvarBackup = async ({ contaId, payload, versionCounter }) => {
        RETURNING version_counter, atualizado_em;`,
       [contaId, payload, versionCounter]
     );
-
     if (r.rowCount === 0) {
       await client.query('ROLLBACK');
-      return null;
+      return { resultado: 'VERSAO' };
     }
 
+    // Gatilho do TTL (RN11), na mesma transação do backup.
     await client.query(
       'UPDATE contas SET ultimo_sincronismo = CURRENT_TIMESTAMP WHERE id = $1;',
       [contaId]
     );
     await client.query('COMMIT');
-    return r.rows[0];
+    return { resultado: 'OK', ...r.rows[0] };
   } catch (erro) {
     await client.query('ROLLBACK');
     throw erro;

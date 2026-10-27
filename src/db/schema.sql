@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ObXiCFmKqUB1EkBPfxBOe3DQBofjRAOkdulKFPAsbesOV5tbCK7ud82cRgCfxv9
+\restrict tA5Jzujfzie7XPZHkZyAtQuR3SfyuvOtGfviUvrJRw6e0IWcnr0HCcZLbN9cbTL
 
 -- Dumped from database version 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
@@ -36,6 +36,20 @@ CREATE TABLE public.backups (
 
 
 --
+-- Name: chaves_revogadas; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.chaves_revogadas (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    public_key text NOT NULL,
+    conta_id uuid,
+    motivo character varying(30) NOT NULL,
+    revogada_em timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT chaves_revogadas_motivo_check CHECK (((motivo)::text = ANY ((ARRAY['KILL_SWITCH_DONO'::character varying, 'KILL_SWITCH_HERDEIRO'::character varying])::text[])))
+);
+
+
+--
 -- Name: contas; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -54,11 +68,35 @@ CREATE TABLE public.contas (
 
 
 --
+-- Name: backups backups_conta_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.backups
+    ADD CONSTRAINT backups_conta_id_key UNIQUE (conta_id);
+
+
+--
 -- Name: backups backups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.backups
     ADD CONSTRAINT backups_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: chaves_revogadas chaves_revogadas_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chaves_revogadas
+    ADD CONSTRAINT chaves_revogadas_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: chaves_revogadas chaves_revogadas_public_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chaves_revogadas
+    ADD CONSTRAINT chaves_revogadas_public_key_key UNIQUE (public_key);
 
 
 --
@@ -94,8 +132,16 @@ ALTER TABLE ONLY public.backups
 
 
 --
+-- Name: chaves_revogadas chaves_revogadas_conta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chaves_revogadas
+    ADD CONSTRAINT chaves_revogadas_conta_id_fkey FOREIGN KEY (conta_id) REFERENCES public.contas(id) ON DELETE SET NULL;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ObXiCFmKqUB1EkBPfxBOe3DQBofjRAOkdulKFPAsbesOV5tbCK7ud82cRgCfxv9
+\unrestrict tA5Jzujfzie7XPZHkZyAtQuR3SfyuvOtGfviUvrJRw6e0IWcnr0HCcZLbN9cbTL
 
