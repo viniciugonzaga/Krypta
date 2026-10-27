@@ -9,9 +9,12 @@ const JWT_EXPIRES_IN = '15m';
 const BASE64_REGEX = /^[A-Za-z0-9+/]+={0,2}$/;
 const ASSINATURA_BYTES = 64; // Ed25519
 
-// Só ATIVA autentica por hardware. Os demais estados têm fluxos próprios.
+// Login por hardware: estados em que a public_key vigente ainda é válida.
+// Em RECUPERACAO_* o cliente precisa de token para baixar o backup e concluir a recuperação.
+const ESTADOS_LOGIN_HARDWARE = ['ATIVA', 'RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
+
 function garantirContaAtiva(conta) {
-  if (conta.status !== 'ATIVA') {
+  if (!ESTADOS_LOGIN_HARDWARE.includes(conta.status)) {
     throw new ErroDeNegocio(`Conta no estado ${conta.status}: login via hardware não permitido.`, 403);
   }
 }

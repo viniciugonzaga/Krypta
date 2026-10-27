@@ -18,4 +18,12 @@ const limitarAuthHardware = rateLimit({
   message: { erro: 'Muitas requisições. Aguarde um instante.' },
 });
 
-module.exports = { limitarLoginAdmin, limitarAuthHardware };
+// Endpoints que conferem a prova da CCP (recuperação e kill switch).
+const limitarContingencia = rateLimit({
+  ...base,
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  message: { erro: 'Muitas tentativas. Tente novamente mais tarde.' },
+});
+
+module.exports = { limitarLoginAdmin, limitarAuthHardware, limitarContingencia };

@@ -99,6 +99,14 @@ const parearHardware = async ({ contaId, publicKey, provaContDono }) => {
     throw new ErroDeNegocio('Este hardware já está vinculado a outra conta (RN01).', 409);
   }
 
+  if (await contaRepository.chaveRevogada(publicKey)) {
+    throw new ErroDeNegocio('Este hardware foi revogado e não pode ser vinculado novamente.', 409);
+  }
+
+  if (await contaRepository.chaveRevogada(publicKey)) {
+    throw new ErroDeNegocio('Este hardware foi revogado e não pode ser vinculado novamente.', 409);
+  }
+
   // Guarda bcrypt da prova: vazamento do banco não permite se autenticar.
   const hashContDono = await bcrypt.hash(provaContDono, BCRYPT_ROUNDS);
 

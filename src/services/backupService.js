@@ -6,15 +6,10 @@ const BASE64_REGEX = /^[A-Za-z0-9+/]+={0,2}$/;
 const MAX_VERSION = 2147483647; // limite do INTEGER do Postgres
 const MAX_PAYLOAD_BYTES = 1024 * 1024; // 1 MB decodificado
 
-// O token vale 15 min; o status real vem do banco a cada requisição,
-// para que uma conta revogada nesse intervalo pare de sincronizar.
-async function obterContaDoToken(contaId) {
-  const conta = await contaRepository.obterContaPorId(contaId);
-  if (!conta) {
-    throw new ErroDeNegocio('Conta não encontrada.', 404);
-  }
-  return conta;
-}
+// Upload: ATIVA (sync normal) e RECUPERACAO_LOCAL (novo envelope da senha mestre).
+const ESTADOS_ESCRITA = ['ATIVA', 'RECUPERACAO_LOCAL'];
+// Download: só em recuperação. Em ATIVA o hardware é a fonte da verdade (RN04).
+const ESTADOS_DOWNLOAD = ['RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
 
 const enviarBackup = async ({ contaId, versionCounter, payloadBase64 }) => {
   if (!Number.isInteger(versionCounter) || versionCounter < 1 || versionCounter > MAX_VERSION) {
@@ -28,24 +23,32 @@ const enviarBackup = async ({ contaId, versionCounter, payloadBase64 }) => {
     throw new ErroDeNegocio('payload_cifrado fora do tamanho permitido (1 byte a 1 MB).', 400);
   }
 
-  const conta = await obterContaDoToken(contaId);
-  if (conta.status !== 'ATIVA') {
-    throw new ErroDeNegocio(`Conta no estado ${conta.status}: sincronização não permitida.`, 403);
-  }
+  const r = await backupRepository.salvarBackup({
+    contaId,
+    payload,
+    versionCounter,
+    statusPermitidos: ESTADOS_ESCRITA,
+  });
 
-  const salvo = await backupRepository.salvarBackup({ contaId, payload, versionCounter });
-  if (!salvo) {
+  if (r.resultado === 'SEM_CONTA') {
+    throw new ErroDeNegocio('Conta não encontrada.', 404);
+  }
+  if (r.resultado === 'ESTADO') {
+    throw new ErroDeNegocio(`Conta no estado ${r.status}: sincronização não permitida.`, 403);
+  }
+  if (r.resultado === 'VERSAO') {
     throw new ErroDeNegocio('version_counter igual ou inferior ao armazenado (anti-rollback).', 409);
   }
-  return { version_counter: salvo.version_counter, atualizado_em: salvo.atualizado_em };
+  return { version_counter: r.version_counter, atualizado_em: r.atualizado_em };
 };
 
-// RN04: em ATIVA o hardware é a fonte da verdade, então o download é proibido.
-// O ramo liberado só será alcançável quando os fluxos de recuperação existirem.
 const baixarBackup = async ({ contaId }) => {
-  const conta = await obterContaDoToken(contaId);
-  const estadosLiberados = ['RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
-  if (!estadosLiberados.includes(conta.status)) {
+  // O token vale 15 min; o status real vem do banco a cada requisição.
+  const conta = await contaRepository.obterContaPorId(contaId);
+  if (!conta) {
+    throw new ErroDeNegocio('Conta não encontrada.', 404);
+  }
+  if (!ESTADOS_DOWNLOAD.includes(conta.status)) {
     throw new ErroDeNegocio('Download do backup não permitido neste estado da conta.', 403);
   }
 
