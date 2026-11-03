@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict tA5Jzujfzie7XPZHkZyAtQuR3SfyuvOtGfviUvrJRw6e0IWcnr0HCcZLbN9cbTL
+\restrict 0vcb7Hmcq8ilXW56S5WezPEVPcGl83ML6yf15qypCFNcwjJoTuWw8Yy69kQc1jg
 
 -- Dumped from database version 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
@@ -21,6 +21,20 @@ SET row_security = off;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: avisos_ttl; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.avisos_ttl (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    conta_id uuid NOT NULL,
+    nivel character varying(3) NOT NULL,
+    sincronismo_ref timestamp without time zone NOT NULL,
+    enviado_em timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT avisos_ttl_nivel_check CHECK (((nivel)::text = ANY ((ARRAY['D30'::character varying, 'D15'::character varying, 'H48'::character varying])::text[])))
+);
+
 
 --
 -- Name: backups; Type: TABLE; Schema: public; Owner: -
@@ -65,6 +79,22 @@ CREATE TABLE public.contas (
     senha_admin_hash text NOT NULL,
     CONSTRAINT contas_status_check CHECK (((status)::text = ANY ((ARRAY['PENDENTE_PAREAMENTO'::character varying, 'ATIVA'::character varying, 'REVOGADA'::character varying, 'RECUPERACAO_LOCAL'::character varying, 'RECUPERACAO_HARDWARE'::character varying])::text[])))
 );
+
+
+--
+-- Name: avisos_ttl avisos_ttl_conta_id_nivel_sincronismo_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.avisos_ttl
+    ADD CONSTRAINT avisos_ttl_conta_id_nivel_sincronismo_ref_key UNIQUE (conta_id, nivel, sincronismo_ref);
+
+
+--
+-- Name: avisos_ttl avisos_ttl_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.avisos_ttl
+    ADD CONSTRAINT avisos_ttl_pkey PRIMARY KEY (id);
 
 
 --
@@ -124,6 +154,21 @@ ALTER TABLE ONLY public.contas
 
 
 --
+-- Name: contas_ultimo_sincronismo_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contas_ultimo_sincronismo_idx ON public.contas USING btree (ultimo_sincronismo);
+
+
+--
+-- Name: avisos_ttl avisos_ttl_conta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.avisos_ttl
+    ADD CONSTRAINT avisos_ttl_conta_id_fkey FOREIGN KEY (conta_id) REFERENCES public.contas(id) ON DELETE CASCADE;
+
+
+--
 -- Name: backups backups_conta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -143,5 +188,5 @@ ALTER TABLE ONLY public.chaves_revogadas
 -- PostgreSQL database dump complete
 --
 
-\unrestrict tA5Jzujfzie7XPZHkZyAtQuR3SfyuvOtGfviUvrJRw6e0IWcnr0HCcZLbN9cbTL
+\unrestrict 0vcb7Hmcq8ilXW56S5WezPEVPcGl83ML6yf15qypCFNcwjJoTuWw8Yy69kQc1jg
 
