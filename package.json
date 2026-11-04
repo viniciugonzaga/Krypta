@@ -10,7 +10,8 @@
     "test:admin": "node scripts/test-admin.js",
     "test:backup": "node scripts/test-backup.js",
     "test:pairing": "node scripts/test-pairing.js",
-    "test:recovery": "node scripts/test-recovery.js"
+    "test:recovery": "node scripts/test-recovery.js",
+    "test:ttl": "node scripts/test-ttl.js"
   },
   "keywords": [],
   "author": "",

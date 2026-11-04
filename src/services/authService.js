@@ -2,6 +2,7 @@ const nacl = require('tweetnacl');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config/env');
 const contaRepository = require('../repositories/contaRepository');
+const ttlRepository = require('../repositories/ttlRepository');
 const nonceStore = require('../utils/nonceStore');
 const { ErroDeNegocio, validarPublicKey } = require('./contaService');
 
@@ -66,6 +67,9 @@ const verificarAssinatura = async (publicKey, assinaturaBase64) => {
   if (!nacl.sign.detached.verify(mensagem, assinatura, chavePublica)) {
     throw new ErroDeNegocio('Assinatura inválida.', 401);
   }
+
+  // Login por hardware prova que o dono segue ativo: renova o prazo do TTL (RN11).
+  await ttlRepository.renovarPrazo(conta.id);
 
   // tipo: 'hardware' é o único escopo aceito nas rotas do cofre/backup.
   const token = jwt.sign(
