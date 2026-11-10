@@ -11,7 +11,8 @@
     "test:backup": "node scripts/test-backup.js",
     "test:pairing": "node scripts/test-pairing.js",
     "test:recovery": "node scripts/test-recovery.js",
-    "test:ttl": "node scripts/test-ttl.js"
+    "test:ttl": "node scripts/test-ttl.js",
+    "test:ccp": "node scripts/test-ccp.js"
   },
   "keywords": [],
   "author": "",
