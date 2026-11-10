@@ -11,7 +11,7 @@ Base URL local: `http://localhost:3000`. O comportamento descrito aqui é o que 
 - Dados binários trafegam em **base64 padrão** (com `+`, `/` e padding `=`).
 - As rotas de dados e de recuperação leem o status da conta no banco a cada requisição. Um token ainda válido não dá acesso se a conta mudou de estado. Só `/auth/session` valida apenas o token.
 - Erros globais: 400 `JSON malformado.`, 413 corpo acima de 2 MB, 404 `Rota não encontrada.`, 500 `Erro interno no servidor.` (sem detalhes).
-- Limites por IP, em memória (zeram ao reiniciar o servidor), respondem 429: `/auth/admin-login` 10 por 15 min; `/auth/challenge` e `/auth/verify` 30 por minuto; `/recovery/owner`, `/account/kill-switch` e `/recovery/hardware` 20 por 15 min.
+- Limites por IP, em memória (zeram ao reiniciar o servidor), respondem 429: `/auth/admin-login` 10 por 15 min; `/auth/challenge` e `/auth/verify` 30 por minuto; `/recovery/owner`, `/account/kill-switch` e `/recovery/hardware` 20 por 15 min (contador compartilhado); `/account/rotate-ccp` 20 por 15 min (contador próprio); `POST /accounts` 30 por hora; `/hardware/pair` e `/recovery/complete` 30 por 15 min (contador compartilhado).
 
 | Campo | Formato |
 |---|---|
@@ -141,6 +141,28 @@ Vincula um novo dispositivo a uma conta `REVOGADA`. Token `admin_web`. Body: `{ 
 200: objeto conta com `status: "RECUPERACAO_HARDWARE"`.
 Erros: 400 `public_key` ou prova malformadas; 401; 403 escopo; 409 conta não está `REVOGADA`, chave revogada ou chave vinculada a outra conta; 429.
 
+### POST /account/rotate-ccp
+Troca a CCP e envia, na mesma operação, o backup com o novo Envelope da CCP. Token `hardware`. Estado: `ATIVA`.
+
+Body:
+
+~~~json
+{ "prova_cont_dono_atual": "base64", "prova_cont_dono_nova": "base64",
+  "version_counter": 13, "payload_cifrado": "base64" }
+~~~
+
+200: `{ "version_counter": 13, "atualizado_em": "ISO" }`. Renova o prazo de inatividade.
+Erros: 400 provas malformadas, provas iguais ou campo do backup inválido; 401 token ausente ou prova atual incorreta; 403 escopo; 404 conta; 409 conta não está `ATIVA`, `version_counter` menor ou igual ao armazenado, ou chave alterada durante a operação; 413; 429.
+
+Tudo ou nada: se houver qualquer erro, nem a prova nem o backup mudam, e repetir a chamada é seguro.
+
+Obrigações do cliente nesta rotação:
+1. Gerar a nova CCP, exibi-la e só seguir depois que o usuário a anotar e confirmar (por exemplo, pedindo para redigitá-la).
+2. Derivar a prova e a chave do envelope como na seção 4 e reconstruir o Envelope da CCP no `vault.enc`.
+3. **Verificar localmente que a nova CCP abre o novo envelope antes de chamar.** O servidor não consegue conferir isso; um erro aqui tranca o usuário fora da recuperação.
+4. Gravar no ESP32 (RN07) e só então chamar o endpoint, com `version_counter` + 1.
+5. Descartar a CCP antiga somente depois do 200. Em qualquer falha, a prova antiga continua válida no servidor.
+
 ## 4. Obrigações do cliente (Zero-Knowledge)
 
 O servidor não consegue verificar nada disto. Se o cliente errar, a segurança cai sem nenhum erro visível.
@@ -172,14 +194,15 @@ O servidor não consegue verificar nada disto. Se o cliente errar, a segurança 
 
 **Perdi o hardware:** `POST /auth/admin-login` → `POST /account/kill-switch` → `POST /recovery/hardware` com a chave do novo ESP32 → login por hardware com o novo ESP32 → `GET /backup` → grava no novo ESP32 → `POST /recovery/complete` → `PUT /backup` volta a funcionar.
 
+**Trocar a CCP (recomendado depois de recuperar hardware):** login por hardware → o app gera e exibe a nova CCP, e o usuário a anota → o app reconstrói o Envelope da CCP e confere localmente → grava no ESP32 → `POST /account/rotate-ccp` com a prova atual, a nova e o `vault.enc` com versão + 1 → só então invalida o papel antigo.
+
 ## 7. Não implementado e limitações conhecidas
 
 - Herança Digital: `hash_cont_herdeiro` existe no schema, sem endpoints (RF11, RF13).
 - Envio de email: aviso de inatividade e confirmação do Kill Switch.
-- Rotação da CCP: depois de uma recuperação de hardware, a CCP antiga continua válida. Falta um endpoint para trocar a prova.
 - Recuperar ou trocar a senha administrativa do portal.
 - O Kill Switch exige a prova completa da CCP. O Módulo 7 fala em "trecho", mas o servidor só guarda o hash da prova inteira. Quem perde hardware e CCP não consegue revogar sozinho.
-- `POST /accounts` revela quais emails existem (409). `POST /accounts`, `POST /hardware/pair` e `POST /recovery/complete` não têm limite de requisições.
+- `POST /accounts` revela quais emails existem (409).
 - O JWT de hardware continua válido por até 15 min depois do Kill Switch. As rotas de dados barram pelo banco, mas `/auth/session` responde 200.
 - Uma recuperação aberta e nunca concluída não tem prazo para expirar.
 - O servidor guarda só a versão mais recente do backup e não valida o conteúdo (Zero-Knowledge). Um ESP32 roubado, antes do Kill Switch, pode subir um backup lixo com versão alta.
