@@ -1,29 +1,22 @@
 const rateLimit = require('express-rate-limit');
 
-const base = { standardHeaders: true, legacyHeaders: false };
+const criar = (windowMs, limit, erro) =>
+  rateLimit({ standardHeaders: true, legacyHeaders: false, windowMs, limit, message: { erro } });
 
-// Brute force de senha do portal: 10 tentativas por IP a cada 15 min.
-const limitarLoginAdmin = rateLimit({
-  ...base,
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  message: { erro: 'Muitas tentativas. Tente novamente mais tarde.' },
-});
+const MSG = 'Muitas tentativas. Tente novamente mais tarde.';
 
-// Challenge/verify do hardware: limita spam que sobrescreve nonce alheio.
-const limitarAuthHardware = rateLimit({
-  ...base,
-  windowMs: 60 * 1000,
-  limit: 30,
-  message: { erro: 'Muitas requisições. Aguarde um instante.' },
-});
-
-// Endpoints que conferem a prova da CCP (recuperação e kill switch).
-const limitarContingencia = rateLimit({
-  ...base,
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  message: { erro: 'Muitas tentativas. Tente novamente mais tarde.' },
-});
-
-module.exports = { limitarLoginAdmin, limitarAuthHardware, limitarContingencia };
+// Contadores por IP, em memória (zeram ao reiniciar o servidor).
+module.exports = {
+  // Brute force da senha do portal.
+  limitarLoginAdmin: criar(15 * 60 * 1000, 10, MSG),
+  // Challenge/verify do hardware: evita spam que sobrescreve nonce alheio.
+  limitarAuthHardware: criar(60 * 1000, 30, 'Muitas requisições. Aguarde um instante.'),
+  // Rotas que conferem a prova da CCP (contador compartilhado entre elas).
+  limitarContingencia: criar(15 * 60 * 1000, 20, MSG),
+  // Rotação da CCP: contador próprio.
+  limitarRotacao: criar(15 * 60 * 1000, 20, MSG),
+  // Cadastro: cada requisição roda bcrypt com custo 12.
+  limitarCadastro: criar(60 * 60 * 1000, 30, MSG),
+  // Pareamento e conclusão de recuperação (contador compartilhado).
+  limitarOperacaoConta: criar(15 * 60 * 1000, 30, MSG),
+};

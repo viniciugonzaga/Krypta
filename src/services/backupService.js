@@ -11,7 +11,8 @@ const ESTADOS_ESCRITA = ['ATIVA', 'RECUPERACAO_LOCAL'];
 // Download: só em recuperação. Em ATIVA o hardware é a fonte da verdade (RN04).
 const ESTADOS_DOWNLOAD = ['RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
 
-const enviarBackup = async ({ contaId, versionCounter, payloadBase64 }) => {
+// Validação compartilhada com a rotação da CCP. Devolve o payload decodificado.
+function validarVersaoEPayload(versionCounter, payloadBase64) {
   if (!Number.isInteger(versionCounter) || versionCounter < 1 || versionCounter > MAX_VERSION) {
     throw new ErroDeNegocio('version_counter deve ser um inteiro entre 1 e 2147483647.', 400);
   }
@@ -22,6 +23,11 @@ const enviarBackup = async ({ contaId, versionCounter, payloadBase64 }) => {
   if (payload.length === 0 || payload.length > MAX_PAYLOAD_BYTES) {
     throw new ErroDeNegocio('payload_cifrado fora do tamanho permitido (1 byte a 1 MB).', 400);
   }
+  return payload;
+}
+
+const enviarBackup = async ({ contaId, versionCounter, payloadBase64 }) => {
+  const payload = validarVersaoEPayload(versionCounter, payloadBase64);
 
   const r = await backupRepository.salvarBackup({
     contaId,
@@ -63,4 +69,4 @@ const baixarBackup = async ({ contaId }) => {
   };
 };
 
-module.exports = { enviarBackup, baixarBackup };
+module.exports = { enviarBackup, baixarBackup, validarVersaoEPayload };
