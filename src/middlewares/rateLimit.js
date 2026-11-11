@@ -1,7 +1,18 @@
 const rateLimit = require('express-rate-limit');
 
+// Só para desenvolvimento: multiplica os limites para as suítes de teste rodarem em sequência.
+// Sempre ignorado com NODE_ENV=production.
+const multiplicador =
+  process.env.NODE_ENV === 'production' ? 1 : Math.max(1, Number(process.env.RATE_LIMIT_MULT) || 1);
+
 const criar = (windowMs, limit, erro) =>
-  rateLimit({ standardHeaders: true, legacyHeaders: false, windowMs, limit, message: { erro } });
+  rateLimit({
+    standardHeaders: true,
+    legacyHeaders: false,
+    windowMs,
+    limit: limit * multiplicador,
+    message: { erro },
+  });
 
 const MSG = 'Muitas tentativas. Tente novamente mais tarde.';
 
