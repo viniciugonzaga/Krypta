@@ -12,7 +12,9 @@
     "test:pairing": "node scripts/test-pairing.js",
     "test:recovery": "node scripts/test-recovery.js",
     "test:ttl": "node scripts/test-ttl.js",
-    "test:ccp": "node scripts/test-ccp.js"
+    "test:ccp": "node scripts/test-ccp.js",
+    "test:inheritance": "node scripts/test-inheritance.js",
+    "test:all": "npm run test:auth && npm run test:admin && npm run test:backup && npm run test:pairing && npm run test:recovery && npm run test:ccp && npm run test:inheritance && npm run test:ttl"
   },
   "keywords": [],
   "author": "",

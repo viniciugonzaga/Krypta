@@ -101,8 +101,8 @@ async function loginHardware(par) {
   checar('kill switch repetido', 409, await kill(A.admin, A.prova));
   checar('login com a chave revogada', 404,
     await req('POST', '/auth/challenge', { corpo: { public_key: A.publicKey } }));
-  checar('token antigo não sincroniza (status vem do banco)', 403, await put(hw, base + 2, vault2));
-  checar('token antigo não baixa', 403, await get(hw));
+  checar('token antigo não sincroniza (sessão presa à chave revogada)', 401, await put(hw, base + 2, vault2));
+  checar('token antigo não baixa', 401, await get(hw));
 
   console.log('\n== Chave banida ==');
   const C = await criarConta('rec-c', { parear: false });
@@ -123,6 +123,7 @@ async function loginHardware(par) {
   const rh = await recHw(A.admin, pkNovo, A.prova);
   checar('novo hardware vinculado', 200, rh);
   verificar('status RECUPERACAO_HARDWARE', rh.body.status === 'RECUPERACAO_HARDWARE');
+  checar('token antigo NÃO baixa o backup depois da recuperação de hardware', 401, await get(hw));
   checar('repetir (conta já não está REVOGADA)', 409, await recHw(A.admin, pkNovo, A.prova));
 
   const login2 = await loginHardware(novo);
