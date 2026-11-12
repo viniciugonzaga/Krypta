@@ -14,7 +14,8 @@
     "test:ttl": "node scripts/test-ttl.js",
     "test:ccp": "node scripts/test-ccp.js",
     "test:inheritance": "node scripts/test-inheritance.js",
-    "test:all": "npm run test:auth && npm run test:admin && npm run test:backup && npm run test:pairing && npm run test:recovery && npm run test:ccp && npm run test:inheritance && npm run test:ttl"
+    "test:all": "npm run test:hardening && npm run test:auth && npm run test:admin && npm run test:backup && npm run test:pairing && npm run test:recovery && npm run test:ccp && npm run test:inheritance && npm run test:ttl",
+    "test:hardening": "node scripts/test-hardening.js"
   },
   "keywords": [],
   "author": "",
@@ -22,9 +23,11 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0",
     "tweetnacl": "^1.0.3"
