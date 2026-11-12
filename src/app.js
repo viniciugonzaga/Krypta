@@ -4,6 +4,7 @@ const hardwareRoutes = require('./routes/hardwareRoutes');
 const authRoutes = require('./routes/authRoutes');
 const backupRoutes = require('./routes/backupRoutes');
 const contingenciaRoutes = require('./routes/contingenciaRoutes');
+const herancaRoutes = require('./routes/herancaRoutes');
 const { naoEncontrado, erroGlobal } = require('./middlewares/errorHandler');
 
 const app = express();
@@ -20,6 +21,7 @@ app.use('/', hardwareRoutes);
 app.use('/', authRoutes);
 app.use('/', backupRoutes);
 app.use('/', contingenciaRoutes);
+app.use('/', herancaRoutes);
 
 // Sempre por último.
 app.use(naoEncontrado);
