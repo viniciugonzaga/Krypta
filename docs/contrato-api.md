@@ -9,9 +9,9 @@ Base URL local: `http://localhost:3000`. O comportamento descrito aqui é o que 
   - `hardware` (15 min): emitido por `/auth/verify`, depois que o ESP32 prova a posse da chave. Abre as rotas do cofre.
   - `admin_web` (30 min): emitido por `/auth/admin-login`, com email e senha do portal. Nunca abre as rotas do cofre.
 - Dados binários trafegam em **base64 padrão** (com `+`, `/` e padding `=`).
-- As rotas de dados e de recuperação leem o status da conta no banco a cada requisição. Um token ainda válido não dá acesso se a conta mudou de estado. Só `/auth/session` valida apenas o token.
+- Todo token `hardware` fica preso à `public_key` com que foi emitido: a cada requisição o servidor confere que ela ainda é a chave vigente da conta (senão 401 `Sessão do dispositivo não é mais válida.`). Kill Switch, resgate de herança e recuperação de hardware invalidam na hora as sessões do dispositivo antigo. As rotas de dados leem também o status da conta no banco a cada requisição.
 - Erros globais: 400 `JSON malformado.`, 413 corpo acima de 2 MB, 404 `Rota não encontrada.`, 500 `Erro interno no servidor.` (sem detalhes).
-- Limites por IP, em memória (zeram ao reiniciar o servidor), respondem 429: `/auth/admin-login` 10 por 15 min; `/auth/challenge` e `/auth/verify` 30 por minuto; `/recovery/owner`, `/account/kill-switch` e `/recovery/hardware` 20 por 15 min (contador compartilhado); `/account/rotate-ccp` 20 por 15 min (contador próprio); `POST /accounts` 30 por hora; `/hardware/pair` e `/recovery/complete` 30 por 15 min (contador compartilhado).
+- Limites por IP, em memória (zeram ao reiniciar o servidor), respondem 429: `/auth/admin-login` 10 por 15 min; `/auth/challenge` e `/auth/verify` 30 por minuto; `/recovery/owner`, `/account/kill-switch` e `/recovery/hardware` 20 por 15 min (contador compartilhado); `/account/rotate-ccp` 20 por 15 min (contador próprio); `/inheritance/enable` e `/inheritance/disable` 20 por 15 min (contador próprio); `/inheritance/claim` 10 por 15 min; `POST /accounts` 30 por hora; `/hardware/pair` e `/recovery/complete` 30 por 15 min (contador compartilhado).
 
 | Campo | Formato |
 |---|---|
@@ -42,6 +42,7 @@ Base URL local: `http://localhost:3000`. O comportamento descrito aqui é o que 
 | `RECUPERACAO_LOCAL`, `RECUPERACAO_HARDWARE` | `POST /recovery/complete` | `ATIVA` |
 | `ATIVA`, `RECUPERACAO_LOCAL`, `RECUPERACAO_HARDWARE` | `POST /account/kill-switch` | `REVOGADA` |
 | `REVOGADA` | `POST /recovery/hardware` | `RECUPERACAO_HARDWARE` |
+| `ATIVA`, `RECUPERACAO_LOCAL`, `RECUPERACAO_HARDWARE`, `REVOGADA` | `POST /inheritance/claim` | `RECUPERACAO_HARDWARE` |
 
 | Estado | Login por hardware | `PUT /backup` | `GET /backup` |
 |---|---|---|---|
@@ -100,7 +101,7 @@ Público. Body: `{ "public_key": "base64", "assinatura": "base64" }`
 Erros: 400 `public_key` ou assinatura malformadas; 401 nonce ausente, expirado ou já usado, ou assinatura inválida (uma tentativa falha também queima o nonce); 404 chave desconhecida; 429.
 
 ### GET /auth/session
-Token `hardware`. 200: `{ "contaId": "uuid", "tipo": "hardware", "expira_em": "ISO" }`. Valida só o token, não o status da conta.
+Token `hardware`. 200: `{ "contaId": "uuid", "tipo": "hardware", "expira_em": "ISO" }`. Confere o token e que a `public_key` da sessão ainda é a vigente da conta; não olha o status.
 Erros: 401; 403 escopo.
 
 ### PUT /backup
@@ -163,6 +164,36 @@ Obrigações do cliente nesta rotação:
 4. Gravar no ESP32 (RN07) e só então chamar o endpoint, com `version_counter` + 1.
 5. Descartar a CCP antiga somente depois do 200. Em qualquer falha, a prova antiga continua válida no servidor.
 
+### POST /inheritance/enable
+Ativa a herança (opt-in, RN10) ou troca a CCH, e a CCH anterior deixa de valer. Token `hardware`. Estado: `ATIVA`.
+
+Body:
+
+~~~json
+{ "prova_cont_dono_atual": "base64", "prova_cont_herdeiro": "base64",
+  "version_counter": 14, "payload_cifrado": "base64 do vault.enc com o Envelope do Herdeiro" }
+~~~
+
+200: `{ "version_counter": 14, "atualizado_em": "ISO" }`. Renova o prazo de inatividade.
+Erros: 400 provas malformadas ou iguais entre si, ou campo do backup inválido; 401 token ausente, sessão do dispositivo inválida ou prova do dono incorreta; 403 escopo; 404 conta; 409 conta não está `ATIVA`, `version_counter` menor ou igual ao armazenado, ou chave alterada durante a operação; 413; 429.
+
+Tudo ou nada: qualquer erro deixa a CCH e o backup como estavam.
+
+### POST /inheritance/disable
+O dono retira o consentimento. Token `hardware`. Estado: `ATIVA`.
+
+Body: `{ "prova_cont_dono_atual": "base64", "version_counter": 15, "payload_cifrado": "base64 do vault.enc sem o Envelope do Herdeiro" }`
+
+200 e erros: iguais ao `enable`.
+
+### POST /inheritance/claim
+Resgate pelo herdeiro. **Público** (o herdeiro não tem conta no portal); a prova da CCH é a autenticação.
+
+Body: `{ "conta_id": "uuid", "prova_cont_herdeiro": "base64", "public_key": "base64 do dispositivo do herdeiro" }`
+
+200: `{ "id": "uuid", "status": "RECUPERACAO_HARDWARE", "public_key": "base64" }` (sem email). Numa única operação: o dispositivo do dono é revogado (chave banida para sempre), o do herdeiro é vinculado e a CCH é consumida (uso único). Depois: login por hardware com o novo dispositivo → `GET /backup` → gravar no ESP32 → `POST /recovery/complete`.
+Erros: 400 campo malformado; 401 `Credenciais de herança inválidas.` (mesma resposta para conta inexistente, herança desativada, CCH errada ou já usada); 409 estado da conta, chave igual à do dono, chave revogada ou já vinculada a outra conta; 429.
+
 ## 4. Obrigações do cliente (Zero-Knowledge)
 
 O servidor não consegue verificar nada disto. Se o cliente errar, a segurança cai sem nenhum erro visível.
@@ -176,6 +207,13 @@ O servidor não consegue verificar nada disto. Se o cliente errar, a segurança 
 5. **A prova é uma credencial estática.** Quem a capturar pode acionar recuperação e Kill Switch daquela conta. Nunca registrar o corpo dessas requisições em log, e usar sempre HTTPS fora do ambiente local.
 6. **Assinatura do nonce.** A app decodifica o nonce de base64 e entrega os 32 bytes ao ESP32, que assina esses bytes. Assinar a string base64 falha com 401.
 7. **`version_counter`.** Começa em 1 no pareamento. A cada Salvar: ler o valor do cabeçalho, somar 1, gravar no ESP32 e só depois chamar `PUT /backup` (RN07). Um 409 significa que o servidor já tem versão igual ou mais nova.
+
+## 4.1 Obrigações do cliente na herança
+
+1. **CCH.** Gerada pelo app com pelo menos 128 bits, independente da CCP, nunca escolhida nem digitada. O dono a entrega ao herdeiro como kit legível por máquina (QR code ou arquivo) contendo `conta_id` e a CCH.
+2. **Derivações.** `master_h = Argon2id(CCH, salt = SHA-256("krypta-cch-v1:" + conta_id), mesmos parâmetros da seção 4)`; `prova_cont_herdeiro = base64(HKDF-SHA256(master_h, info = "krypta-prova-cch-v1", 32 bytes))`; chave do Envelope do Herdeiro = `HKDF-SHA256(master_h, info = "krypta-envelope-cch-v1")`. A prova nunca pode ser usada como chave de cifra: o servidor a recebe e guarda o backup que contém o envelope.
+3. **Conferir antes de gravar.** Antes de chamar `/inheritance/enable`, abrir localmente o Envelope do Herdeiro novo com a CCH nova. O servidor não consegue conferir isso.
+4. **Resgate.** O herdeiro precisa de um dispositivo Krypta novo, que gera o par Ed25519 e envia só a `public_key`.
 
 ## 5. Inatividade (RN11)
 
@@ -196,13 +234,15 @@ O servidor não consegue verificar nada disto. Se o cliente errar, a segurança 
 
 **Trocar a CCP (recomendado depois de recuperar hardware):** login por hardware → o app gera e exibe a nova CCP, e o usuário a anota → o app reconstrói o Envelope da CCP e confere localmente → grava no ESP32 → `POST /account/rotate-ccp` com a prova atual, a nova e o `vault.enc` com versão + 1 → só então invalida o papel antigo.
 
+**Herança:** o dono, com o dispositivo, gera a CCH, monta o Envelope do Herdeiro e chama `POST /inheritance/enable` com o `vault.enc` novo → o dono entrega o kit ao herdeiro → o herdeiro, com um dispositivo novo, chama `POST /inheritance/claim` → login por hardware → `GET /backup` → abre o Envelope do Herdeiro localmente → grava no ESP32 → `POST /recovery/complete`.
+
 ## 7. Não implementado e limitações conhecidas
 
-- Herança Digital: `hash_cont_herdeiro` existe no schema, sem endpoints (RF11, RF13).
+- Herança Digital sem cadastro nominal de herdeiros (RF11), sem prazo de espera e sem notificação ao dono: o resgate é imediato. Notificar o dono depende do envio de email.
+- Quem vazar a CCH de uma conta com herança ativa pode revogar a conta (ataque de disponibilidade) e baixar o backup, que continua cifrado. Depois do resgate o dispositivo do herdeiro opera a conta; ela só volta ao dono com Kill Switch e recuperação de hardware, usando a prova da CCP.
 - Envio de email: aviso de inatividade e confirmação do Kill Switch.
 - Recuperar ou trocar a senha administrativa do portal.
 - O Kill Switch exige a prova completa da CCP. O Módulo 7 fala em "trecho", mas o servidor só guarda o hash da prova inteira. Quem perde hardware e CCP não consegue revogar sozinho.
 - `POST /accounts` revela quais emails existem (409).
-- O JWT de hardware continua válido por até 15 min depois do Kill Switch. As rotas de dados barram pelo banco, mas `/auth/session` responde 200.
 - Uma recuperação aberta e nunca concluída não tem prazo para expirar.
 - O servidor guarda só a versão mais recente do backup e não valida o conteúdo (Zero-Knowledge). Um ESP32 roubado, antes do Kill Switch, pode subir um backup lixo com versão alta.
