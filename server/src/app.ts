@@ -1,25 +1,47 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { env } from './config/env.js';
+import { testConnection } from './config/database.js';
+import routes from './routes/index.js';
+import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// ============ CORS ============
+app.use(cors({
+  origin: env.CORS_ORIGIN,
+  credentials: true,
+}));
 
-// Rota de teste para saber se o servidor está no ar
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Krypta API está rodando!' });
+// ============ BODY PARSER ============
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// ============ HEALTH ============
+app.get('/health', (_req, res) => {
+  res.json({ status: 'OK', message: 'Krypta API rodando', timestamp: new Date() });
 });
 
-// Aqui você vai importar suas rotas depois:
-// import authRoutes from './routes/authRoutes';
-// app.use('/api/auth', authRoutes);
+// ============ ROTAS ============
+app.use('/api', routes);
 
-const PORT = process.env.PORT || 3333;
+// ============ ERRO ============
+app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🛡️ Servidor Krypta rodando na porta ${PORT}`);
+// ============ BOOT ============
+async function bootstrap() {
+  await testConnection();
+  app.listen(env.PORT, () => {
+    console.log('');
+    console.log('  🛡️  KRYPTA API');
+    console.log(`  🌐 http://localhost:${env.PORT}`);
+    console.log(`  🗄️  MySQL: ${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`);
+    console.log(`  🔓 CORS: ${env.CORS_ORIGIN}`);
+    console.log('');
+  });
+}
+
+bootstrap().catch((err) => {
+  console.error('❌ Falha ao iniciar:', err);
+  process.exit(1);
 });

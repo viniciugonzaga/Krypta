@@ -14,7 +14,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-72 bg-gradient-to-b from-krypta-black/95 via-krypta-deep/95 to-krypta-black/95 backdrop-blur-2xl border-r border-krypta-purple/20 p-6 flex flex-col h-screen fixed left-0 top-0 z-50">
+    <aside className="w-72 bg-gradient-to-b from-krypta-black/95 via-krypta-dark/95 to-krypta-black/95 backdrop-blur-2xl border-r border-krypta-purple/20 p-6 flex flex-col h-screen fixed left-0 top-0 z-40">
       {/* Logo */}
       <Link to="/dashboard" className="flex items-center gap-3 mb-12 group">
         <div className="relative">
@@ -30,7 +30,7 @@ export function Sidebar() {
       <div className="mb-8 p-3 bg-krypta-purple/5 border border-krypta-purple/20 rounded-lg">
         <div className="flex items-center gap-2 text-xs mb-1">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
-          <span className="text-green-400 font-medium">SISTEMA ATIVO</span>
+          <span className="text-green-500 font-medium">SISTEMA ATIVO</span>
         </div>
         <p className="text-[10px] text-krypta-white/40 font-mono">v1.0.4 | Ed25519</p>
       </div>
@@ -44,7 +44,7 @@ export function Sidebar() {
               to={item.path}
               className={`relative flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 overflow-hidden group ${
                 isActive
-                  ? 'bg-gradient-to-r from-krypta-purple/30 to-krypta-purple/10 text-white border border-krypta-purple/40 shadow-glow'
+                  ? 'bg-gradient-to-r from-krypta-purple/30 to-krypta-purple/10 text-krypta-white border border-krypta-purple/40 shadow-glow'
                   : 'text-krypta-white/50 hover:text-krypta-lilac hover:bg-krypta-purple/10 border border-transparent'
               }`}
             >

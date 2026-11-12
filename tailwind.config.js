@@ -4,36 +4,25 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
         krypta: {
-          // ========== NÚCLEO (roxo/violeta - uso principal) ==========
-          purple:   '#6131C9',   // violeta vibrante (linha 4)
-          violet:   '#51008D',   // violeta profundo (linha 4)
-          magenta:  '#540089',   // magenta profundo (linha 5)
-          dark:     '#2E0853',   // roxo escuro (linha 4)
-          deep:     '#1a0533',   // roxo mais escuro (base)
-          indigo:   '#242356',   // índigo profundo (linha 2)
-          navy:     '#323267',   // navy azulado (linha 2)
+          // Base (muda com o tema)
+          black:        'rgb(var(--krypta-bg) / <alpha-value>)',
+          white:        'rgb(var(--krypta-fg) / <alpha-value>)',
           
-          // ========== TONS CLAROS (lilás) ==========
-          lilac:    '#B4A0C8',   // lilás médio (linha 4)
-          lavender: '#D0CCE4',   // lavanda clara (linha 5)
-          pale:     '#C8BFD4',   // roxo pálido (linha 4)
-          
-          // ========== PLASMA/GLOW (violeta claro para brilho) ==========
-          plasma:   '#8B87D2',   // plasma azul-violeta (linha 2)
-          glow:     '#C0C8E8',   // brilho pálido (linha 2)
-          
-          // ========== AZUIS (usar RARAMENTE - só detalhes) ==========
-          blue:     '#3484AD',   // azul (linha 1)
-          teal:     '#349FB6',   // teal (linha 1)
-          cyan:     '#8BCBD4',   // teal claro (linha 1 - usado só em micro detalhes)
-          
-          // ========== BASE ==========
-          black:    '#000000',
-          white:    '#ffffff',
+          // Acentos (variam levemente por tema)
+          purple:       'rgb(var(--krypta-purple) / <alpha-value>)',
+          'purple-bright': 'rgb(var(--krypta-purple-bright) / <alpha-value>)',
+          lilac:        'rgb(var(--krypta-lilac) / <alpha-value>)',
+          violet:       'rgb(var(--krypta-violet) / <alpha-value>)',
+          magenta:      'rgb(var(--krypta-magenta) / <alpha-value>)',
+          cyan:         'rgb(var(--krypta-cyan) / <alpha-value>)',
+          dark:         'rgb(var(--krypta-dark) / <alpha-value>)',
+          deep:         'rgb(var(--krypta-deep) / <alpha-value>)',
+          plasma:       'rgb(var(--krypta-plasma) / <alpha-value>)',
         }
       },
       fontFamily: {
@@ -41,15 +30,14 @@ export default {
         display: ['Orbitron', 'sans-serif'],
       },
       boxShadow: {
-        'glow':        '0 0 20px rgba(97, 49, 201, 0.55)',
-        'glow-strong': '0 0 45px rgba(97, 49, 201, 0.95)',
-        'glow-plasma': '0 0 24px rgba(139, 135, 210, 0.7)',
-        'glow-violet': '0 0 28px rgba(81, 0, 141, 0.7)',
-        'glow-inner':  'inset 0 0 30px rgba(97, 49, 201, 0.18)',
+        'glow':        '0 0 20px rgba(var(--krypta-purple) / 0.5)',
+        'glow-strong': '0 0 45px rgba(var(--krypta-purple) / 0.9)',
+        'glow-plasma': '0 0 24px rgba(var(--krypta-plasma) / 0.7)',
+        'glow-cyan':   '0 0 20px rgba(var(--krypta-cyan) / 0.6)',
       },
       backgroundImage: {
-        'grid-pattern': "linear-gradient(rgba(97,49,201,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(97,49,201,0.07) 1px, transparent 1px)",
-        'radial-purple': "radial-gradient(circle at 50% 0%, rgba(46,8,83,0.7) 0%, #000000 70%)",
+        'grid-pattern':
+          'linear-gradient(rgba(var(--krypta-purple) / 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--krypta-purple) / 0.07) 1px, transparent 1px)',
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',
@@ -59,8 +47,8 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-10px)' },
-        }
-      }
+        },
+      },
     },
   },
   plugins: [],

@@ -4,41 +4,118 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   TEMA ESCURO (padrão)
+   ============================================================ */
+:root,
+html.dark {
+  --krypta-bg: 0 0 0;                   /* #000000 */
+  --krypta-fg: 255 255 255;             /* #ffffff */
+  
+  --krypta-purple: 97 49 201;           /* #6131C9 */
+  --krypta-purple-bright: 141 81 255;   /* #8d51ff */
+  --krypta-lilac: 180 160 200;          /* #B4A0C8 */
+  --krypta-violet: 81 0 189;            /* #5100BD */
+  --krypta-magenta: 127 53 163;         /* #7F35A3 */
+  --krypta-cyan: 139 203 212;           /* #8BCBD4 */
+  --krypta-dark: 46 8 83;               /* #2E0853 */
+  --krypta-deep: 26 5 51;               /* #1a0533 */
+  --krypta-plasma: 139 135 210;         /* #8B87D2 */
+
+  --krypta-body-gradient: radial-gradient(circle at 50% 0%, #2E0853 0%, #000000 70%);
+  --krypta-scrollbar: linear-gradient(180deg, #6131C9, #B4A0C8);
+  --krypta-selection-bg: #6131C9;
+  --krypta-selection-fg: #ffffff;
+}
+
+/* ============================================================
+   TEMA CLARO
+   ============================================================ */
+html.light {
+  --krypta-bg: 248 247 251;             /* #f8f7fb */
+  --krypta-fg: 26 26 26;                /* #1a1a1a */
+
+  --krypta-purple: 81 0 189;            /* #5100BD (mais escuro p/ contraste) */
+  --krypta-purple-bright: 97 49 201;    /* #6131C9 */
+  --krypta-lilac: 106 78 140;           /* #6a4e8c */
+  --krypta-violet: 61 14 100;           /* #3d0e64 */
+  --krypta-magenta: 100 40 130;         /* #642882 */
+  --krypta-cyan: 52 132 173;            /* #3484AD */
+  --krypta-dark: 237 233 245;           /* #ede9f5 (lavanda claro) */
+  --krypta-deep: 220 214 235;           /* #dcd6eb */
+  --krypta-plasma: 88 84 160;           /* #5854A0 */
+
+  --krypta-body-gradient: radial-gradient(circle at 50% 0%, #ede9f5 0%, #f8f7fb 70%);
+  --krypta-scrollbar: linear-gradient(180deg, #5100BD, #6a4e8c);
+  --krypta-selection-bg: #5100BD;
+  --krypta-selection-fg: #ffffff;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
 html, body, #root { min-height: 100vh; }
 
 body {
-  background-color: #000000;
-  color: #ffffff;
+  background-color: rgb(var(--krypta-bg));
+  color: rgb(var(--krypta-fg));
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
-  background-image: radial-gradient(circle at 50% 0%, #2E0853 0%, #000000 70%);
+  background-image: var(--krypta-body-gradient);
   background-attachment: fixed;
   overflow-x: hidden;
 }
 
 ::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #000000; }
+::-webkit-scrollbar-track { background: rgb(var(--krypta-bg)); }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #6131C9, #B4A0C8);
+  background: var(--krypta-scrollbar);
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover { background: #6131C9; }
 
-::selection { background: #6131C9; color: #ffffff; }
+::selection {
+  background: var(--krypta-selection-bg);
+  color: var(--krypta-selection-fg);
+}
 
+/* ============================================================
+   TRANSIÇÃO SUAVE ENTRE TEMAS
+   A classe .theme-transitioning é adicionada temporariamente
+   no <html> quando o usuário troca de tema.
+   ============================================================ */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition:
+    background-color 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    fill 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 500ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* ============================================================
+   COMPONENTES
+   ============================================================ */
 @layer components {
   .glass-panel {
-    background-color: rgba(46, 8, 83, 0.4);
+    background-color: rgb(var(--krypta-dark) / 0.4);
     backdrop-filter: blur(24px);
-    border: 1px solid rgba(97, 49, 201, 0.25);
+    border: 1px solid rgb(var(--krypta-purple) / 0.25);
     border-radius: 1rem;
   }
-  
+
   .neon-text {
-    text-shadow: 0 0 10px rgba(97, 49, 201, 0.9), 0 0 30px rgba(81, 0, 141, 0.5);
+    text-shadow:
+      0 0 10px rgba(var(--krypta-purple) / 0.9),
+      0 0 30px rgba(var(--krypta-violet) / 0.5);
   }
-  
+
   .neon-text-plasma {
-    text-shadow: 0 0 10px rgba(139, 135, 210, 0.9), 0 0 30px rgba(97, 49, 201, 0.5);
+    text-shadow:
+      0 0 10px rgba(var(--krypta-plasma) / 0.9),
+      0 0 30px rgba(var(--krypta-purple) / 0.5);
   }
 }
