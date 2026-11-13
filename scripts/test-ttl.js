@@ -102,7 +102,8 @@ async function req(metodo, rota, { corpo, token } = {}) {
   verificar('notificador retorna false: conta preservada', await existe(semConfirmacao));
 
   const semSmtp = await contaInativa(400);
-  await ttlService.executarVarredura(); // notificador padrão (stub)
+  require('../src/services/notificacaoService')._definirTransporte(null); // sem SMTP
+  await ttlService.executarVarredura(); // notificador padrão
   verificar('stub padrão: aviso não registrado', (await avisos(semSmtp)).length === 0);
   verificar('stub padrão: conta preservada', await existe(semSmtp));
 

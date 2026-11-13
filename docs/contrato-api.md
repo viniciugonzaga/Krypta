@@ -220,7 +220,7 @@ O servidor não consegue verificar nada disto. Se o cliente errar, a segurança 
 ## 5. Inatividade (RN11)
 
 - O prazo é de 365 dias sem atividade. `POST /auth/verify` e `PUT /backup` bem-sucedidos renovam o prazo. Login no portal e consultas não renovam.
-- A rotina roda a cada 6 horas e avisa por email em 30 dias, 15 dias e 48 horas antes. **O envio de email ainda não existe**, e por isso nenhuma conta é excluída hoje: a exclusão exige o aviso de 48 h registrado.
+- A rotina roda a cada 6 horas e avisa por email em 30 dias, 15 dias e 48 horas antes. O envio usa o SMTP configurado no servidor (`SMTP_*`). **Sem SMTP configurado nenhuma conta é excluída**: a exclusão exige o aviso de 48 h registrado, e o aviso só é registrado depois que o envio é confirmado.
 - A exclusão apaga a conta, os hashes de contingência e o backup. Só a `public_key` revogada permanece, para que chaves banidas não voltem.
 - Contas `REVOGADA` também expiram em 365 dias.
 
@@ -240,9 +240,9 @@ O servidor não consegue verificar nada disto. Se o cliente errar, a segurança 
 
 ## 7. Não implementado e limitações conhecidas
 
-- Herança Digital sem cadastro nominal de herdeiros (RF11), sem prazo de espera e sem notificação ao dono: o resgate é imediato. Notificar o dono depende do envio de email.
+- Herança Digital sem cadastro nominal de herdeiros (RF11), sem prazo de espera: o resgate é imediato, e o dono é avisado por email (se houver SMTP configurado) só depois que ele acontece.
 - Quem vazar a CCH de uma conta com herança ativa pode revogar a conta (ataque de disponibilidade) e baixar o backup, que continua cifrado. Depois do resgate o dispositivo do herdeiro opera a conta; ela só volta ao dono com Kill Switch e recuperação de hardware, usando a prova da CCP.
-- Envio de email: aviso de inatividade e confirmação do Kill Switch.
+- O Módulo 7 prevê confirmação por email para ações sensíveis do portal. Hoje o Kill Switch e o resgate de herança só **avisam** o dono por email depois de executados; não pedem confirmação antes.
 - Recuperar ou trocar a senha administrativa do portal.
 - O Kill Switch exige a prova completa da CCP. O Módulo 7 fala em "trecho", mas o servidor só guarda o hash da prova inteira. Quem perde hardware e CCP não consegue revogar sozinho.
 - `POST /accounts` revela quais emails existem (409).

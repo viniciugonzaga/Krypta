@@ -14,8 +14,10 @@
     "test:ttl": "node scripts/test-ttl.js",
     "test:ccp": "node scripts/test-ccp.js",
     "test:inheritance": "node scripts/test-inheritance.js",
-    "test:all": "npm run test:hardening && npm run test:auth && npm run test:admin && npm run test:backup && npm run test:pairing && npm run test:recovery && npm run test:ccp && npm run test:inheritance && npm run test:ttl",
-    "test:hardening": "node scripts/test-hardening.js"
+    "test:all": "npm run test:hardening && npm run test:auth && npm run test:admin && npm run test:backup && npm run test:pairing && npm run test:recovery && npm run test:ccp && npm run test:inheritance && npm run test:ttl && npm run test:notificacao",
+    "test:hardening": "node scripts/test-hardening.js",
+    "test:notificacao": "node scripts/test-notificacao.js",
+    "start": "node src/server.js"
   },
   "keywords": [],
   "author": "",
@@ -29,6 +31,7 @@
     "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.5.0",
     "pg": "^8.23.0",
     "tweetnacl": "^1.0.3"
   },

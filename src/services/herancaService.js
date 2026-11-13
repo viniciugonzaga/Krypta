@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const contaRepository = require('../repositories/contaRepository');
 const herancaRepository = require('../repositories/herancaRepository');
+const notificacaoService = require('./notificacaoService');
 const { ErroDeNegocio, validarPublicKey, validarProvaContingencia } = require('./contaService');
 const { validarVersaoEPayload } = require('./backupService');
 
@@ -100,6 +101,11 @@ const resgatar = async ({ contaId, provaHerdeiro, publicKey }) => {
   });
 
   if (r.resultado === 'OK') {
+    // Avisa o dono (best-effort): nunca derruba nem atrasa o resgate.
+    contaRepository
+      .obterContaPorId(contaId)
+      .then((dono) => dono && notificacaoService.notificarResgateHeranca(dono.email))
+      .catch((erro) => console.error('Aviso de resgate falhou:', erro.message));
     return r.conta;
   }
   if (r.resultado === 'SEM_CONTA' || r.resultado === 'HERANCA_INDISPONIVEL') {

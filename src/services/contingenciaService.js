@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const contaRepository = require('../repositories/contaRepository');
+const notificacaoService = require('./notificacaoService');
 const { ErroDeNegocio, validarPublicKey, validarProvaContingencia } = require('./contaService');
 
 const ESTADOS_KILL_SWITCH = ['ATIVA', 'RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
@@ -79,6 +80,8 @@ const acionarKillSwitch = async ({ contaId, provaContDono }) => {
   if (!revogada) {
     throw new ErroDeNegocio('Estado da conta mudou durante a operação.', 409);
   }
+  // Avisa o dono (best-effort): nunca derruba nem atrasa a revogação.
+  notificacaoService.notificarKillSwitch(conta.email);
   return revogada;
 };
 
