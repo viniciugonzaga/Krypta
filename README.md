@@ -21,7 +21,7 @@ sudo -u postgres psql -c "CREATE DATABASE krypta_db OWNER krypta_user;"
 PGPASSWORD=$SENHA psql -h localhost -U krypta_user -d krypta_db -v ON_ERROR_STOP=1 -f src/db/schema.sql
 
 # cria o .env (se ele já existir, NÃO rode esta linha)
-printf 'DATABASE_URL=postgres://krypta_user:%s@localhost:5432/krypta_db\nJWT_SECRET=%s\n' "$SENHA" "$(openssl rand -hex 32)" > .env
+printf 'DATABASE_URL=postgres://krypta_user:%s@localhost:5432/krypta_db\nJWT_SECRET=%s\nPASSWORD_PEPPER=%s\n' "$SENHA" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env
 unset SENHA
 
 npm run dev
@@ -33,6 +33,7 @@ npm run dev
 |---|---|---|
 | `DATABASE_URL` | sim | URL de conexão do PostgreSQL |
 | `JWT_SECRET` | sim | Hex de 64+ caracteres (`openssl rand -hex 32`). O servidor não sobe sem ele |
+| `PASSWORD_PEPPER` | sim | Hex de 64+ caracteres, diferente do `JWT_SECRET`. Segredo do servidor aplicado antes do bcrypt (RNF02). **Faça backup fora do banco: perdê-lo invalida todas as senhas do portal e todas as provas de contingência** |
 | `PORT` | não | Porta HTTP (padrão 3000) |
 | `CORS_ORIGINS` | não | Origens do portal web liberadas no CORS, separadas por vírgula. Vazio = nenhuma |
 | `TRUST_PROXY` | não | Número de proxies reversos confiáveis à frente da API. Só configure se houver proxy |

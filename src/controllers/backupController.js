@@ -31,4 +31,12 @@ const baixar = async (req, res) => {
   }
 };
 
-module.exports = { enviar, baixar };
+const metadados = async (req, res) => {
+  try {
+    return res.status(200).json(await backupService.consultarMetadados({ contaId: req.auth.contaId }));
+  } catch (erro) {
+    return tratarErro(erro, res, 'consultar metadados do backup');
+  }
+};
+
+module.exports = { enviar, baixar, metadados };

@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('../utils/bcryptPepper'); // bcrypt + pepper (RNF02)
 const contaRepository = require('../repositories/contaRepository');
 const ccpRepository = require('../repositories/ccpRepository');
 const { ErroDeNegocio, validarProvaContingencia } = require('./contaService');

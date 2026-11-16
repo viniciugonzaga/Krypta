@@ -1,4 +1,4 @@
-# Contrato da API Krypta (v0.1)
+# Contrato da API Krypta (v1.0)
 
 Base URL local: `http://localhost:3000`. O comportamento descrito aqui é o que os scripts `scripts/test-*.js` verificam. Se o código divergir deste documento, avisem: um dos dois está errado.
 
@@ -13,6 +13,7 @@ Base URL local: `http://localhost:3000`. O comportamento descrito aqui é o que 
 - Erros globais: 400 `JSON malformado.`, 413 corpo acima de 2 MB, 404 `Rota não encontrada.`, 500 `Erro interno no servidor.` (sem detalhes).
 - CORS: só o portal web é navegador. Para o portal acessar a API, a origem do front precisa estar em `CORS_ORIGINS` no servidor; por padrão nenhuma origem é liberada. Desktop e Mobile não são afetados. Métodos liberados: GET, POST e PUT; headers: `Content-Type` e `Authorization`.
 - CORS: só o portal web é navegador. Para o portal acessar a API, a origem do front precisa estar em `CORS_ORIGINS` no servidor; por padrão nenhuma origem é liberada. Desktop e Mobile não são afetados. Métodos liberados: GET, POST e PUT; headers: `Content-Type` e `Authorization`.
+- Segredos no banco: a senha do portal e as provas de contingência (CCP e CCH) são guardadas como bcrypt sobre HMAC-SHA256 com um pepper do servidor (`PASSWORD_PEPPER`), que fica fora do banco. Perder o pepper invalida todas as senhas do portal e todas as provas: o operador deve guardá-lo à parte.
 - Limites por IP, em memória (zeram ao reiniciar o servidor), respondem 429: `/auth/admin-login` 10 por 15 min; `/auth/challenge` e `/auth/verify` 30 por minuto; `/recovery/owner`, `/account/kill-switch` e `/recovery/hardware` 20 por 15 min (contador compartilhado); `/account/rotate-ccp` 20 por 15 min (contador próprio); `/inheritance/enable` e `/inheritance/disable` 20 por 15 min (contador próprio); `/inheritance/claim` 10 por 15 min; `POST /accounts` 30 por hora; `/hardware/pair` e `/recovery/complete` 30 por 15 min (contador compartilhado).
 
 | Campo | Formato |
@@ -120,6 +121,12 @@ Token `hardware`. Estados: `RECUPERACAO_LOCAL`, `RECUPERACAO_HARDWARE`.
 200: `{ "payload_cifrado": "base64", "version_counter": 12, "atualizado_em": "ISO" }`
 Erros: 401; 403 escopo ou estado (em `ATIVA` sempre 403); 404 sem backup.
 
+### GET /backup/metadata
+Token `hardware`. Estados: `ATIVA`, `RECUPERACAO_LOCAL`, `RECUPERACAO_HARDWARE`. Devolve só a versão e a data do backup guardado, nunca o conteúdo: o app decide se precisa sincronizar sem baixar o cofre. O download do payload continua bloqueado em `ATIVA` (RN04).
+
+200: `{ "version_counter": 12, "atualizado_em": "ISO" }`
+Erros: 401; 403 escopo ou estado; 404 sem backup.
+
 ### POST /recovery/owner
 Esqueci a senha mestre. Token `hardware` (o dono precisa estar com o dispositivo). Body: `{ "prova_cont_dono": "base64" }`
 
@@ -216,6 +223,8 @@ O servidor não consegue verificar nada disto. Se o cliente errar, a segurança 
 2. **Derivações.** `master_h = Argon2id(CCH, salt = SHA-256("krypta-cch-v1:" + conta_id), mesmos parâmetros da seção 4)`; `prova_cont_herdeiro = base64(HKDF-SHA256(master_h, info = "krypta-prova-cch-v1", 32 bytes))`; chave do Envelope do Herdeiro = `HKDF-SHA256(master_h, info = "krypta-envelope-cch-v1")`. A prova nunca pode ser usada como chave de cifra: o servidor a recebe e guarda o backup que contém o envelope.
 3. **Conferir antes de gravar.** Antes de chamar `/inheritance/enable`, abrir localmente o Envelope do Herdeiro novo com a CCH nova. O servidor não consegue conferir isso.
 4. **Resgate.** O herdeiro precisa de um dispositivo Krypta novo, que gera o par Ed25519 e envia só a `public_key`.
+5. **Identificação do herdeiro (RF11).** Nome, parentesco e contato ficam **dentro do payload cifrado**, geridos pela interface do app; o servidor nunca os vê. Guardá-los em claro no servidor exporia dados pessoais de terceiros, sem consentimento deles e sem ganho de segurança (LGPD, minimização de dados).
+6. **Sem PIN (RF13).** A autenticação do herdeiro é a prova da CCH (128 bits de entropia, uso único), mais forte que um PIN. Um PIN digitável reabriria a força bruta.
 
 ## 5. Inatividade (RN11)
 
@@ -240,7 +249,7 @@ O servidor não consegue verificar nada disto. Se o cliente errar, a segurança 
 
 ## 7. Não implementado e limitações conhecidas
 
-- Herança Digital sem cadastro nominal de herdeiros (RF11), sem prazo de espera: o resgate é imediato, e o dono é avisado por email (se houver SMTP configurado) só depois que ele acontece.
+- Herança Digital: o servidor não guarda identidade de herdeiros (RF11) nem PIN (RF13), por decisão registrada na seção 4.1. Sem prazo de espera: o resgate é imediato, e o dono é avisado por email (se houver SMTP configurado) só depois que ele acontece.
 - Quem vazar a CCH de uma conta com herança ativa pode revogar a conta (ataque de disponibilidade) e baixar o backup, que continua cifrado. Depois do resgate o dispositivo do herdeiro opera a conta; ela só volta ao dono com Kill Switch e recuperação de hardware, usando a prova da CCP.
 - O Módulo 7 prevê confirmação por email para ações sensíveis do portal. Hoje o Kill Switch e o resgate de herança só **avisam** o dono por email depois de executados; não pedem confirmação antes.
 - Recuperar ou trocar a senha administrativa do portal.

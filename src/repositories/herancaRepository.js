@@ -1,6 +1,6 @@
 const pool = require('../db/connection');
 
-const ESTADOS_RESGATE = ['ATIVA', 'RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE', 'REVOGADA'];
+const { ESTADOS_RESGATE } = require('../config/estados');
 
 // Só para conferir a prova da CCH no Service. Nunca vai para a resposta HTTP.
 const obterHashHerdeiro = async (contaId) => {

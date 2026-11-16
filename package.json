@@ -14,10 +14,13 @@
     "test:ttl": "node scripts/test-ttl.js",
     "test:ccp": "node scripts/test-ccp.js",
     "test:inheritance": "node scripts/test-inheritance.js",
-    "test:all": "npm run test:hardening && npm run test:auth && npm run test:admin && npm run test:backup && npm run test:pairing && npm run test:recovery && npm run test:ccp && npm run test:inheritance && npm run test:ttl && npm run test:notificacao",
+    "test:all": "npm run test:hardening && npm run test:robustez && npm run test:auth && npm run test:admin && npm run test:backup && npm run test:metadata && npm run test:pairing && npm run test:recovery && npm run test:ccp && npm run test:inheritance && npm run test:concurrency && npm run test:ttl && npm run test:notificacao",
     "test:hardening": "node scripts/test-hardening.js",
     "test:notificacao": "node scripts/test-notificacao.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test:robustez": "node scripts/test-robustez.js",
+    "test:metadata": "node scripts/test-metadata.js",
+    "test:concurrency": "node scripts/test-concurrency.js"
   },
   "keywords": [],
   "author": "",

@@ -6,10 +6,8 @@ const BASE64_REGEX = /^[A-Za-z0-9+/]+={0,2}$/;
 const MAX_VERSION = 2147483647; // limite do INTEGER do Postgres
 const MAX_PAYLOAD_BYTES = 1024 * 1024; // 1 MB decodificado
 
-// Upload: ATIVA (sync normal) e RECUPERACAO_LOCAL (novo envelope da senha mestre).
-const ESTADOS_ESCRITA = ['ATIVA', 'RECUPERACAO_LOCAL'];
-// Download: só em recuperação. Em ATIVA o hardware é a fonte da verdade (RN04).
-const ESTADOS_DOWNLOAD = ['RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
+// Matriz de estados centralizada (Guia, 6.2): upload em ATIVA e RECUPERACAO_LOCAL; download só em recuperação (RN04).
+const { ESTADOS_ESCRITA, ESTADOS_DOWNLOAD, ESTADOS_METADADOS } = require('../config/estados');
 
 // Validação compartilhada com a rotação da CCP. Devolve o payload decodificado.
 function validarVersaoEPayload(versionCounter, payloadBase64) {
@@ -69,4 +67,21 @@ const baixarBackup = async ({ contaId }) => {
   };
 };
 
-module.exports = { enviarBackup, baixarBackup, validarVersaoEPayload };
+// Só versão e data, nunca o conteúdo: o app decide se precisa sincronizar sem baixar o cofre.
+// O payload continua protegido pela RN04 (GET /backup segue bloqueado em ATIVA).
+const consultarMetadados = async ({ contaId }) => {
+  const conta = await contaRepository.obterContaPorId(contaId);
+  if (!conta) {
+    throw new ErroDeNegocio('Conta não encontrada.', 404);
+  }
+  if (!ESTADOS_METADADOS.includes(conta.status)) {
+    throw new ErroDeNegocio('Consulta não permitida neste estado da conta.', 403);
+  }
+  const meta = await backupRepository.obterMetadadosPorContaId(contaId);
+  if (!meta) {
+    throw new ErroDeNegocio('Nenhum backup encontrado.', 404);
+  }
+  return { version_counter: meta.version_counter, atualizado_em: meta.atualizado_em };
+};
+
+module.exports = { enviarBackup, baixarBackup, consultarMetadados, validarVersaoEPayload };

@@ -59,4 +59,12 @@ const obterBackupPorContaId = async (contaId) => {
   return r.rows[0] || null;
 };
 
-module.exports = { salvarBackup, obterBackupPorContaId };
+const obterMetadadosPorContaId = async (contaId) => {
+  const r = await pool.query(
+    'SELECT version_counter, atualizado_em FROM backups WHERE conta_id = $1;',
+    [contaId]
+  );
+  return r.rows[0] || null;
+};
+
+module.exports = { salvarBackup, obterBackupPorContaId, obterMetadadosPorContaId };

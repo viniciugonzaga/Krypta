@@ -7,5 +7,6 @@ const router = express.Router();
 // Só token de escopo 'hardware' acessa o cofre. admin_web nunca passa.
 router.put('/backup', exigirToken(['hardware']), backupController.enviar);
 router.get('/backup', exigirToken(['hardware']), backupController.baixar);
+router.get('/backup/metadata', exigirToken(['hardware']), backupController.metadados);
 
 module.exports = router;

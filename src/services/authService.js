@@ -12,7 +12,7 @@ const ASSINATURA_BYTES = 64; // Ed25519
 
 // Login por hardware: estados em que a public_key vigente ainda é válida.
 // Em RECUPERACAO_* o cliente precisa de token para baixar o backup e concluir a recuperação.
-const ESTADOS_LOGIN_HARDWARE = ['ATIVA', 'RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
+const { ESTADOS_LOGIN_HARDWARE } = require('../config/estados');
 
 function garantirContaAtiva(conta) {
   if (!ESTADOS_LOGIN_HARDWARE.includes(conta.status)) {

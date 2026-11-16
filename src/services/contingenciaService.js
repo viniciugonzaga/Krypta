@@ -1,10 +1,9 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('../utils/bcryptPepper'); // bcrypt + pepper (RNF02)
 const contaRepository = require('../repositories/contaRepository');
 const notificacaoService = require('./notificacaoService');
 const { ErroDeNegocio, validarPublicKey, validarProvaContingencia } = require('./contaService');
 
-const ESTADOS_KILL_SWITCH = ['ATIVA', 'RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
-const ESTADOS_RECUPERACAO = ['RECUPERACAO_LOCAL', 'RECUPERACAO_HARDWARE'];
+const { ESTADOS_KILL_SWITCH, ESTADOS_RECUPERACAO } = require('../config/estados');
 
 // contaId vem do token (nunca do body): ninguém age sobre conta alheia.
 async function obterConta(contaId) {

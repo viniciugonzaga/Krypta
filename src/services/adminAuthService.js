@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('../utils/bcryptPepper'); // bcrypt + pepper (RNF02)
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config/env');
 const contaRepository = require('../repositories/contaRepository');
