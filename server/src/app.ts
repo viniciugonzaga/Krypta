@@ -67,7 +67,7 @@ async function bootstrap() {
     console.log(`  🌐 http://localhost:${env.PORT}`);
     console.log(`  🗄️  MySQL: ${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`);
     console.log(`  🔓 CORS: ${corsOrigins.join(', ')}`);
-    console.log(`  🔐 Cofre: pareamento + login por hardware ativos`);
+    console.log(`  🔐 Cofre: pareamento, login do dispositivo, backup, contingência e herança ativos`);
     console.log('');
   });
 }

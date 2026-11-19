@@ -75,7 +75,7 @@ export function decodificarPayload(valor: unknown): Buffer {
   const bytes = Buffer.from(valor, 'base64');
   if (bytes.length < 1) throw new ApiError(400, 'payload_cifrado vazio.');
   if (bytes.length > PAYLOAD_MAX_BYTES) {
-    throw new ApiError(413, 'payload_cifrado acima de 1 MB.');
+    throw new ApiError(400, 'payload_cifrado fora do tamanho permitido (1 byte a 1 MB).');
   }
   return bytes;
 }

@@ -1,6 +1,7 @@
 // server/src/models/VaultModel.ts
 // ============================================================
-// SQL do COFRE (equivale ao contaRepository da API original).
+// SQL do COFRE (equivale aos repositories da API original:
+// contaRepository, backupRepository, ccpRepository e herancaRepository).
 // Só SQL: sem validação, sem regra de negócio, sem HTTP.
 //
 // Nenhuma consulta daqui devolve hash_cont_dono, hash_cont_herdeiro
@@ -11,10 +12,16 @@
 //   • public_key → users.public_key_ed25519
 //   • status     → users.estado_cofre
 //   • RETURNING  → UPDATE condicional + affectedRows + SELECT
+//   • ON CONFLICT DO UPDATE WHERE → SELECT ... FOR UPDATE + INSERT/UPDATE
+//
+// TRAVAS: toda operação que mexe no backup, nas provas ou na chave
+// começa com "SELECT ... FROM users WHERE id = ? FOR UPDATE". Isso
+// enfileira as operações da MESMA conta: um Kill Switch e um PUT /backup
+// chegando juntos nunca se atropelam.
 // ============================================================
 import crypto from 'crypto';
-import { execute, query, isDuplicateError, withTransaction } from '../config/database.js';
-import type { EstadoCofre } from '../config/estados.js';
+import { execute, query, isDuplicateError, withTransaction, type Tx } from '../config/database.js';
+import { estaEm, ESTADOS_RESGATE, type EstadoCofre } from '../config/estados.js';
 
 /** "Objeto conta" do contrato da API */
 export interface ContaCofre {
@@ -61,10 +68,79 @@ export function hardwareUuidDe(publicKey: string): string {
 
 export type ResultadoPareamento = 'OK' | 'ESTADO_INVALIDO' | 'CHAVE_EM_USO';
 
+export interface BackupGravado {
+  version_counter: number;
+  atualizado_em: Date;
+}
+
+/** Resultado das operações que gravam backup dentro de uma transação */
+export type ResultadoGravacao =
+  | ({ resultado: 'OK' } & BackupGravado)
+  | { resultado: 'SEM_CONTA' }
+  | { resultado: 'ESTADO'; status: EstadoCofre }
+  | { resultado: 'HASH_MUDOU' }
+  | { resultado: 'VERSAO' };
+
+export type ResultadoResgate =
+  | { resultado: 'OK'; conta: { id: string; status: EstadoCofre; public_key: string } }
+  | { resultado: 'SEM_CONTA' | 'HERANCA_INDISPONIVEL' | 'ESTADO' | 'CHAVE_EM_USO' | 'CHAVE_REVOGADA' };
+
+interface LinhaTravada {
+  estado_cofre: EstadoCofre;
+  public_key_ed25519: string | null;
+  hash_cont_dono: string | null;
+  hash_cont_herdeiro: string | null;
+}
+
+/** Trava a linha da conta até o fim da transação */
+async function travarConta(tx: Tx, userId: string): Promise<LinhaTravada | null> {
+  const rows = await tx.query<LinhaTravada>(
+    `SELECT estado_cofre, public_key_ed25519, hash_cont_dono, hash_cont_herdeiro
+       FROM users WHERE id = ? FOR UPDATE`,
+    [userId]
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Grava o backup com ANTI-ROLLBACK: só aceita version_counter
+ * ESTRITAMENTE maior que o guardado. Também renova o prazo de
+ * inatividade (RN11) na mesma transação.
+ * Precisa ser chamada com a conta já travada (travarConta).
+ */
+async function gravarBackupTx(
+  tx: Tx,
+  userId: string,
+  payload: Buffer,
+  versionCounter: number
+): Promise<BackupGravado | null> {
+  const atual = await tx.query<{ version_counter: number }>(
+    'SELECT version_counter FROM backups WHERE user_id = ? FOR UPDATE',
+    [userId]
+  );
+  const agora = new Date();
+
+  if (atual[0]) {
+    if (atual[0].version_counter >= versionCounter) return null; // anti-rollback
+    await tx.execute(
+      'UPDATE backups SET payload_cifrado = ?, version_counter = ?, atualizado_em = ? WHERE user_id = ?',
+      [payload, versionCounter, agora, userId]
+    );
+  } else {
+    await tx.execute(
+      'INSERT INTO backups (id, user_id, payload_cifrado, version_counter, atualizado_em) VALUES (?, ?, ?, ?, ?)',
+      [crypto.randomUUID(), userId, payload, versionCounter, agora]
+    );
+  }
+
+  await tx.execute('UPDATE users SET ultimo_sincronismo = ? WHERE id = ?', [agora, userId]);
+  return { version_counter: versionCounter, atualizado_em: agora };
+}
+
 export const VaultModel = {
-  // ------------------------------------------------------------
+  // ============================================================
   // LEITURA
-  // ------------------------------------------------------------
+  // ============================================================
   async obterPorId(userId: string): Promise<ContaCofre | null> {
     const rows = await query<ContaRow>(`SELECT ${CAMPOS} FROM users WHERE id = ? LIMIT 1`, [userId]);
     return mapear(rows[0]);
@@ -87,15 +163,23 @@ export const VaultModel = {
     return rows[0]?.hash_cont_dono ?? null;
   },
 
+  /** Só para conferir a prova da CCH. Nunca vai para a resposta HTTP. */
+  async obterHashHerdeiro(userId: string): Promise<string | null> {
+    const rows = await query<{ hash_cont_herdeiro: string | null }>(
+      'SELECT hash_cont_herdeiro FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    );
+    return rows[0]?.hash_cont_herdeiro ?? null;
+  },
+
   async chaveRevogada(publicKey: string): Promise<boolean> {
     const rows = await query('SELECT 1 FROM chaves_revogadas WHERE public_key = ? LIMIT 1', [publicKey]);
     return rows.length > 0;
   },
 
-  // ------------------------------------------------------------
-  // PAREAMENTO: PENDENTE_PAREAMENTO → ATIVA
-  // O WHERE estado_cofre trava re-pareamento e corridas.
-  // ------------------------------------------------------------
+  // ============================================================
+  // PAREAMENTO: PENDENTE_PAREAMENTO → ATIVA  (Parte 3)
+  // ============================================================
   async parearHardware(params: {
     userId: string;
     publicKey: string;
@@ -114,24 +198,17 @@ export const VaultModel = {
       );
       return r.affectedRows > 0 ? 'OK' : 'ESTADO_INVALIDO';
     } catch (err) {
-      // Corrida: outra conta vinculou a mesma chave entre a checagem e o UPDATE
       if (isDuplicateError(err)) return 'CHAVE_EM_USO';
       throw err;
     }
   },
 
-  // ------------------------------------------------------------
-  // TTL (RN11): login por hardware e PUT /backup provam que o dono
-  // segue ativo e renovam o prazo de 365 dias.
-  // ------------------------------------------------------------
+  /** Login pelo dispositivo renova o prazo de 365 dias (RN11) */
   async renovarPrazo(userId: string): Promise<void> {
     await execute('UPDATE users SET ultimo_sincronismo = ? WHERE id = ?', [new Date(), userId]);
   },
 
-  // ------------------------------------------------------------
-  // TRANSIÇÃO GENÉRICA (usada nas Partes 5 e 6)
-  // Só aplica se o estado atual estiver em "de".
-  // ------------------------------------------------------------
+  /** Transição simples de estado: só aplica se o estado atual estiver em "de" */
   async transicionarEstado(params: {
     userId: string;
     de: readonly EstadoCofre[];
@@ -147,26 +224,60 @@ export const VaultModel = {
     return this.obterPorId(params.userId);
   },
 
-  // ------------------------------------------------------------
-  // KILL SWITCH (Parte 5): bane a chave para sempre e revoga o cofre,
-  // tudo numa transação. FOR UPDATE trava a linha da conta para não
-  // deixar um PUT /backup concorrente passar numa conta já revogada.
-  // ------------------------------------------------------------
+  // ============================================================
+  // BACKUP  (Parte 4)
+  // ============================================================
+  /** PUT /backup: estado e versão conferidos com a conta travada */
+  async salvarBackup(params: {
+    userId: string;
+    payload: Buffer;
+    versionCounter: number;
+    estadosPermitidos: readonly EstadoCofre[];
+  }): Promise<ResultadoGravacao> {
+    return withTransaction(async (tx): Promise<ResultadoGravacao> => {
+      const conta = await travarConta(tx, params.userId);
+      if (!conta) return { resultado: 'SEM_CONTA' };
+      if (!estaEm(conta.estado_cofre, params.estadosPermitidos)) {
+        return { resultado: 'ESTADO', status: conta.estado_cofre };
+      }
+      const gravado = await gravarBackupTx(tx, params.userId, params.payload, params.versionCounter);
+      if (!gravado) throw new VersaoRecusada(); // força ROLLBACK
+      return { resultado: 'OK', ...gravado };
+    }).catch(tratarVersaoRecusada);
+  },
+
+  async obterBackup(
+    userId: string
+  ): Promise<{ payload_cifrado: Buffer; version_counter: number; atualizado_em: Date } | null> {
+    const rows = await query<{ payload_cifrado: Buffer; version_counter: number; atualizado_em: Date }>(
+      'SELECT payload_cifrado, version_counter, atualizado_em FROM backups WHERE user_id = ? LIMIT 1',
+      [userId]
+    );
+    return rows[0] ?? null;
+  },
+
+  async obterMetadadosBackup(userId: string): Promise<BackupGravado | null> {
+    const rows = await query<BackupGravado>(
+      'SELECT version_counter, atualizado_em FROM backups WHERE user_id = ? LIMIT 1',
+      [userId]
+    );
+    return rows[0] ?? null;
+  },
+
+  // ============================================================
+  // CONTINGÊNCIA  (Parte 5)
+  // ============================================================
+  /** Kill Switch: bane a chave para sempre e revoga o cofre, numa transação */
   async revogarConta(params: {
     userId: string;
     motivo: 'KILL_SWITCH_DONO' | 'KILL_SWITCH_HERDEIRO';
     estadosPermitidos: readonly EstadoCofre[];
   }): Promise<ContaCofre | null> {
     const ok = await withTransaction(async (tx) => {
-      const rows = await tx.query<{ public_key_ed25519: string | null; estado_cofre: EstadoCofre }>(
-        'SELECT public_key_ed25519, estado_cofre FROM users WHERE id = ? FOR UPDATE',
-        [params.userId]
-      );
-      const conta = rows[0];
-      if (!conta || !conta.public_key_ed25519 || !params.estadosPermitidos.includes(conta.estado_cofre)) {
+      const conta = await travarConta(tx, params.userId);
+      if (!conta || !conta.public_key_ed25519 || !estaEm(conta.estado_cofre, params.estadosPermitidos)) {
         return false;
       }
-
       await tx.execute(
         'INSERT INTO chaves_revogadas (id, public_key, user_id, motivo, revogada_em) VALUES (?, ?, ?, ?, ?)',
         [crypto.randomUUID(), conta.public_key_ed25519, params.userId, params.motivo, new Date()]
@@ -180,9 +291,7 @@ export const VaultModel = {
     return ok ? this.obterPorId(params.userId) : null;
   },
 
-  // ------------------------------------------------------------
-  // RECUPERAÇÃO DE HARDWARE (Parte 5): novo ESP32 numa conta REVOGADA
-  // ------------------------------------------------------------
+  /** Recuperação de hardware: novo ESP32 numa conta REVOGADA */
   async parearNovoHardware(params: { userId: string; publicKey: string }): Promise<ResultadoPareamento> {
     try {
       const r = await execute(
@@ -197,4 +306,132 @@ export const VaultModel = {
       throw err;
     }
   },
+
+  /**
+   * Troca da CCP + backup com o novo Envelope da CCP, TUDO OU NADA.
+   * hashAtual = hash que o controller conferiu; se mudou no meio, nada acontece.
+   */
+  async rotacionarCcp(params: {
+    userId: string;
+    hashAtual: string;
+    novoHash: string;
+    payload: Buffer;
+    versionCounter: number;
+  }): Promise<ResultadoGravacao> {
+    return withTransaction(async (tx): Promise<ResultadoGravacao> => {
+      const conta = await travarConta(tx, params.userId);
+      if (!conta) return { resultado: 'SEM_CONTA' };
+      if (conta.estado_cofre !== 'ATIVA') return { resultado: 'ESTADO', status: conta.estado_cofre };
+      if (conta.hash_cont_dono !== params.hashAtual) return { resultado: 'HASH_MUDOU' };
+
+      const gravado = await gravarBackupTx(tx, params.userId, params.payload, params.versionCounter);
+      if (!gravado) throw new VersaoRecusada();
+
+      await tx.execute('UPDATE users SET hash_cont_dono = ? WHERE id = ?', [params.novoHash, params.userId]);
+      return { resultado: 'OK', ...gravado };
+    }).catch(tratarVersaoRecusada);
+  },
+
+  // ============================================================
+  // HERANÇA  (Parte 6)
+  // ============================================================
+  /**
+   * Ativa, troca ou remove (novoHashHerdeiro = null) a CCH e grava o backup
+   * com o Envelope do Herdeiro atualizado, na MESMA transação.
+   */
+  async definirHerdeiro(params: {
+    userId: string;
+    hashDonoAtual: string;
+    novoHashHerdeiro: string | null;
+    payload: Buffer;
+    versionCounter: number;
+  }): Promise<ResultadoGravacao> {
+    return withTransaction(async (tx): Promise<ResultadoGravacao> => {
+      const conta = await travarConta(tx, params.userId);
+      if (!conta) return { resultado: 'SEM_CONTA' };
+      if (conta.estado_cofre !== 'ATIVA') return { resultado: 'ESTADO', status: conta.estado_cofre };
+      if (conta.hash_cont_dono !== params.hashDonoAtual) return { resultado: 'HASH_MUDOU' };
+
+      const gravado = await gravarBackupTx(tx, params.userId, params.payload, params.versionCounter);
+      if (!gravado) throw new VersaoRecusada();
+
+      await tx.execute('UPDATE users SET hash_cont_herdeiro = ? WHERE id = ?', [
+        params.novoHashHerdeiro,
+        params.userId,
+      ]);
+      return { resultado: 'OK', ...gravado };
+    }).catch(tratarVersaoRecusada);
+  },
+
+  /**
+   * Resgate pelo herdeiro, numa transação só:
+   *   1. bane a chave do dono (KILL_SWITCH_HERDEIRO)
+   *   2. vincula o dispositivo do herdeiro
+   *   3. leva o cofre a RECUPERACAO_HARDWARE
+   *   4. CONSOME a CCH (uso único)
+   */
+  async resgatar(params: {
+    userId: string;
+    hashHerdeiroVerificado: string;
+    publicKey: string;
+  }): Promise<ResultadoResgate> {
+    try {
+      return await withTransaction(async (tx): Promise<ResultadoResgate> => {
+        const conta = await travarConta(tx, params.userId);
+        if (!conta) return { resultado: 'SEM_CONTA' };
+
+        if (!conta.hash_cont_herdeiro || conta.hash_cont_herdeiro !== params.hashHerdeiroVerificado) {
+          return { resultado: 'HERANCA_INDISPONIVEL' };
+        }
+        if (!estaEm(conta.estado_cofre, ESTADOS_RESGATE)) return { resultado: 'ESTADO' };
+        // O dispositivo do herdeiro não pode ser o mesmo que está sendo revogado
+        if (params.publicKey === conta.public_key_ed25519) return { resultado: 'CHAVE_EM_USO' };
+
+        const rev = await tx.query('SELECT 1 FROM chaves_revogadas WHERE public_key = ? LIMIT 1', [
+          params.publicKey,
+        ]);
+        if (rev.length > 0) return { resultado: 'CHAVE_REVOGADA' };
+
+        if (conta.public_key_ed25519) {
+          await tx.execute(
+            `INSERT INTO chaves_revogadas (id, public_key, user_id, motivo, revogada_em)
+             VALUES (?, ?, ?, 'KILL_SWITCH_HERDEIRO', ?)`,
+            [crypto.randomUUID(), conta.public_key_ed25519, params.userId, new Date()]
+          );
+        }
+        await tx.execute(
+          `UPDATE users
+             SET public_key_ed25519 = ?, hardware_uuid = ?,
+                 estado_cofre = 'RECUPERACAO_HARDWARE', hash_cont_herdeiro = NULL
+           WHERE id = ?`,
+          [params.publicKey, hardwareUuidDe(params.publicKey), params.userId]
+        );
+        return {
+          resultado: 'OK',
+          conta: { id: params.userId, status: 'RECUPERACAO_HARDWARE', public_key: params.publicKey },
+        };
+      });
+    } catch (err) {
+      // Chave já vinculada a OUTRA conta (RN01), pega pelo UNIQUE do banco
+      if (isDuplicateError(err)) return { resultado: 'CHAVE_EM_USO' };
+      throw err;
+    }
+  },
 };
+
+// ------------------------------------------------------------
+// A versão recusada precisa DESFAZER tudo (inclusive o que já foi
+// escrito antes na transação). Lançamos este erro para o
+// withTransaction dar ROLLBACK e convertemos em { resultado: 'VERSAO' }.
+// ------------------------------------------------------------
+class VersaoRecusada extends Error {
+  constructor() {
+    super('version_counter recusado');
+    this.name = 'VersaoRecusada';
+  }
+}
+
+function tratarVersaoRecusada(err: unknown): ResultadoGravacao {
+  if (err instanceof VersaoRecusada) return { resultado: 'VERSAO' };
+  throw err;
+}

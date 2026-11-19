@@ -1,15 +1,52 @@
 // server/src/routes/vault.routes.ts
+// ============================================================
+// Rotas do COFRE — todas em /api/vault/...
+//
+// Regra de ordem: TOKEN primeiro, LIMITADOR depois. Assim só quem
+// já tem login consome tentativas de prova (ninguém de fora esgota
+// o limite de um usuário legítimo). A única rota pública é o resgate
+// da herança, que tem o limitador mais apertado.
+// ============================================================
 import { Router } from 'express';
 import { VaultController } from '../controllers/VaultController.js';
+import { BackupController } from '../controllers/BackupController.js';
+import { ContingencyController } from '../controllers/ContingencyController.js';
+import { InheritanceController } from '../controllers/InheritanceController.js';
 import { exigirEscopo } from '../middlewares/vaultAuth.js';
+import {
+  limitarContingencia,
+  limitarHeranca,
+  limitarOperacaoConta,
+  limitarResgate,
+  limitarRotacao,
+} from '../middlewares/rateLimit.js';
 
 const router = Router();
+const hardware = exigirEscopo(['hardware']);
+const site = exigirEscopo(['admin_web']);
 
-// Conta do cofre (site ou dispositivo)
+// ============ CONTA (Parte 3) ============
 router.get('/account', exigirEscopo(['admin_web', 'hardware']), VaultController.account);
 
-// Parte 4 → PUT /backup, GET /backup, GET /backup/metadata
-// Parte 5 → recovery/owner, recovery/complete, kill-switch, recovery/hardware, rotate-ccp
-// Parte 6 → inheritance/enable, inheritance/disable, inheritance/claim
+// ============ BACKUP (Parte 4) — só o dispositivo ============
+router.put('/backup', hardware, BackupController.enviar);
+router.get('/backup', hardware, BackupController.baixar);
+router.get('/backup/metadata', hardware, BackupController.metadados);
+
+// ============ CONTINGÊNCIA (Parte 5) ============
+// Esqueci a senha mestre: o dono PRECISA estar com o dispositivo
+router.post('/recovery/owner', hardware, limitarContingencia, ContingencyController.recoveryOwner);
+router.post('/recovery/complete', hardware, limitarOperacaoConta, ContingencyController.recoveryComplete);
+// Perdi o dispositivo: login do site + prova da CCP
+router.post('/kill-switch', site, limitarContingencia, ContingencyController.killSwitch);
+router.post('/recovery/hardware', site, limitarContingencia, ContingencyController.recoveryHardware);
+// Trocar a CCP: dispositivo + prova atual
+router.post('/rotate-ccp', hardware, limitarRotacao, ContingencyController.rotateCcp);
+
+// ============ HERANÇA (Parte 6) ============
+router.post('/inheritance/enable', hardware, limitarHeranca, InheritanceController.enable);
+router.post('/inheritance/disable', hardware, limitarHeranca, InheritanceController.disable);
+// Herdeiro: PÚBLICO (sem conta no site). A prova da CCH é a autenticação.
+router.post('/inheritance/claim', limitarResgate, InheritanceController.claim);
 
 export default router;
