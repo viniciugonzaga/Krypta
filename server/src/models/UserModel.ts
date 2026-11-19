@@ -1,4 +1,6 @@
+// server/src/models/UserModel.ts
 import { query } from '../config/database.js';
+import type { EstadoCofre } from '../config/estados.js';
 
 // Agora só existem dois planos: Free e Pro.
 export type UserPlan = 'free' | 'pro';
@@ -20,6 +22,7 @@ export interface UserRow {
   email: string;
   password_hash: string;
   plan: UserPlan;
+  /** Status da conta NO SITE (login no portal) */
   status: 'ATIVA' | 'SUSPENSA' | 'REVOGADA' | 'PENDENTE_VERIFICACAO';
   role: 'user' | 'admin';
   avatar_url: string | null;
@@ -28,8 +31,18 @@ export interface UserRow {
   last_login_at: Date | null;
   login_attempts: number;
   locked_until: Date | null;
+  /** Identificador legível do dispositivo, derivado da chave real no pareamento */
   hardware_uuid: string | null;
+  /** Chave pública Ed25519 REAL do ESP32 (base64, 44 caracteres). Null = sem dispositivo */
   public_key_ed25519: string | null;
+  /** Estado do COFRE / dispositivo (separado do status do site) */
+  estado_cofre: EstadoCofre;
+  /** bcrypt(pepper(prova da CCP)) — nunca sai do servidor */
+  hash_cont_dono: string | null;
+  /** bcrypt(pepper(prova da CCH)) — null = herança desativada */
+  hash_cont_herdeiro: string | null;
+  /** Última atividade do dispositivo (renova o prazo de 365 dias) */
+  ultimo_sincronismo: Date;
   recovery_code: string | null;
   recovery_code_expires_at: Date | null;
 }
@@ -40,6 +53,22 @@ function normalizeRow(row: UserRow | undefined): UserRow | null {
   return { ...row, plan: normalizePlan(row.plan) };
 }
 
+// Colunas que o update() aceita (evita SQL com nome de coluna vindo de fora)
+const UPDATABLE_COLUMNS = new Set<keyof UserRow>([
+  'name',
+  'email',
+  'password_hash',
+  'plan',
+  'status',
+  'role',
+  'avatar_url',
+  'last_login_at',
+  'login_attempts',
+  'locked_until',
+  'recovery_code',
+  'recovery_code_expires_at',
+]);
+
 export const UserModel = {
   async findById(id: string): Promise<UserRow | null> {
     const rows = await query<UserRow>('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
@@ -47,7 +76,9 @@ export const UserModel = {
   },
 
   async findByEmail(email: string): Promise<UserRow | null> {
-    const rows = await query<UserRow>('SELECT * FROM users WHERE email = ? LIMIT 1', [email.toLowerCase()]);
+    const rows = await query<UserRow>('SELECT * FROM users WHERE email = ? LIMIT 1', [
+      String(email ?? '').toLowerCase(),
+    ]);
     return normalizeRow(rows[0]);
   },
 
@@ -59,15 +90,13 @@ export const UserModel = {
     plan?: UserPlan;
     status?: UserRow['status'];
     role?: UserRow['role'];
-    hardware_uuid?: string | null;
-    public_key_ed25519?: string | null;
   }): Promise<UserRow> {
+    // A conta nasce SEM dispositivo: estado_cofre = PENDENTE_PAREAMENTO (default do banco).
+    // A chave pública só entra no pareamento real (POST /api/hardware/pair).
     await query(
       `INSERT INTO users
-        (id, name, email, password_hash, plan, status, role,
-         login_attempts, locked_until,
-         hardware_uuid, public_key_ed25519)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, name, email, password_hash, plan, status, role, login_attempts, locked_until)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user.id,
         user.name,
@@ -78,8 +107,6 @@ export const UserModel = {
         user.role ?? 'user',
         0,
         null,
-        user.hardware_uuid ?? null,
-        user.public_key_ed25519 ?? null,
       ]
     );
     const created = await this.findById(user.id);
@@ -87,12 +114,18 @@ export const UserModel = {
     return created;
   },
 
+  /**
+   * Atualiza dados da conta do SITE.
+   * As colunas do cofre (chave, estado_cofre, provas) NÃO passam por aqui:
+   * elas só mudam pelo VaultModel, com as regras da matriz de estados.
+   */
   async update(id: string, patch: Partial<UserRow>): Promise<UserRow | null> {
     const fields: string[] = [];
     const values: any[] = [];
 
     for (const [key, value] of Object.entries(patch)) {
-      fields.push(`${key} = ?`);
+      if (!UPDATABLE_COLUMNS.has(key as keyof UserRow)) continue;
+      fields.push(`\`${key}\` = ?`);
       values.push(key === 'plan' ? normalizePlan(value as string) : value);
     }
 

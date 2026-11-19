@@ -1,5 +1,7 @@
+// server/src/middlewares/auth.ts
+// Autenticação do PORTAL (site): token admin_web.
 import type { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken } from '../utils/token.js';
+import { verifyAnyToken, scopeOf } from '../utils/token.js';
 import { ApiError } from '../utils/ApiError.js';
 import { UserModel, type UserRow } from '../models/UserModel.js';
 import { SessionModel } from '../models/SessionModel.js';
@@ -25,14 +27,19 @@ export async function authMiddleware(
     const token = header.slice(7);
     let payload;
     try {
-      payload = verifyAccessToken(token);
+      payload = verifyAnyToken(token);
     } catch (err) {
       const expired = err instanceof Error && err.name === 'TokenExpiredError';
       throw new ApiError(401, expired ? 'Token expirado. Renove sua sessão.' : 'Token inválido.');
     }
 
+    // Token do DISPOSITIVO não abre o portal (e vice-versa)
+    if (scopeOf(payload) !== 'admin_web') {
+      throw new ApiError(403, 'Escopo do token não permitido para esta rota.');
+    }
+
     // Token de sessão encerrada (logout, troca de senha, renovação) não vale mais
-    if (payload.jti) {
+    if ('jti' in payload && payload.jti) {
       const session = await SessionModel.findByJti(payload.jti);
       if (session && session.status !== 'active') {
         throw new ApiError(401, 'Token revogado. Entre novamente.');

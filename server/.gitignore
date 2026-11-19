@@ -2,3 +2,5 @@ node_modules
 dist
 .env
 *.log
+# chaves do simulador de dispositivo (são como a "senha" do ESP32 de teste)
+scripts/.sim-keys.json

@@ -33,6 +33,13 @@ function serializeUser(u: any) {
     createdAt: u.created_at,
     updatedAt: u.updated_at,
     lastLoginAt: u.last_login_at,
+    // ---- Cofre / dispositivo Krypta ----
+    // (as provas da CCP/CCH NUNCA saem do servidor; só dizemos se existem)
+    estadoCofre: u.estado_cofre ?? 'PENDENTE_PAREAMENTO',
+    dispositivoPareado: !!u.public_key_ed25519,
+    hardwareUuid: u.public_key_ed25519 ? u.hardware_uuid : null,
+    herancaAtiva: !!u.hash_cont_herdeiro,
+    ultimoSincronismo: u.ultimo_sincronismo ?? null,
   };
 }
 
@@ -90,8 +97,6 @@ export const AuthController = {
         plan: 'free',
         status: 'ATIVA',
         role: 'user',
-        hardware_uuid: `ESP32-${crypto.randomBytes(4).toString('hex').toUpperCase()}`,
-        public_key_ed25519: `ed25519_${crypto.randomUUID().slice(0, 16)}`,
       });
 
       await AuditModel.log({
@@ -243,8 +248,6 @@ export const AuthController = {
           plan: 'free',
           status: 'ATIVA',
           role: 'user',
-          hardware_uuid: `ESP32-${crypto.randomBytes(4).toString('hex').toUpperCase()}`,
-          public_key_ed25519: `ed25519_${crypto.randomUUID().slice(0, 16)}`,
         });
 
         await AuditModel.log({

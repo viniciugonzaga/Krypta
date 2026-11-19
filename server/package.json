@@ -1,22 +1,28 @@
 {
   "name": "krypta-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "seed": "tsx src/config/seed.ts"
+    "seed": "tsx src/config/seed.ts",
+    "sim": "tsx scripts/simular-dispositivo.ts",
+    "gerar-segredo": "node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.3",
+    "express-rate-limit": "^7.5.0",
+    "google-auth-library": "^9.15.1",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.24.5",
     "nodemailer": "^10.1.1",
+    "tweetnacl": "^1.0.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
