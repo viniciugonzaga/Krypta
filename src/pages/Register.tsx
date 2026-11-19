@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, ArrowRight, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { ROUNDED_FONT, GoogleIcon, GithubIcon, useAuthTheme } from '../components/auth/authShared';
+import { ROUNDED_FONT, useAuthTheme } from '../components/auth/authShared';
+import { SocialLoginButtons } from '../components/auth/SocialLoginButtons';
 
 import logoTextoClaro from '../assets/logos/Krypta_de_texto.png';
 import logoTextoEscuro from '../assets/logos/Krypta_de_texto2.png';
@@ -401,12 +402,6 @@ export function RegisterForm() {
     }
   };
 
-  const socialBtn = {
-    borderColor: divider,
-    color: isDark ? '#FFFFFF' : '#1a1a1a',
-    background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.7)',
-  };
-
   return (
     <>
       <div className="mb-6">
@@ -573,32 +568,8 @@ export function RegisterForm() {
         </motion.button>
       </form>
 
-      <div className="w-full flex items-center gap-3 mt-5 mb-4">
-        <div className="h-[1px] flex-1" style={{ background: divider }} />
-        <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: mutedText }}>
-          ou continue com
-        </span>
-        <div className="h-[1px] flex-1" style={{ background: divider }} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          className="py-2.5 rounded-xl flex items-center justify-center gap-2 border text-[12px] font-medium transition-colors hover:bg-white/5"
-          style={socialBtn}
-        >
-          <GoogleIcon size={16} />
-          Continuar com Google
-        </button>
-        <button
-          type="button"
-          className="py-2.5 rounded-xl flex items-center justify-center gap-2 border text-[12px] font-medium transition-colors hover:bg-white/5"
-          style={socialBtn}
-        >
-          <GithubIcon size={16} />
-          Continuar com GitHub
-        </button>
-      </div>
+      {/* Cadastro social: oculto até configurar as chaves (src/config/socialAuth.ts) */}
+      <SocialLoginButtons variant="full" onError={setError} onLoadingChange={setLoading} />
 
       <p className="text-xs mt-5 text-center" style={{ color: mutedText }}>
         Já tem uma conta?{' '}

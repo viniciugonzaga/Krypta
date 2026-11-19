@@ -19,7 +19,6 @@ import {
   LogOut,
   Sparkles,
   Settings,
-  HelpCircle,
   Moon,
   Sun,
   Menu,
@@ -27,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getPlanLabel } from '../../utils/plan';
 
 import logoBranco from '../../assets/logos/Krypta_Nav_Branco.png';
 import logoPreto from '../../assets/logos/Krypta_Nav_Preto.png';
@@ -41,17 +41,17 @@ interface NavItem {
 const baseNavItems: NavItem[] = [
   { id: 'inicio', label: 'Início', path: '/', icon: Home },
   { id: 'servicos', label: 'Serviços', path: '/services', icon: Briefcase },
-  { id: 'produtos', label: 'Produtos', path: '/blogs', icon: BookOpen },
+  { id: 'produtos', label: 'Produtos', path: '/products', icon: BookOpen },
   { id: 'contatos', label: 'Contatos', path: '/contact', icon: Mail },
 ];
 
 const kryptaNavItem: NavItem = { id: 'krypta', label: 'Krypta', path: '#', icon: Info };
 
+// Menu de perfil: Perfil, Planos, Configurações e Sair (igual à referência)
 const profileMenu = [
   { id: 'perfil', label: 'Perfil', path: '/profile', icon: User },
   { id: 'planos', label: 'Planos', path: '/plans', icon: Sparkles },
   { id: 'config', label: 'Configurações', path: '/settings', icon: Settings },
-  { id: 'ajuda', label: 'Ajuda', path: '/contact', icon: HelpCircle },
 ];
 
 const PURPLE = '#8d51ff';
@@ -311,13 +311,9 @@ export function Navbar() {
   }, [isMobileMenuOpen]);
 
   const logoSrc = isDark ? logoBranco : logoPreto;
-  
-  const planRaw = (user as any)?.plan;
-  const planLabel = planRaw
-    ? planRaw === 'free'
-      ? 'Gratuito'
-      : planRaw.toUpperCase()
-    : '';
+
+  // Só existem Free e Pro (planos antigos aparecem como Pro)
+  const planLabel = user ? getPlanLabel((user as any)?.plan) : '';
 
   const textMain = isDark ? '#FFFFFF' : '#1a1a1a';
   const textMuted = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(26,26,26,0.6)';
@@ -325,8 +321,8 @@ export function Navbar() {
   const borderSoft = isDark ? 'rgba(141,81,255,0.2)' : 'rgba(81,0,189,0.1)';
 
   // Adiciona o item Krypta dinamicamente se o usuário estiver logado
-  const currentNavItems = user 
-    ? [...baseNavItems, kryptaNavItem] 
+  const currentNavItems = user
+    ? [...baseNavItems, kryptaNavItem]
     : baseNavItems;
 
   const handleSignOut = () => {
@@ -517,7 +513,7 @@ export function Navbar() {
                         className="absolute right-0 top-full pt-3 z-50"
                       >
                         <div
-                          className="relative w-52 rounded-xl p-1.5 backdrop-blur-2xl"
+                          className="relative w-44 rounded-xl p-1.5 backdrop-blur-2xl"
                           style={{
                             background: isDark
                               ? 'linear-gradient(160deg, rgba(10,0,20,0.98) 0%, rgba(22,6,48,0.97) 100%)'
@@ -535,28 +531,34 @@ export function Navbar() {
                             }}
                           />
 
-                          {profileMenu.map((item) => (
-                            <motion.div key={item.id} variants={dropdownItemVariants}>
-                              <Link
-                                to={item.path}
-                                className="group relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all duration-200 hover:bg-[rgba(141,81,255,0.14)] hover:pl-4"
-                                style={{ color: textMain }}
-                              >
-                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-0 rounded-full bg-[#8d51ff] transition-all duration-200 group-hover:h-4" />
-                                <item.icon
-                                  className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110"
-                                  style={{ color: accent }}
-                                />
-                                <span>{item.label}</span>
-                              </Link>
-                            </motion.div>
-                          ))}
+                          {profileMenu.map((item) => {
+                            const active = isPathActive(item.path, location.pathname);
+                            return (
+                              <motion.div key={item.id} variants={dropdownItemVariants}>
+                                <Link
+                                  to={item.path}
+                                  className="group relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] transition-all duration-200 hover:bg-[rgba(141,81,255,0.14)] hover:pl-4"
+                                  style={{
+                                    color: active ? accent : textMain,
+                                    background: active ? 'rgba(141,81,255,0.12)' : undefined,
+                                  }}
+                                >
+                                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-0 rounded-full bg-[#8d51ff] transition-all duration-200 group-hover:h-4" />
+                                  <item.icon
+                                    className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+                                    style={{ color: accent }}
+                                  />
+                                  <span>{item.label}</span>
+                                </Link>
+                              </motion.div>
+                            );
+                          })}
 
                           <motion.div variants={dropdownItemVariants}>
                             <div className="h-px mx-2 my-1" style={{ background: borderSoft }} />
                             <button
                               onClick={handleSignOut}
-                              className="group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all duration-200 hover:bg-red-500/10 hover:pl-4"
+                              className="group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] transition-all duration-200 hover:bg-red-500/10 hover:pl-4"
                               style={{ color: textMain }}
                             >
                               <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-0 rounded-full bg-red-400 transition-all duration-200 group-hover:h-4" />

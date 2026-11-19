@@ -6,6 +6,7 @@ import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { getPlanFullName } from '../utils/plan';
 
 import spriteRoboAcenando from '../assets/sprites/sprite_robo_acenando.png';
 
@@ -249,7 +250,7 @@ export function Profile() {
                 {user.name}
               </h2>
               <p className="text-sm tracking-wide uppercase" style={{ color: muted }}>
-                {user.plan}
+                {getPlanFullName(user.plan)}
               </p>
 
               {/* Avatar com anéis girando */}

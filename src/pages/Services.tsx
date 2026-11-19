@@ -1,11 +1,12 @@
-import { motion, AnimatePresence, useInView } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
+import { normalizePlan } from '../utils/plan';
 import {
   Check,
   X,
@@ -813,7 +814,7 @@ function KryptaHubSection({ isDark }: { isDark: boolean }) {
 }
 
 // ============================================================
-// SESSÃO 6 — PLANOS (CARROSSEL)
+// SESSÃO 6 — PLANOS (FREE + PRO)
 // ============================================================
 interface PlanData {
   name: string;
@@ -824,7 +825,7 @@ interface PlanData {
   description: string;
   features: string[];
   cta: string;
-  tier: 'free' | 'essential' | 'advanced' | 'max' | 'custom';
+  tier: 'free' | 'pro';
 }
 
 const PLANS_MONTHLY: PlanData[] = [
@@ -848,78 +849,37 @@ const PLANS_MONTHLY: PlanData[] = [
     cta: 'Experimente Gratuitamente',
   },
   {
-    tier: 'essential',
-    name: 'Krypta Essencial',
-    subtitle: 'Proteção essencial, com ou sem hardware (grátis para quem o possui)',
-    price: 'R$10',
+    tier: 'pro',
+    name: 'Krypta Pro',
+    subtitle: 'Todos os recursos do Krypta em um só plano',
+    price: 'R$25',
     period: 'por mês',
     description:
-      'Proteção essencial para suas credenciais, com autenticação simples e criptografia de ponta, mantendo praticidade e facilidade de acesso.',
+      'O nível máximo de proteção do Krypta, reunindo autenticação múltipla, chave física, controle de acesso, recursos de emergência e total personalização.',
     features: [
       'Cofre de credenciais',
       'Senha Mestre',
       'Criptografia AES-256-GCM',
       'Gerenciamento de credenciais',
       'Aplicativo Krypta',
-      'Acesso pelo software (opcional caso possua o Krypta)',
-    ],
-    cta: 'Assine Agora',
-  },
-  {
-    tier: 'advanced',
-    name: 'Krypta Avançado',
-    subtitle: 'Para quem precisa de mais proteção',
-    price: 'R$15',
-    period: 'por mês',
-    description:
-      'Adiciona camadas extras de segurança para proteger credenciais importantes e reforçar o controle sobre sua identidade digital.',
-    features: [
-      'Tudo do Essencial',
+      'Acesso pelo software',
       'Autenticação multifator',
       'Chave de segurança física',
       'Alertas de acesso',
       'Proteção reforçada para credenciais',
-    ],
-    cta: 'Assine Agora',
-  },
-  {
-    tier: 'max',
-    name: 'Krypta Máximo',
-    subtitle: 'Para quem não abre mão da segurança',
-    price: 'R$25',
-    period: 'por mês',
-    description:
-      'O nível máximo de proteção do Krypta, combinando múltiplas formas de autenticação, controle de acesso e recursos avançados de segurança.',
-    features: [
-      'Tudo do Avançado',
       'Bloqueio remoto',
       'Verificações rigorosas de acesso',
       'Recursos de emergência',
       'Herança Digital',
-    ],
-    cta: 'Assine Agora',
-  },
-  {
-    tier: 'custom',
-    name: 'Krypta Personalizado',
-    subtitle: 'Proteção do seu jeito',
-    pricePrefix: 'A partir de',
-    price: 'R$10',
-    period: 'por mês',
-    description:
-      'Configure os recursos de segurança, privacidade e autenticação de acordo com suas necessidades e preferências.',
-    features: [
-      'Escolha os métodos de autenticação',
-      'Defina os recursos de segurança',
-      'Adapte o Krypta às suas necessidades',
-      'Personalize o nível de proteção',
+      'Escolha dos métodos de autenticação',
+      'Nível de proteção personalizável',
     ],
     cta: 'Assine Agora',
   },
 ];
 
 const PLANS_ANNUAL: PlanData[] = PLANS_MONTHLY.map((p, i) => {
-  const annualPrices = ['R$0', 'R$90', 'R$135', 'R$225', 'R$90'];
+  const annualPrices = ['R$0', 'R$225'];
   return { ...p, price: annualPrices[i], period: 'por ano' };
 });
 
@@ -955,7 +915,8 @@ function PlanCard({
   const textColor = isDark ? 'rgba(255,255,255,0.72)' : 'rgba(26,26,26,0.78)';
 
   // Se NÃO logado, força "Faça seu cadastro"
-  const isPlanActive = user?.plan === plan.tier;
+  // Planos antigos (essential, advanced, max, custom) contam como Pro
+  const isPlanActive = !!user && normalizePlan(user.plan) === plan.tier;
   const buttonLabel = !user
     ? 'Faça seu cadastro'
     : isPlanActive
@@ -1059,7 +1020,11 @@ function PlanCard({
         {plan.description}
       </p>
 
-      <ul className="space-y-2.5 flex-1 mb-5">
+      <ul
+        className={`flex-1 mb-5 gap-y-2.5 gap-x-4 ${
+          plan.features.length > 8 ? 'grid grid-cols-1 sm:grid-cols-2 content-start' : 'flex flex-col'
+        }`}
+      >
         {plan.features.map((f, i) => (
           <li
             key={i}
@@ -1099,124 +1064,6 @@ function PlanCard({
   );
 }
 
-function CenterBurstEffect({ trigger }: { trigger: number }) {
-  const [wires, setWires] = useState<{ d: string; delay: number; duration: number }[]>([]);
-  const [phase, setPhase] = useState(0);
-
-  useEffect(() => {
-    if (trigger === 0) return;
-
-    const cx = 576;
-    const cy = 280;
-    const halfW = 160;
-    const halfH = 250;
-
-    const count = 6 + Math.floor(Math.random() * 5);
-    const generated: { d: string; delay: number; duration: number }[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const edge = Math.floor(Math.random() * 4);
-      let sx = cx;
-      let sy = cy;
-      let dxMain = 0;
-      let dyMain = 0;
-
-      if (edge === 0) {
-        sx = cx + (Math.random() - 0.5) * halfW * 1.7;
-        sy = cy - halfH;
-        dxMain = (Math.random() - 0.5) * 60;
-        dyMain = -(45 + Math.random() * 45);
-      } else if (edge === 1) {
-        sx = cx + halfW;
-        sy = cy + (Math.random() - 0.5) * halfH * 1.7;
-        dxMain = 45 + Math.random() * 45;
-        dyMain = (Math.random() - 0.5) * 60;
-      } else if (edge === 2) {
-        sx = cx + (Math.random() - 0.5) * halfW * 1.7;
-        sy = cy + halfH;
-        dxMain = (Math.random() - 0.5) * 60;
-        dyMain = 45 + Math.random() * 45;
-      } else {
-        sx = cx - halfW;
-        sy = cy + (Math.random() - 0.5) * halfH * 1.7;
-        dxMain = -(45 + Math.random() * 45);
-        dyMain = (Math.random() - 0.5) * 60;
-      }
-
-      const pts: { x: number; y: number }[] = [{ x: sx, y: sy }];
-      let x = sx;
-      let y = sy;
-      const segs = 3 + Math.floor(Math.random() * 3);
-
-      for (let j = 0; j < segs; j++) {
-        if (j % 2 === 0) {
-          x += dxMain * (0.5 + Math.random() * 0.5);
-          y += (Math.random() - 0.5) * 12;
-        } else {
-          x += (Math.random() - 0.5) * 22;
-          y += dyMain * (0.5 + Math.random() * 0.5);
-        }
-        pts.push({ x, y });
-      }
-
-      generated.push({
-        d:
-          'M ' +
-          pts.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L '),
-        delay: Math.random() * 0.12,
-        duration: 0.4 + Math.random() * 0.35,
-      });
-    }
-
-    setWires(generated);
-    setPhase(trigger);
-  }, [trigger]);
-
-  if (phase === 0) return null;
-
-  return (
-    <svg
-      className="absolute inset-0 w-full h-full pointer-events-none"
-      viewBox="0 0 1152 560"
-      preserveAspectRatio="xMidYMid meet"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ zIndex: 0 }}
-    >
-      <defs>
-        <filter id="planBurstGlow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="2.5" result="b" />
-          <feMerge>
-            <feMergeNode in="b" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      {wires.map((w, i) => (
-        <motion.path
-          key={`${phase}-${i}`}
-          d={w.d}
-          stroke={i % 2 === 0 ? PURPLE_BRIGHT : PURPLE}
-          strokeWidth={1.4}
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          filter="url(#planBurstGlow)"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: [0, 1, 0.85, 0] }}
-          transition={{
-            pathLength: { duration: w.duration, ease: 'easeOut', delay: w.delay },
-            opacity: {
-              duration: w.duration + 0.25,
-              delay: w.delay,
-              times: [0, 0.2, 0.7, 1],
-            },
-          }}
-        />
-      ))}
-    </svg>
-  );
-}
-
 function PlansSection({
   isDark,
   onSelectPlan,
@@ -1227,101 +1074,18 @@ function PlansSection({
   initialTier?: string;
 }) {
   const [isAnnual, setIsAnnual] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [transitionKey, setTransitionKey] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const isPausedRef = useRef(false);
-  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sectionRef = useRef<HTMLElement>(null);
-  const inView = useInView(sectionRef, { amount: 0.25 });
 
   const plans = isAnnual ? PLANS_ANNUAL : PLANS_MONTHLY;
 
-  useEffect(() => {
-    isPausedRef.current = isPaused;
-  }, [isPaused]);
-
-  useEffect(() => {
-    setTransitionKey((k) => k + 1);
-  }, [activeIndex]);
-
-  useEffect(() => {
-    if (!inView) {
-      setIsPaused(false);
-      if (resumeTimerRef.current) {
-        clearTimeout(resumeTimerRef.current);
-        resumeTimerRef.current = null;
-      }
-    }
-  }, [inView]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (isPausedRef.current) return;
-      setActiveIndex((prev) => (prev + 1) % plans.length);
-    }, 3500);
-    return () => clearInterval(id);
-  }, [plans.length]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [isAnnual]);
-
-  // Adicionado o useEffect para buscar o plano inicial (após o de isAnnual)
-  useEffect(() => {
-    if (!initialTier) return;
-    const i = plans.findIndex((p) => p.tier === initialTier);
-    if (i >= 0) setActiveIndex(i);
-  }, [initialTier]);
-
-  useEffect(() => {
-    return () => {
-      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-    };
-  }, []);
-
-  const scheduleResume = (ms = 5000) => {
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-    resumeTimerRef.current = setTimeout(() => {
-      setIsPaused(false);
-    }, ms);
-  };
-
-  const pause = () => {
-    setIsPaused(true);
-    if (resumeTimerRef.current) {
-      clearTimeout(resumeTimerRef.current);
-      resumeTimerRef.current = null;
-    }
-  };
-
-  const handleMouseEnter = () => pause();
-  const handleMouseLeave = () => scheduleResume(5000);
-
-  const handleCardClick = (idx: number) => {
-    if (idx === activeIndex) return;
-    pause();
-    scheduleResume(6000);
-    setActiveIndex(idx);
-  };
-
-  const goToDot = (idx: number) => {
-    if (idx === activeIndex) return;
-    pause();
-    scheduleResume(6000);
-    setActiveIndex(idx);
-  };
+  // Plano em destaque: o que veio da página de Planos, senão o Pro
+  const focusedTier = initialTier ? normalizePlan(initialTier) : 'pro';
 
   const purple = isDark ? PURPLE : '#5100BD';
   const purpleBright = isDark ? PURPLE_BRIGHT : '#6131C9';
 
-  const SLOT_SPACING = 340;
-  const CARD_WIDTH = 320;
-
   return (
     <section
       id="planos"
-      ref={sectionRef}
       className="relative w-full pt-10 pb-24 px-6 md:px-12 lg:px-20 z-10"
     >
       <div className="max-w-6xl mx-auto">
@@ -1347,9 +1111,8 @@ function PlansSection({
             fontFamily: ROUNDED_FONT,
           }}
         >
-          Cada pessoa possui necessidades diferentes. Por isso, o Krypta oferece
-          planos pensados para diferentes níveis de proteção, armazenamento e
-          recursos.
+          Comece gratuitamente ou tenha acesso a todos os recursos de segurança,
+          autenticação e proteção do Krypta com o plano Pro.
         </motion.p>
 
         <motion.div
@@ -1428,85 +1191,40 @@ function PlansSection({
           </div>
         </motion.div>
 
-        <div
-          className="relative w-full"
-          style={{ height: 560 }}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <CenterBurstEffect trigger={transitionKey} />
-
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ zIndex: 10 }}
-          >
-            <div className="relative" style={{ width: '100%', height: '100%' }}>
-              {plans.map((plan, idx) => {
-                let offset = idx - activeIndex;
-                const half = Math.floor(plans.length / 2);
-                if (offset > half) offset -= plans.length;
-                if (offset < -half) offset += plans.length;
-
-                const isVisible = Math.abs(offset) <= 1;
-                const x = offset * SLOT_SPACING;
-                const isActive = offset === 0;
-
-                return (
-                  <motion.div
-                    key={plan.tier}
-                    className="absolute top-1/2 left-1/2"
+        {/* Free + Pro lado a lado */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto items-stretch">
+          {plans.map((plan, idx) => {
+            const isActive = plan.tier === focusedTier;
+            return (
+              <motion.div
+                key={plan.tier}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.1 + idx * 0.12 }}
+                whileHover={{ y: -6 }}
+                className="relative"
+              >
+                {plan.tier === 'pro' && (
+                  <div
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider text-white whitespace-nowrap"
                     style={{
-                      width: CARD_WIDTH,
-                      height: 500,
-                      marginLeft: -CARD_WIDTH / 2,
-                      marginTop: -250,
-                      cursor: isActive ? 'default' : 'pointer',
-                    }}
-                    animate={{
-                      x,
-                      opacity: isVisible ? (isActive ? 1 : 0.35) : 0,
-                      scale: isActive ? 1 : 0.88,
-                      zIndex: isActive ? 20 : 10,
-                    }}
-                    transition={{ type: 'spring', stiffness: 220, damping: 28 }}
-                    onClick={() => {
-                      if (!isActive) handleCardClick(idx);
+                      background: 'linear-gradient(90deg, #5100BD 0%, #8d51ff 100%)',
+                      boxShadow: `0 0 18px ${purple}99`,
+                      fontFamily: ROUNDED_FONT,
                     }}
                   >
-                    <PlanCard
-                      plan={plan}
-                      isDark={isDark}
-                      isActive={isActive}
-                      isAnnual={isAnnual}
-                      onSelect={onSelectPlan}
-                    />
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-center items-center gap-2.5 mt-8">
-          {plans.map((_, idx) => {
-            const isActive = idx === activeIndex;
-            return (
-              <button
-                key={idx}
-                onClick={() => goToDot(idx)}
-                aria-label={`Ir para plano ${idx + 1}`}
-                className="rounded-full transition-all duration-300"
-                style={{
-                  width: isActive ? 28 : 8,
-                  height: 8,
-                  background: isActive
-                    ? `linear-gradient(90deg, #5100BD 0%, ${purpleBright} 100%)`
-                    : isDark
-                      ? 'rgba(141,81,255,0.3)'
-                      : 'rgba(81,0,189,0.2)',
-                  boxShadow: isActive ? `0 0 12px ${purpleBright}88` : 'none',
-                }}
-              />
+                    TODOS OS RECURSOS
+                  </div>
+                )}
+                <PlanCard
+                  plan={plan}
+                  isDark={isDark}
+                  isActive={isActive}
+                  isAnnual={isAnnual}
+                  onSelect={onSelectPlan}
+                />
+              </motion.div>
             );
           })}
         </div>
@@ -1543,16 +1261,21 @@ export function Services() {
       return;
     }
 
+    const currentPlan = normalizePlan(user.plan);
+
     // Se for o plano Free
     if (plan.tier === 'free') {
-      // Usuário já tem um plano pago → abre modal
-      if (user.plan && user.plan !== 'free') {
+      // Usuário já tem o Pro → abre modal
+      if (currentPlan === 'pro') {
         setIsModalOpen(true);
         return;
       }
       // Usuário já está no Free → não faz nada
-      if (!user.plan || user.plan === 'free') return;
+      return;
     }
+
+    // Já é Pro → nada a fazer
+    if (currentPlan === plan.tier) return;
 
     // Navega para a tela de checkout com o plano escolhido
     navigate('/checkout', { state: { plan, isAnnual } });

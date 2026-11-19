@@ -44,6 +44,15 @@ export const SessionModel = {
     return rows[0] ?? null;
   },
 
+  // Sessão dona de um access token (pelo "jti" do JWT)
+  async findByJti(jti: string): Promise<SessionRow | null> {
+    const rows = await query<SessionRow>(
+      'SELECT * FROM sessions WHERE access_token_jti = ? LIMIT 1',
+      [jti]
+    );
+    return rows[0] ?? null;
+  },
+
   async revoke(refreshToken: string): Promise<void> {
     await query(
       "UPDATE sessions SET status = 'revoked' WHERE refresh_token = ?",

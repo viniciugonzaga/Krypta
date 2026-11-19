@@ -5,6 +5,9 @@ import { ApiError } from '../utils/ApiError.js';
 import type { AuthedRequest } from '../middlewares/auth.js';
 import { serializeUser } from './AuthController.js';
 
+// Planos disponíveis: apenas Free e Pro.
+// O Krypta Pro reúne todas as vantagens dos antigos Essencial, Avançado,
+// Máximo e Personalizado.
 const PLANS: Array<{
   tier: UserPlan;
   name: string;
@@ -22,44 +25,42 @@ const PLANS: Array<{
     priceLabel: 'R$0',
     period: 'por mês',
     description: 'Para quem quer começar a proteger suas credenciais sem precisar do dispositivo físico.',
-    features: ['Cofre digital de credenciais', 'Senha Mestre', 'Criptografia', 'Gerenciamento básico de senhas', 'Aplicativo Krypta', 'Acesso pelo software', 'Capacidade limitada de armazenamento'],
+    features: [
+      'Cofre digital de credenciais',
+      'Senha Mestre',
+      'Criptografia',
+      'Gerenciamento básico de senhas',
+      'Aplicativo Krypta',
+      'Acesso pelo software',
+      'Capacidade limitada de armazenamento',
+    ],
   },
   {
-    tier: 'essential',
-    name: 'Krypta Essencial',
-    price: 10,
-    priceLabel: 'R$10',
-    period: 'por mês',
-    description: 'Proteção essencial para suas credenciais, com autenticação simples e criptografia de ponta.',
-    features: ['Cofre de credenciais', 'Senha Mestre', 'Criptografia AES-256-GCM', 'Gerenciamento de credenciais', 'Aplicativo Krypta', 'Acesso pelo software'],
-    highlighted: true,
-  },
-  {
-    tier: 'advanced',
-    name: 'Krypta Avançado',
-    price: 15,
-    priceLabel: 'R$15',
-    period: 'por mês',
-    description: 'Adiciona camadas extras de segurança para proteger credenciais importantes.',
-    features: ['Tudo do Essencial', 'Autenticação multifator', 'Chave de segurança física', 'Alertas de acesso', 'Proteção reforçada para credenciais'],
-  },
-  {
-    tier: 'max',
-    name: 'Krypta Máximo',
+    tier: 'pro',
+    name: 'Krypta Pro',
     price: 25,
     priceLabel: 'R$25',
     period: 'por mês',
-    description: 'O nível máximo de proteção, com múltiplas formas de autenticação e recursos avançados.',
-    features: ['Tudo do Avançado', 'Bloqueio remoto', 'Verificações rigorosas de acesso', 'Recursos de emergência', 'Herança Digital'],
-  },
-  {
-    tier: 'custom',
-    name: 'Krypta Personalizado',
-    price: 10,
-    priceLabel: 'R$10',
-    period: 'por mês',
-    description: 'Configure os recursos de segurança, privacidade e autenticação conforme suas necessidades.',
-    features: ['Escolha os métodos de autenticação', 'Defina os recursos de segurança', 'Adapte o Krypta às suas necessidades', 'Personalize o nível de proteção'],
+    description: 'Todos os recursos do Krypta em um único plano: proteção máxima, autenticação múltipla e controle total.',
+    features: [
+      'Cofre de credenciais',
+      'Senha Mestre',
+      'Criptografia AES-256-GCM',
+      'Gerenciamento de credenciais',
+      'Aplicativo Krypta',
+      'Acesso pelo software',
+      'Autenticação multifator',
+      'Chave de segurança física',
+      'Alertas de acesso',
+      'Proteção reforçada para credenciais',
+      'Bloqueio remoto',
+      'Verificações rigorosas de acesso',
+      'Recursos de emergência',
+      'Herança Digital',
+      'Escolha dos métodos de autenticação',
+      'Nível de proteção personalizável',
+    ],
+    highlighted: true,
   },
 ];
 
@@ -75,12 +76,12 @@ export const PlanController = {
 
       console.log(`\n🔄 [BACKEND] Solicitando troca de plano para: ${tier} | Usuário: ${user.id}`);
 
+      // Só aceita 'free' ou 'pro'. Tiers antigos são recusados.
       const plan = PLANS.find((p) => p.tier === tier);
       if (!plan) throw new ApiError(400, 'Plano inválido.');
 
-      // Atualiza o banco de dados
       const updated = await UserModel.update(user.id, { plan: plan.tier });
-      
+
       console.log(`✅ [BACKEND] Banco de dados atualizado. Plano retornado do DB: ${updated?.plan}`);
 
       await AuditModel.log({

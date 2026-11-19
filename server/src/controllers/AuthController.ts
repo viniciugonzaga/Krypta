@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library'; // IMPORTANTE: Adicionar esta importação
 import { UserModel } from '../models/UserModel.js';
 import { SessionModel } from '../models/SessionModel.js';
@@ -39,7 +40,11 @@ async function createSession(userId: string, req: Request) {
   const { token, jti } = generateAccessToken(userId);
   const refreshToken = generateRefreshToken();
   const now = new Date();
-  const accessExpires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  // Usa a validade real do JWT (JWT_EXPIRES_IN) em vez de 24h fixas
+  const decoded = jwt.decode(token) as { exp?: number } | null;
+  const accessExpires = decoded?.exp
+    ? new Date(decoded.exp * 1000)
+    : new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const refreshExpires = new Date(
     now.getTime() + env.REFRESH_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000
   );
@@ -303,12 +308,24 @@ export const AuthController = {
       if (new Date(session.refresh_expires_at).getTime() < Date.now())
         throw new ApiError(401, 'Refresh token expirado.');
 
+      // Não renova sessão de conta removida, revogada ou suspensa
+      const user = await UserModel.findById(session.user_id);
+      if (!user) throw new ApiError(401, 'Refresh token inválido.');
+      if (user.status === 'REVOGADA') throw new ApiError(410, 'Conta revogada permanentemente.');
+      if (user.status === 'SUSPENSA') throw new ApiError(423, 'Conta suspensa. Contate o suporte.');
+
+      // Rotação: o refresh token antigo deixa de valer e um novo é emitido
       await SessionModel.revoke(refreshToken);
       const newSession = await createSession(session.user_id, req);
 
       res.json({
         success: true,
-        data: { token: newSession.token, refreshToken: newSession.refreshToken },
+        data: {
+          token: newSession.token,
+          refreshToken: newSession.refreshToken,
+          // Devolve o usuário atualizado (ex.: plano) para o front sincronizar
+          user: serializeUser(user),
+        },
       });
     } catch (err) {
       next(err);

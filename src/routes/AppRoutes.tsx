@@ -1,4 +1,4 @@
-// src/AppRoutes.tsx
+// src/routes/AppRoutes.tsx
 import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
@@ -11,17 +11,20 @@ import { useAuth } from '../contexts/AuthContext';
 
 // Páginas
 import { Welcome } from '../pages/Welcome';
-import { AuthPage } from '../pages/AuthPage'; 
+import { AuthPage } from '../pages/AuthPage';
 import { Profile } from '../pages/Profile';
 import { Vault } from '../pages/Vault';
-import { Settings } from '../pages/Settings';
+import { Settings } from '../pages/Settings'; 
 import { RecoverPassword } from '../pages/RecoverPassword';
 import { Checkout } from '../pages/Checkout';
 import { Services } from '../pages/Services';
-import { Contact } from '../pages/Contact'; 
+import { Contact } from '../pages/Contact';
 import { ErrorPage } from '../pages/ErrorPage';
 import { Suspended } from '../pages/Suspended';
 import { Plans } from '../pages/Plans';
+// NOVA PÁGINA DE PRODUTOS IMPORTADA AQUI
+import { Products } from '../pages/Products';
+import { AuthCallback } from '../pages/AuthCallback';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -84,7 +87,13 @@ export function AppRoutes() {
           <Route path="/login" element={<PageTransition variant="fade"><PublicOnlyRoute><AuthPage /></PublicOnlyRoute></PageTransition>} />
           <Route path="/register" element={<PageTransition variant="fade"><PublicOnlyRoute><AuthPage /></PublicOnlyRoute></PageTransition>} />
 
+          {/* Retorno do login social (GitHub / Apple) */}
+          <Route path="/auth/callback/:provider" element={<AuthCallback />} />
+
           <Route path="/services" element={<PageTransition variant="slide-up"><Services /></PageTransition>} />
+          
+          {/* Nova Rota de Produtos */}
+          <Route path="/products" element={<PageTransition variant="slide-up"><Products /></PageTransition>} />
 
           {/* Contatos (antigo Sobre) */}
           <Route path="/contact" element={<PageTransition variant="slide-up"><Contact /></PageTransition>} />
@@ -99,7 +108,7 @@ export function AppRoutes() {
           <Route path="/profile" element={<PageTransition><PrivateRoute><Profile /></PrivateRoute></PageTransition>} />
           <Route path="/plans" element={<PageTransition><PrivateRoute><Plans /></PrivateRoute></PageTransition>} />
           <Route path="/vault" element={<PageTransition><PrivateRoute><Vault /></PrivateRoute></PageTransition>} />
-          <Route path="/settings" element={<PageTransition><PrivateRoute><Settings /></PrivateRoute></PageTransition>} />
+          <Route path="/settings" element={<PageTransition variant="slide-up"><PrivateRoute><Settings /></PrivateRoute></PageTransition>} />
 
           {/* 404 */}
           <Route path="*" element={<PageTransition><ErrorPage code={404} /></PageTransition>} />

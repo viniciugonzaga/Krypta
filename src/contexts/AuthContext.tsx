@@ -1,13 +1,17 @@
+// src/contexts/AuthContext.tsx
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
   type ReactNode,
 } from 'react';
-import { apiRequest } from '../services/api';
+import { apiRequest, AUTH_EVENTS, STORAGE_KEYS } from '../services/api';
+import { normalizePlan } from '../utils/plan';
 
-export type UserPlan = 'free' | 'essential' | 'advanced' | 'max' | 'custom';
+// Agora só existem dois planos
+export type UserPlan = 'free' | 'pro';
 
 export interface User {
   id: string;
@@ -37,45 +41,72 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const TOKEN_KEY = 'krypta_token';
-const REFRESH_KEY = 'krypta_refresh';
-const USER_KEY = 'krypta_user';
+type AuthResponse = { user: User; token: string; refreshToken: string };
+
+/** Garante que o plano salvo (inclusive os antigos) vire 'free' ou 'pro' */
+function normalizeUser<T extends Partial<User> | null | undefined>(u: T): T {
+  if (!u) return u;
+  return { ...u, plan: normalizePlan(u.plan as string | undefined) } as T;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     try {
-      const raw = localStorage.getItem(USER_KEY);
-      return raw ? (JSON.parse(raw) as User) : null;
+      const raw = localStorage.getItem(STORAGE_KEYS.user);
+      return raw ? normalizeUser(JSON.parse(raw) as User) : null;
     } catch {
       return null;
     }
   });
-  const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem(TOKEN_KEY)
-  );
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.token));
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-    else localStorage.removeItem(USER_KEY);
+    if (user) localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    else localStorage.removeItem(STORAGE_KEYS.user);
   }, [user]);
 
   useEffect(() => {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    if (token) localStorage.setItem(STORAGE_KEYS.token, token);
+    else localStorage.removeItem(STORAGE_KEYS.token);
   }, [token]);
+
+  // ------------------------------------------------------------
+  // Sincroniza com a renovação automática feita pelo api.ts
+  // ------------------------------------------------------------
+  useEffect(() => {
+    const onRefreshed = (e: Event) => {
+      const detail = (e as CustomEvent<{ token: string; user?: User }>).detail;
+      if (detail?.token) setToken(detail.token);
+      if (detail?.user) setUser(normalizeUser(detail.user));
+    };
+    const onExpired = () => {
+      setUser(null);
+      setToken(null);
+    };
+    window.addEventListener(AUTH_EVENTS.tokenRefreshed, onRefreshed);
+    window.addEventListener(AUTH_EVENTS.sessionExpired, onExpired);
+    return () => {
+      window.removeEventListener(AUTH_EVENTS.tokenRefreshed, onRefreshed);
+      window.removeEventListener(AUTH_EVENTS.sessionExpired, onExpired);
+    };
+  }, []);
+
+  const applySession = (data: AuthResponse) => {
+    localStorage.setItem(STORAGE_KEYS.refresh, data.refreshToken);
+    setToken(data.token);
+    setUser(normalizeUser(data.user));
+  };
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const data = await apiRequest<{ user: User; token: string; refreshToken: string }>('/auth/login', {
+      const data = await apiRequest<AuthResponse>('/auth/login', {
         method: 'POST',
         body: { email, password },
         auth: false,
       });
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem(REFRESH_KEY, data.refreshToken);
+      applySession(data);
     } finally {
       setLoading(false);
     }
@@ -84,14 +115,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
-      const data = await apiRequest<{ user: User; token: string; refreshToken: string }>('/auth/register', {
+      const data = await apiRequest<AuthResponse>('/auth/register', {
         method: 'POST',
         body: { name, email, password },
         auth: false,
       });
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem(REFRESH_KEY, data.refreshToken);
+      applySession(data);
     } finally {
       setLoading(false);
     }
@@ -100,56 +129,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithSocial = async (provider: 'google' | 'github' | 'apple', socialToken: string) => {
     setLoading(true);
     try {
-      const data = await apiRequest<{ user: User; token: string; refreshToken: string }>('/auth/social', {
+      const data = await apiRequest<AuthResponse>('/auth/social', {
         method: 'POST',
         body: { provider, token: socialToken },
         auth: false,
       });
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem(REFRESH_KEY, data.refreshToken);
+      applySession(data);
     } finally {
       setLoading(false);
     }
   };
 
-  const signOut = () => {
-    const refreshToken = localStorage.getItem(REFRESH_KEY);
+  const signOut = useCallback(() => {
+    const refreshToken = localStorage.getItem(STORAGE_KEYS.refresh);
     if (refreshToken) {
       apiRequest('/auth/logout', { method: 'POST', body: { refreshToken }, auth: false }).catch(() => {});
     }
     setUser(null);
     setToken(null);
-    localStorage.removeItem(REFRESH_KEY);
-    localStorage.removeItem(USER_KEY); // Limpa o cache do usuário
-  };
+    localStorage.removeItem(STORAGE_KEYS.refresh);
+    localStorage.removeItem(STORAGE_KEYS.user);
+  }, []);
 
-  const refreshUser = async () => {
-    if (!token) return;
+  const refreshUser = useCallback(async () => {
+    if (!localStorage.getItem(STORAGE_KEYS.token) && !localStorage.getItem(STORAGE_KEYS.refresh)) return;
     try {
       const u = await apiRequest<User>('/users/me');
-      setUser(u);
-    } catch {
-      signOut();
+      setUser(normalizeUser(u));
+    } catch (err) {
+      // Só desloga se o servidor recusou a conta/sessão — não por queda de rede
+      const code = (err as { code?: number }).code;
+      if (code === 401 || code === 404 || code === 410 || code === 423) signOut();
     }
-  };
+  }, [signOut]);
+
+  // Ao abrir o site, busca o usuário atualizado (plano, status...) no servidor.
+  // Se o token tiver vencido, o api.ts renova sozinho antes.
+  useEffect(() => {
+    if (user) refreshUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const updateUser = (patch: Partial<User>) => {
-    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
+    setUser((prev) => (prev ? normalizeUser({ ...prev, ...patch }) : prev));
   };
 
   const changePlan = async (tier: string) => {
-    try {
-      const updatedUser = await apiRequest<User>('/plans/change', { 
-        method: 'POST', 
-        body: { tier } 
-      });
-      console.log('🟢 [FRONTEND] Usuário retornado pela API:', updatedUser);
-      updateUser(updatedUser); 
-    } catch (error) {
-      console.error('🔴 [FRONTEND] Erro ao trocar plano:', error);
-      throw error;
-    }
+    const updatedUser = await apiRequest<User>('/plans/change', {
+      method: 'POST',
+      body: { tier },
+    });
+    updateUser(updatedUser);
   };
 
   return (

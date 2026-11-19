@@ -1,6 +1,18 @@
 import { query } from '../config/database.js';
 
-export type UserPlan = 'free' | 'essential' | 'advanced' | 'max' | 'custom';
+// Agora só existem dois planos: Free e Pro.
+export type UserPlan = 'free' | 'pro';
+
+// Planos antigos que foram unificados no Krypta Pro.
+// Mantidos aqui só para converter registros antigos do banco.
+export const LEGACY_PAID_PLANS = ['essential', 'advanced', 'max', 'custom'] as const;
+
+export function normalizePlan(plan: string | null | undefined): UserPlan {
+  if (!plan) return 'free';
+  const p = plan.toLowerCase().trim();
+  if (p === 'pro' || (LEGACY_PAID_PLANS as readonly string[]).includes(p)) return 'pro';
+  return 'free';
+}
 
 export interface UserRow {
   id: string;
@@ -22,15 +34,21 @@ export interface UserRow {
   recovery_code_expires_at: Date | null;
 }
 
+// Garante que qualquer plano antigo vindo do banco saia como 'pro'
+function normalizeRow(row: UserRow | undefined): UserRow | null {
+  if (!row) return null;
+  return { ...row, plan: normalizePlan(row.plan) };
+}
+
 export const UserModel = {
   async findById(id: string): Promise<UserRow | null> {
     const rows = await query<UserRow>('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
-    return rows[0] ?? null;
+    return normalizeRow(rows[0]);
   },
 
   async findByEmail(email: string): Promise<UserRow | null> {
     const rows = await query<UserRow>('SELECT * FROM users WHERE email = ? LIMIT 1', [email.toLowerCase()]);
-    return rows[0] ?? null;
+    return normalizeRow(rows[0]);
   },
 
   async create(user: {
@@ -55,7 +73,7 @@ export const UserModel = {
         user.name,
         user.email.toLowerCase().trim(),
         user.password_hash,
-        user.plan ?? 'free',
+        normalizePlan(user.plan ?? 'free'),
         user.status ?? 'ATIVA',
         user.role ?? 'user',
         0,
@@ -75,7 +93,7 @@ export const UserModel = {
 
     for (const [key, value] of Object.entries(patch)) {
       fields.push(`${key} = ?`);
-      values.push(value);
+      values.push(key === 'plan' ? normalizePlan(value as string) : value);
     }
 
     if (fields.length === 0) return this.findById(id);

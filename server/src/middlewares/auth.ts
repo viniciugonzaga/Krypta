@@ -2,11 +2,15 @@ import type { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/token.js';
 import { ApiError } from '../utils/ApiError.js';
 import { UserModel, type UserRow } from '../models/UserModel.js';
+import { SessionModel } from '../models/SessionModel.js';
 
 export interface AuthedRequest extends Request {
   user?: UserRow;
 }
 
+// IMPORTANTE: as mensagens de 401 abaixo contêm a palavra "Token".
+// O front (src/services/api.ts) usa isso para saber que deve renovar
+// o acesso com o refresh token e repetir a requisição.
 export async function authMiddleware(
   req: AuthedRequest,
   _res: Response,
@@ -22,8 +26,17 @@ export async function authMiddleware(
     let payload;
     try {
       payload = verifyAccessToken(token);
-    } catch {
-      throw new ApiError(401, 'Token inválido ou expirado.');
+    } catch (err) {
+      const expired = err instanceof Error && err.name === 'TokenExpiredError';
+      throw new ApiError(401, expired ? 'Token expirado. Renove sua sessão.' : 'Token inválido.');
+    }
+
+    // Token de sessão encerrada (logout, troca de senha, renovação) não vale mais
+    if (payload.jti) {
+      const session = await SessionModel.findByJti(payload.jti);
+      if (session && session.status !== 'active') {
+        throw new ApiError(401, 'Token revogado. Entre novamente.');
+      }
     }
 
     const user = await UserModel.findById(payload.userId);

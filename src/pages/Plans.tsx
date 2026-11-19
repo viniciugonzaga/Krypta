@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, Crown, Sparkles, Zap, ArrowLeft, Settings, ShieldCheck, Lock } from 'lucide-react';
+import { Check, Crown, Sparkles, Zap, ArrowLeft, Lock } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { PlanAPI } from '../services/api';
-import { PLANS, type Plan, type PlanTier } from '../types';
+import { normalizePlan, getPlanLabel, type PlanId } from '../utils/plan';
 
 import spriteRoboEncolhido from '../assets/sprites/sprite_robo_encolhido.png';
 
@@ -15,20 +15,74 @@ const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 const PURPLE = '#8d51ff';
 const PURPLE_BRIGHT = '#a97aff';
 
-const PLAN_ICONS: Record<PlanTier, React.ElementType> = {
+// Tipo local dos planos (só Free e Pro)
+interface PlanItem {
+  tier: PlanId;
+  name: string;
+  price: number;
+  priceLabel: string;
+  period: string;
+  description: string;
+  features: string[];
+  highlighted?: boolean;
+}
+
+// Fallback local — igual ao que o backend devolve em GET /plans
+const FALLBACK_PLANS: PlanItem[] = [
+  {
+    tier: 'free',
+    name: 'Krypta Free',
+    price: 0,
+    priceLabel: 'R$0',
+    period: 'por mês',
+    description: 'Para quem quer começar a proteger suas credenciais sem precisar do dispositivo físico.',
+    features: [
+      'Cofre digital de credenciais',
+      'Senha Mestre',
+      'Criptografia',
+      'Gerenciamento básico de senhas',
+      'Aplicativo Krypta',
+      'Acesso pelo software',
+      'Capacidade limitada de armazenamento',
+    ],
+  },
+  {
+    tier: 'pro',
+    name: 'Krypta Pro',
+    price: 25,
+    priceLabel: 'R$25',
+    period: 'por mês',
+    description: 'Todos os recursos do Krypta em um único plano: proteção máxima, autenticação múltipla e controle total.',
+    features: [
+      'Cofre de credenciais',
+      'Senha Mestre',
+      'Criptografia AES-256-GCM',
+      'Gerenciamento de credenciais',
+      'Aplicativo Krypta',
+      'Acesso pelo software',
+      'Autenticação multifator',
+      'Chave de segurança física',
+      'Alertas de acesso',
+      'Proteção reforçada para credenciais',
+      'Bloqueio remoto',
+      'Verificações rigorosas de acesso',
+      'Recursos de emergência',
+      'Herança Digital',
+      'Escolha dos métodos de autenticação',
+      'Nível de proteção personalizável',
+    ],
+    highlighted: true,
+  },
+];
+
+const PLAN_ICONS: Record<PlanId, React.ElementType> = {
   free: Zap,
-  essential: Crown,
-  advanced: Sparkles,
-  max: ShieldCheck,
-  custom: Settings,
+  pro: Crown,
 };
 
-const PLAN_COLORS: Record<PlanTier, string> = {
+const PLAN_COLORS: Record<PlanId, string> = {
   free: '#B4A0C8',
-  essential: '#8d51ff',
-  advanced: '#7c3aed',
-  max: '#a97aff',
-  custom: '#c4a6ff',
+  pro: '#8d51ff',
 };
 
 // Pontinhos decorativos fixos (evita Math.random a cada render)
@@ -49,20 +103,25 @@ export function Plans() {
   const { user } = useAuth();
   const { isDark } = useTheme();
   const navigate = useNavigate();
-  const [plans, setPlans] = useState<Plan[]>(PLANS);
+  const [plans, setPlans] = useState<PlanItem[]>(FALLBACK_PLANS);
 
   useEffect(() => {
     PlanAPI.list()
-      .then((res) => {
-        if (res && res.length > 0) setPlans(res as Plan[]);
+      .then((res: any) => {
+        if (!Array.isArray(res) || res.length === 0) return;
+        // Aceita só free/pro vindos da API (ignora tiers antigos)
+        const valid = (res as PlanItem[]).filter((p) => p.tier === 'free' || p.tier === 'pro');
+        if (valid.length > 0) setPlans(valid);
       })
       .catch((err) => {
         console.warn('Falha ao carregar planos da API, usando fallback local.', err);
       });
   }, []);
 
+  const currentPlan = user ? normalizePlan((user as any).plan) : null;
+
   // Clicar em um plano leva para a seção de planos da página de serviços
-  const handleSelect = (tier: PlanTier) => {
+  const handleSelect = (tier: PlanId) => {
     navigate('/services#planos', { state: { tier } });
   };
 
@@ -211,7 +270,7 @@ export function Plans() {
             </h1>
 
             <p className="text-base md:text-lg" style={{ color: muted, fontFamily: ROUNDED_FONT }}>
-              Todos os planos incluem criptografia AES-256 e autenticação física via hardware.
+              Comece grátis ou desbloqueie todos os recursos do Krypta com o plano Pro.
             </p>
 
             {user && (
@@ -225,153 +284,154 @@ export function Plans() {
                 <Sparkles className="w-4 h-4" style={{ color: bright }} />
                 <span className="text-xs" style={{ color: muted }}>Plano atual:</span>
                 <span className="text-xs font-bold uppercase" style={{ color: fg }}>
-                  {user.plan === 'free' ? 'Gratuito' : user.plan}
+                  {getPlanLabel((user as any).plan)}
                 </span>
               </div>
             )}
           </motion.div>
         </div>
 
-        {/* ============ GRID: TODOS NA MESMA FILEIRA ============ */}
-        {/* Em telas menores a fileira rola na horizontal, mantendo os 5 cards alinhados */}
-        <div className="overflow-x-auto pb-6 pt-4 -mx-4 px-4 md:mx-0 md:px-0">
-          <div className="grid grid-cols-5 gap-4 xl:gap-5 min-w-[1150px] xl:min-w-0">
-            {plans.map((plan, idx) => {
-              const tier = plan.tier as PlanTier;
-              const isCurrent = user?.plan === tier;
-              const color = PLAN_COLORS[tier] || PURPLE;
-              const Icon = PLAN_ICONS[tier] || Zap;
+        {/* ============ GRID: FREE + PRO ============ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 xl:gap-8 max-w-4xl mx-auto pt-4">
+          {plans.map((plan, idx) => {
+            const tier = plan.tier;
+            const isCurrent = currentPlan === tier;
+            const color = PLAN_COLORS[tier] || PURPLE;
+            const Icon = PLAN_ICONS[tier] || Zap;
 
-              return (
-                <motion.div
-                  key={tier}
-                  initial={{ opacity: 0, y: 40 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.15 + idx * 0.1 }}
-                  whileHover={{ y: -6 }}
-                  onClick={() => handleSelect(tier)}
-                  className="relative rounded-2xl p-5 xl:p-6 flex flex-col cursor-pointer"
-                  style={{
-                    background: isDark
-                      ? 'linear-gradient(160deg, rgba(30,6,60,0.92) 0%, rgba(0,0,0,0.88) 100%)'
-                      : 'linear-gradient(160deg, rgba(255,255,255,1) 0%, rgba(240,237,248,0.97) 100%)',
-                    border: `1px solid ${
-                      plan.highlighted || isCurrent
-                        ? bright
-                        : isDark
-                          ? 'rgba(141,81,255,0.35)'
-                          : 'rgba(81,0,189,0.25)'
-                    }`,
-                    boxShadow: plan.highlighted
-                      ? isDark
-                        ? `0 0 50px ${purple}66, inset 0 0 30px ${purple}18`
-                        : '0 14px 40px rgba(81,0,189,0.25)'
+            return (
+              <motion.div
+                key={tier}
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.15 + idx * 0.1 }}
+                whileHover={{ y: -6 }}
+                onClick={() => handleSelect(tier)}
+                className="relative rounded-2xl p-6 xl:p-7 flex flex-col cursor-pointer"
+                style={{
+                  background: isDark
+                    ? 'linear-gradient(160deg, rgba(30,6,60,0.92) 0%, rgba(0,0,0,0.88) 100%)'
+                    : 'linear-gradient(160deg, rgba(255,255,255,1) 0%, rgba(240,237,248,0.97) 100%)',
+                  border: `1px solid ${
+                    plan.highlighted || isCurrent
+                      ? bright
                       : isDark
-                        ? `0 0 22px ${purple}22`
-                        : '0 6px 22px rgba(81,0,189,0.1)',
+                        ? 'rgba(141,81,255,0.35)'
+                        : 'rgba(81,0,189,0.25)'
+                  }`,
+                  boxShadow: plan.highlighted
+                    ? isDark
+                      ? `0 0 50px ${purple}66, inset 0 0 30px ${purple}18`
+                      : '0 14px 40px rgba(81,0,189,0.25)'
+                    : isDark
+                      ? `0 0 22px ${purple}22`
+                      : '0 6px 22px rgba(81,0,189,0.1)',
+                }}
+              >
+                {/* Cantos estilo "hub" */}
+                <span className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{ borderTop: corner, borderLeft: corner }} />
+                <span className="absolute top-0 right-0 w-3 h-3 pointer-events-none" style={{ borderTop: corner, borderRight: corner }} />
+                <span className="absolute bottom-0 left-0 w-3 h-3 pointer-events-none" style={{ borderBottom: corner, borderLeft: corner }} />
+                <span className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{ borderBottom: corner, borderRight: corner }} />
+
+                {plan.highlighted && (
+                  <div
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider text-white whitespace-nowrap"
+                    style={{
+                      background: 'linear-gradient(90deg, #5100BD 0%, #8d51ff 100%)',
+                      boxShadow: `0 0 18px ${purple}99`,
+                      fontFamily: ROUNDED_FONT,
+                    }}
+                  >
+                    TODOS OS RECURSOS
+                  </div>
+                )}
+
+                {/* Ícone */}
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+                  style={{
+                    background: `${color}22`,
+                    border: `1px solid ${color}66`,
+                    boxShadow: `0 0 18px ${color}33`,
                   }}
                 >
-                  {/* Cantos estilo "hub" */}
-                  <span className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{ borderTop: corner, borderLeft: corner }} />
-                  <span className="absolute top-0 right-0 w-3 h-3 pointer-events-none" style={{ borderTop: corner, borderRight: corner }} />
-                  <span className="absolute bottom-0 left-0 w-3 h-3 pointer-events-none" style={{ borderBottom: corner, borderLeft: corner }} />
-                  <span className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{ borderBottom: corner, borderRight: corner }} />
+                  <Icon className="w-5 h-5" style={{ color }} />
+                </div>
 
-                  {plan.highlighted && (
-                    <div
-                      className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider text-white whitespace-nowrap"
-                      style={{
-                        background: 'linear-gradient(90deg, #5100BD 0%, #8d51ff 100%)',
-                        boxShadow: `0 0 18px ${purple}99`,
-                        fontFamily: ROUNDED_FONT,
-                      }}
-                    >
-                      MAIS POPULAR
-                    </div>
-                  )}
+                <h3
+                  className="text-xl xl:text-2xl mb-1 leading-tight"
+                  style={{ color: fg, fontFamily: ROUNDED_FONT, fontWeight: 700 }}
+                >
+                  {plan.name}
+                </h3>
+                <p
+                  className="text-[12.5px] leading-snug mb-4 min-h-[40px]"
+                  style={{ color: muted, fontFamily: ROUNDED_FONT }}
+                >
+                  {plan.description}
+                </p>
 
-                  {/* Ícone */}
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
-                    style={{
-                      background: `${color}22`,
-                      border: `1px solid ${color}66`,
-                      boxShadow: `0 0 18px ${color}33`,
-                    }}
-                  >
-                    <Icon className="w-5 h-5" style={{ color }} />
-                  </div>
-
-                  <h3
-                    className="text-lg xl:text-xl mb-1 leading-tight"
+                <div
+                  className="flex items-end gap-1 pb-4 mb-4"
+                  style={{ borderBottom: `1px solid ${isDark ? 'rgba(141,81,255,0.2)' : 'rgba(81,0,189,0.12)'}` }}
+                >
+                  <span
+                    className="text-4xl leading-none"
                     style={{ color: fg, fontFamily: ROUNDED_FONT, fontWeight: 700 }}
                   >
-                    {plan.name}
-                  </h3>
-                  <p
-                    className="text-[11.5px] leading-snug mb-4 min-h-[48px]"
-                    style={{ color: muted, fontFamily: ROUNDED_FONT }}
-                  >
-                    {plan.description}
-                  </p>
+                    {plan.priceLabel}
+                  </span>
+                  <span className="text-[12px] mb-0.5" style={{ color: muted }}>
+                    {plan.period}
+                  </span>
+                </div>
 
-                  <div
-                    className="flex items-end gap-1 pb-4 mb-4"
-                    style={{ borderBottom: `1px solid ${isDark ? 'rgba(141,81,255,0.2)' : 'rgba(81,0,189,0.12)'}` }}
-                  >
-                    <span
-                      className="text-3xl leading-none"
-                      style={{ color: fg, fontFamily: ROUNDED_FONT, fontWeight: 700 }}
+                <ul
+                  className={`mb-6 flex-1 gap-y-2.5 gap-x-4 ${
+                    plan.features.length > 8 ? 'grid grid-cols-1 sm:grid-cols-2' : 'flex flex-col'
+                  }`}
+                >
+                  {plan.features.map((f, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-[12px] leading-snug"
+                      style={{ color: muted, fontFamily: ROUNDED_FONT }}
                     >
-                      {plan.priceLabel}
-                    </span>
-                    <span className="text-[11px] mb-0.5" style={{ color: muted }}>
-                      {plan.period}
-                    </span>
-                  </div>
+                      <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: bright }} strokeWidth={2.5} />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
 
-                  <ul className="space-y-2.5 mb-6 flex-1">
-                    {plan.features.map((f, i) => (
-                      <li
-                        key={i}
-                        className="flex items-start gap-2 text-[11.5px] leading-snug"
-                        style={{ color: muted, fontFamily: ROUNDED_FONT }}
-                      >
-                        <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: bright }} strokeWidth={2.5} />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelect(tier);
-                    }}
-                    className="w-full py-3 rounded-lg font-bold text-[13px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
-                    style={
-                      plan.highlighted || isCurrent
-                        ? {
-                            background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)',
-                            color: '#fff',
-                            boxShadow: isDark ? `0 0 22px ${purple}88` : '0 6px 18px rgba(81,0,189,0.35)',
-                            fontFamily: ROUNDED_FONT,
-                          }
-                        : {
-                            background: 'transparent',
-                            color: bright,
-                            border: `1px solid ${bright}`,
-                            fontFamily: ROUNDED_FONT,
-                          }
-                    }
-                  >
-                    {isCurrent ? 'Plano Atual' : 'Ver plano'}
-                  </button>
-                </motion.div>
-              );
-            })}
-          </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelect(tier);
+                  }}
+                  className="w-full py-3 rounded-lg font-bold text-[13px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
+                  style={
+                    plan.highlighted || isCurrent
+                      ? {
+                          background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)',
+                          color: '#fff',
+                          boxShadow: isDark ? `0 0 22px ${purple}88` : '0 6px 18px rgba(81,0,189,0.35)',
+                          fontFamily: ROUNDED_FONT,
+                        }
+                      : {
+                          background: 'transparent',
+                          color: bright,
+                          border: `1px solid ${bright}`,
+                          fontFamily: ROUNDED_FONT,
+                        }
+                  }
+                >
+                  {isCurrent ? 'Plano Atual' : 'Ver plano'}
+                </button>
+              </motion.div>
+            );
+          })}
         </div>
       </main>
 

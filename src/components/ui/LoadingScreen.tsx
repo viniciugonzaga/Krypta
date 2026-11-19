@@ -1,5 +1,7 @@
+// src/components/ui/LoadingScreen.tsx
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
 import loadingGif from '../../assets/Robo_Carregar.gif';
 
 const STATUS_MESSAGES = [
@@ -21,6 +23,7 @@ export function LoadingScreen({
   minimal = false,
   size = 380,
 }: LoadingScreenProps) {
+  const { isDark } = useTheme();
   const [statusIndex, setStatusIndex] = useState(0);
 
   useEffect(() => {
@@ -33,6 +36,47 @@ export function LoadingScreen({
 
   const currentMessage = message ?? STATUS_MESSAGES[statusIndex];
 
+  // ============================================================
+  // ESTILOS POR TEMA
+  // ============================================================
+
+  // Fundo explícito em cada tema (não depende da variável do Tailwind)
+  const screenBackground = isDark
+    ? undefined
+    : 'linear-gradient(160deg, #FFFFFF 0%, #F0EDF8 100%)';
+
+  // Título: no escuro mantém o degradê lilás → branco → lilás.
+  // No claro, o "via-white" sumia com o fundo branco (metade da palavra
+  // desaparecia) e o lilás ficava apagado. Agora usa roxos escuros.
+  // O textShadow foi trocado por drop-shadow, porque text-shadow em texto
+  // com background-clip: text é pintado POR CIMA do degradê e deixa as
+  // letras lavadas/opacas.
+  const titleStyle: React.CSSProperties = isDark
+    ? {
+        backgroundImage:
+          'linear-gradient(90deg, #B4A0C8 0%, #FFFFFF 50%, #B4A0C8 100%)',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        color: 'transparent',
+        filter: 'drop-shadow(0 0 18px rgba(180,160,200,0.45))',
+        // Compensa o espaço extra que o tracking adiciona depois da última letra
+        paddingLeft: '0.5em',
+      }
+    : {
+        backgroundImage:
+          'linear-gradient(90deg, #5100BD 0%, #8d51ff 50%, #5100BD 100%)',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        color: '#5100BD',
+        filter: 'drop-shadow(0 2px 8px rgba(81,0,189,0.18))',
+        paddingLeft: '0.5em',
+      };
+
+  const messageColor = isDark ? 'rgba(180,160,200,0.7)' : 'rgba(81,0,189,0.75)';
+  const progressTrack = isDark ? 'rgba(97,49,201,0.15)' : 'rgba(81,0,189,0.12)';
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -42,12 +86,19 @@ export function LoadingScreen({
         transition: { duration: 0.5, ease: 'easeInOut' },
       }}
       transition={{ duration: 0.35 }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-krypta-black overflow-hidden"
+      className={`fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden ${
+        isDark ? 'bg-krypta-black' : ''
+      }`}
+      style={{ background: screenBackground }}
     >
       {/* ============================================================
           CAMADA 1: FUNDO
           ============================================================ */}
-      <div className="absolute inset-0 bg-grid-pattern bg-[size:50px_50px] opacity-15" />
+      <div
+        className={`absolute inset-0 bg-grid-pattern bg-[size:50px_50px] ${
+          isDark ? 'opacity-15' : 'opacity-25'
+        }`}
+      />
 
       {/* Orbe de luz azul (combina com as bolinhas do GIF) */}
       <motion.div
@@ -55,8 +106,9 @@ export function LoadingScreen({
         style={{
           width: size * 2.4,
           height: size * 2.4,
-          background:
-            'radial-gradient(circle, rgba(52,132,173,0.25) 0%, rgba(52,159,182,0.1) 45%, transparent 70%)',
+          background: isDark
+            ? 'radial-gradient(circle, rgba(52,132,173,0.25) 0%, rgba(52,159,182,0.1) 45%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(52,132,173,0.14) 0%, rgba(52,159,182,0.06) 45%, transparent 70%)',
           filter: 'blur(80px)',
         }}
         animate={{
@@ -72,8 +124,9 @@ export function LoadingScreen({
         style={{
           width: size * 2,
           height: size * 2,
-          background:
-            'radial-gradient(circle, rgba(97,49,201,0.25) 0%, transparent 65%)',
+          background: isDark
+            ? 'radial-gradient(circle, rgba(97,49,201,0.25) 0%, transparent 65%)'
+            : 'radial-gradient(circle, rgba(97,49,201,0.12) 0%, transparent 65%)',
           filter: 'blur(90px)',
         }}
         animate={{
@@ -147,7 +200,7 @@ export function LoadingScreen({
             />
           </motion.svg>
 
-          {/* ---------- EFEITO C: 3 ARCOS SEGMENTADOS GIRANDO ---------- */}
+          {/* ---------- EFEITO C: ARCOS SEGMENTADOS GIRANDO ---------- */}
           <motion.svg
             className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox="0 0 200 200"
@@ -242,7 +295,7 @@ export function LoadingScreen({
             style={{
               width: size * 0.7,
               height: size * 0.7,
-              zIndex: 50,  // ⬅️ SEMPRE NA FRENTE
+              zIndex: 50,
             }}
           >
             <img
@@ -250,7 +303,6 @@ export function LoadingScreen({
               alt="Carregando Krypta..."
               className="w-full h-full select-none pointer-events-none object-contain"
               style={{
-                // Só um leve drop-shadow azul/roxo ao redor do GIF
                 filter:
                   'drop-shadow(0 0 16px rgba(139,203,212,0.5)) drop-shadow(0 0 32px rgba(52,132,173,0.35))',
               }}
@@ -284,14 +336,14 @@ export function LoadingScreen({
             TEXTO + BARRA DE PROGRESSO
             ========================================================== */}
         {!minimal && (
-          <div className="text-center space-y-5" style={{ zIndex: 50 }}>
+          <div className="relative text-center space-y-5" style={{ zIndex: 50 }}>
             {/* Marca */}
             <motion.h1
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-3xl font-display font-black tracking-[0.5em] text-transparent bg-clip-text bg-gradient-to-r from-krypta-lilac via-white to-krypta-lilac"
-              style={{ textShadow: '0 0 30px rgba(180,160,200,0.5)' }}
+              className="text-3xl font-display font-black tracking-[0.5em] whitespace-nowrap"
+              style={titleStyle}
             >
               KRYPTA
             </motion.h1>
@@ -304,20 +356,27 @@ export function LoadingScreen({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.35 }}
-                className="text-[11px] font-mono text-krypta-lilac/70 tracking-[0.25em] uppercase"
+                className="text-[11px] font-mono tracking-[0.25em] uppercase"
+                style={{ color: messageColor, fontWeight: isDark ? 400 : 600 }}
               >
                 {currentMessage}
               </motion.p>
             </div>
 
             {/* Barra de progresso com dois feixes */}
-            <div className="relative w-64 h-[2px] bg-krypta-purple/15 rounded-full overflow-hidden mx-auto">
+            <div
+              className="relative w-64 h-[2px] rounded-full overflow-hidden mx-auto"
+              style={{ background: progressTrack }}
+            >
               <motion.div
                 className="absolute top-0 bottom-0 w-1/2 rounded-full"
                 style={{
-                  background:
-                    'linear-gradient(90deg, transparent 0%, #8BCBD4 50%, transparent 100%)',
-                  boxShadow: '0 0 12px rgba(139,203,212,0.9)',
+                  background: isDark
+                    ? 'linear-gradient(90deg, transparent 0%, #8BCBD4 50%, transparent 100%)'
+                    : 'linear-gradient(90deg, transparent 0%, #3484AD 50%, transparent 100%)',
+                  boxShadow: isDark
+                    ? '0 0 12px rgba(139,203,212,0.9)'
+                    : '0 0 8px rgba(52,132,173,0.6)',
                 }}
                 animate={{ x: ['-100%', '200%'] }}
                 transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
@@ -348,8 +407,9 @@ export function LoadingScreen({
       <motion.div
         className="absolute inset-x-0 h-24 pointer-events-none"
         style={{
-          background:
-            'linear-gradient(180deg, transparent 0%, rgba(139,203,212,0.05) 50%, transparent 100%)',
+          background: isDark
+            ? 'linear-gradient(180deg, transparent 0%, rgba(139,203,212,0.05) 50%, transparent 100%)'
+            : 'linear-gradient(180deg, transparent 0%, rgba(81,0,189,0.04) 50%, transparent 100%)',
           zIndex: 5,
         }}
         animate={{ y: ['-15%', '115%'] }}

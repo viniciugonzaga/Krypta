@@ -2,16 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
 import {
   ROUNDED_FONT,
   BAR_COLOR,
   BAR_GLOW,
-  AppleIcon,
-  GithubIcon,
   useAuthTheme,
 } from '../components/auth/authShared';
+import { SocialLoginButtons } from '../components/auth/SocialLoginButtons';
 
 import logoTextoClaro from '../assets/logos/Krypta_de_texto.png';
 import logoTextoEscuro from '../assets/logos/Krypta_de_texto2.png';
@@ -462,9 +460,9 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [glitchStage, setGlitchStage] = useState(0);
 
-  const { signIn, signInWithSocial } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
-  const { isDark, inputStyle, labelStyle, mutedText, accent, divider } = useAuthTheme();
+  const { isDark, inputStyle, labelStyle, mutedText, accent } = useAuthTheme();
 
   useEffect(() => {
     let active = true;
@@ -507,23 +505,6 @@ export function LoginForm() {
       navigate('/profile'); // Redireciona para o perfil
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao entrar.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    setError(null);
-    setLoading(true);
-    try {
-      if (credentialResponse.credential) {
-        await signInWithSocial('google', credentialResponse.credential);
-        navigate('/profile');
-      } else {
-        throw new Error('Token do Google não recebido.');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao entrar com Google.');
     } finally {
       setLoading(false);
     }
@@ -698,54 +679,8 @@ export function LoginForm() {
         </form>
       </motion.div>
 
-      <div className="w-full flex items-center gap-3 mt-6 mb-4">
-        <div className="h-[1px] flex-1" style={{ background: divider }} />
-        <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: mutedText }}>
-          ou continue com
-        </span>
-        <div className="h-[1px] flex-1" style={{ background: divider }} />
-      </div>
-
-      <div className="flex gap-3 w-full justify-center items-center">
-        {/* Botão do Google usando a biblioteca oficial */}
-        <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => setError('Falha ao autenticar com o Google.')}
-            type="icon"
-            shape="circle"
-            theme={isDark ? 'filled_black' : 'outline'}
-          />
-        </div>
-
-        {/* Botões de Apple e GitHub (desativados por enquanto) */}
-        <button
-          type="button"
-          disabled
-          aria-label="Entrar com Apple"
-          className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 opacity-50 cursor-not-allowed"
-          style={{
-            background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-            border: `1px solid ${divider}`,
-            color: accent,
-          }}
-        >
-          <AppleIcon />
-        </button>
-        <button
-          type="button"
-          disabled
-          aria-label="Entrar com GitHub"
-          className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 opacity-50 cursor-not-allowed"
-          style={{
-            background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-            border: `1px solid ${divider}`,
-            color: accent,
-          }}
-        >
-          <GithubIcon />
-        </button>
-      </div>
+      {/* Login social: oculto até configurar as chaves (src/config/socialAuth.ts) */}
+      <SocialLoginButtons variant="icons" onError={setError} onLoadingChange={setLoading} />
 
       <p className="text-xs mt-4 text-center" style={{ color: mutedText }}>
         Não tem uma conta?{' '}
