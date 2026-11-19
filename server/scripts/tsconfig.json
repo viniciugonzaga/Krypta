@@ -1,0 +1,10 @@
+{
+  // Configuração só para o editor (VS Code) entender os scripts de teste.
+  // Eles rodam com "tsx" (npm run sim), que não depende deste arquivo.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true
+  },
+  "include": ["*.ts"]
+}

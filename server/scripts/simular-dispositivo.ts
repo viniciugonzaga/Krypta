@@ -22,7 +22,9 @@
 //   PLANOS E COMPRAS
 //   npm run sim -- planos <email> <senha>     confere as travas do Free e assina o Pro
 //
-//   npm run sim -- testar-tudo <email> <senha>  roda TODOS os testes em sequência
+//   npm run sim -- testar-tudo                 CRIA UMA CONTA NOVA e roda TODOS os testes
+//   npm run sim -- testar-tudo <email> <senha> roda tudo numa conta que você já pareou
+//   npm run sim -- limpar                      exclui a conta de teste criada pelo testar-tudo
 //
 //   npm run sim -- status | esquecer
 //
@@ -45,6 +47,7 @@ interface SimKeys {
   secretKey: string; // base64 64 bytes (no ESP32 real, NUNCA sai do chip)
   provaContDono: string; // base64 32 bytes (no app real: Argon2id + HKDF da CCP)
   provaHerdeiro?: string; // base64 32 bytes (no app real: derivada da CCH)
+  senha?: string; // só nas contas de teste criadas pelo próprio simulador
 }
 
 // ------------------------------------------------------------
@@ -111,6 +114,12 @@ async function loginSite(email: string, senha: string): Promise<string> {
 /** Login pelo DISPOSITIVO (challenge → assinatura → verify) → token hardware */
 async function loginDispositivo(publicKey: string, secretKey: string): Promise<string> {
   const ch = await chamar('POST', '/auth/challenge', { public_key: publicKey });
+  if (ch.status === 404) {
+    falha(
+      'Challenge falhou (404): a chave salva em scripts/.sim-keys.json não existe mais no banco ' +
+        '(a conta foi excluída ou o dispositivo foi trocado). Rode: npm run sim -- testar-tudo   (sem e-mail: cria uma conta nova)'
+    );
+  }
   if (ch.status !== 200) falha(`Challenge falhou (${ch.status}): ${ch.json.error}`);
   // O ESP32 assina os 32 BYTES do nonce (não a string base64)
   const assinatura = nacl.sign.detached(
@@ -628,9 +637,30 @@ async function planos(email?: string, senha?: string) {
 // ============================================================
 // TUDO EM SEQUÊNCIA
 // ============================================================
-async function testarTudo(email?: string, senha?: string) {
-  if (!email || !senha) falha('Uso: npm run sim -- testar-tudo <email> <senha>');
+/** Cria uma conta de teste nova (Free, sem dispositivo) */
+async function criarContaTeste(): Promise<{ email: string; senha: string }> {
+  const email = `sim-${Date.now()}@krypta.dev`;
+  const senha = `Sim-${crypto.randomBytes(6).toString('hex')}`;
+  const r = await chamar('POST', '/auth/register', { name: 'Simulador Krypta', email, password: senha });
+  if (r.status !== 201) falha(`Não consegui criar a conta de teste (${r.status}): ${r.json.error}`);
+  ok(`Conta de teste criada: ${email}`);
+  return { email, senha };
+}
+
+async function testarTudo(emailArg?: string, senhaArg?: string) {
+  let email = emailArg;
+  let senha = senhaArg;
+  if (!email || !senha) {
+    titulo('🧪 Teste completo do zero (conta nova)');
+    if (fs.existsSync(ARQUIVO)) fs.unlinkSync(ARQUIVO); // chaves antigas não servem para a conta nova
+    ({ email, senha } = await criarContaTeste());
+    await parear(email, senha);
+    const k0 = lerChaves();
+    salvarChaves({ ...k0, senha });
+    await login();
+  }
   const k = lerChaves();
+  if (k.email !== email) falha(`As chaves salvas são da conta ${k.email}, não de ${email}. Rode sem e-mail para começar do zero.`);
   const token = await loginDispositivo(k.publicKey, k.secretKey);
   const estado = await estadoCofre(token);
   if (estado !== 'ATIVA') falha(`O cofre precisa estar ATIVO para começar (está ${estado}).`);
@@ -643,6 +673,21 @@ async function testarTudo(email?: string, senha?: string) {
   await resgatar();
   await killSwitch(email, senha); // o dono retoma a conta depois do resgate
   console.log(falhas === 0 ? '\n🏁 COFRE, PLANOS E COMPRAS — TODOS OS TESTES PASSARAM! 🎉\n' : `\n⚠️  ${falhas} falha(s)\n`);
+  if (!emailArg) {
+    console.log(`  Conta usada: ${email}  (senha: ${senha})`);
+    console.log('  Você pode entrar com ela no site para ver o resultado, ou apagar com: npm run sim -- limpar\n');
+  }
+}
+
+/** Exclui a conta de teste criada pelo testar-tudo (pedidos, backup e dispositivos vão junto) */
+async function limpar() {
+  const k = lerChaves();
+  if (!k.senha) falha(`A conta ${k.email} não foi criada pelo simulador. Exclua pelo site, se quiser.`);
+  const token = await loginSite(k.email, k.senha);
+  const r = await chamar('DELETE', '/users/me', { password: k.senha }, token);
+  esperar(r, 200, `Conta de teste ${k.email} excluída`);
+  fs.unlinkSync(ARQUIVO);
+  ok('Chaves locais do simulador apagadas');
 }
 
 async function status() {
@@ -673,11 +718,12 @@ const comandos: Record<string, () => Promise<void> | void> = {
   'testar-tudo': () => testarTudo(args[0], args[1]),
   status,
   esquecer,
+  limpar,
 };
 
 if (!comando || !comandos[comando]) {
   console.log(
-    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | testar-tudo email senha | status | esquecer>'
+    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | testar-tudo [email senha] | limpar | status | esquecer>'
   );
   process.exit(1);
 }
