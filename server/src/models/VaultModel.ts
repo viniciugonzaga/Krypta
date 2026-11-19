@@ -30,6 +30,10 @@ export interface ContaCofre {
   public_key: string | null;
   status: EstadoCofre;
   hardware_uuid: string | null;
+  /** De onde veio o dispositivo pareado: SOFTWARE (app/navegador) ou FISICO (comprado) */
+  tipo_dispositivo: 'SOFTWARE' | 'FISICO' | null;
+  /** Número de série do dispositivo físico comprado (null se for software) */
+  dispositivo_serial: string | null;
   heranca_ativa: boolean;
   ultimo_sincronismo: Date;
   criado_em: Date;
@@ -41,6 +45,8 @@ interface ContaRow {
   public_key: string | null;
   status: EstadoCofre;
   hardware_uuid: string | null;
+  tipo_dispositivo: 'SOFTWARE' | 'FISICO' | null;
+  dispositivo_serial: string | null;
   heranca_ativa: number;
   ultimo_sincronismo: Date;
   criado_em: Date;
@@ -52,6 +58,8 @@ const CAMPOS = `
   public_key_ed25519 AS public_key,
   estado_cofre AS status,
   hardware_uuid,
+  tipo_dispositivo,
+  (SELECT d.serial FROM dispositivos d WHERE d.id = users.dispositivo_id) AS dispositivo_serial,
   (hash_cont_herdeiro IS NOT NULL) AS heranca_ativa,
   ultimo_sincronismo,
   created_at AS criado_em`;
@@ -61,12 +69,12 @@ function mapear(row: ContaRow | undefined): ContaCofre | null {
   return { ...row, heranca_ativa: !!row.heranca_ativa };
 }
 
-/** Identificador legível do ESP32, derivado da chave real (ex.: ESP32-7F3A9C1B) */
+/** Identificador legível de um dispositivo de SOFTWARE, derivado da chave (ex.: SW-7F3A9C1B) */
 export function hardwareUuidDe(publicKey: string): string {
-  return `ESP32-${crypto.createHash('sha256').update(publicKey).digest('hex').slice(0, 8).toUpperCase()}`;
+  return `SW-${crypto.createHash('sha256').update(publicKey).digest('hex').slice(0, 8).toUpperCase()}`;
 }
 
-export type ResultadoPareamento = 'OK' | 'ESTADO_INVALIDO' | 'CHAVE_EM_USO';
+export type ResultadoPareamento = 'OK' | 'ESTADO_INVALIDO' | 'CHAVE_EM_USO' | 'DISPOSITIVO_INDISPONIVEL';
 
 export interface BackupGravado {
   version_counter: number;
@@ -87,6 +95,7 @@ export type ResultadoResgate =
 
 interface LinhaTravada {
   estado_cofre: EstadoCofre;
+  dispositivo_id: string | null;
   public_key_ed25519: string | null;
   hash_cont_dono: string | null;
   hash_cont_herdeiro: string | null;
@@ -95,7 +104,7 @@ interface LinhaTravada {
 /** Trava a linha da conta até o fim da transação */
 async function travarConta(tx: Tx, userId: string): Promise<LinhaTravada | null> {
   const rows = await tx.query<LinhaTravada>(
-    `SELECT estado_cofre, public_key_ed25519, hash_cont_dono, hash_cont_herdeiro
+    `SELECT estado_cofre, dispositivo_id, public_key_ed25519, hash_cont_dono, hash_cont_herdeiro
        FROM users WHERE id = ? FOR UPDATE`,
     [userId]
   );
@@ -135,6 +144,56 @@ async function gravarBackupTx(
 
   await tx.execute('UPDATE users SET ultimo_sincronismo = ? WHERE id = ?', [agora, userId]);
   return { version_counter: versionCounter, atualizado_em: agora };
+}
+
+/**
+ * Vincula a chave à conta dentro de uma transação (conta já travada).
+ * dispositivoId = unidade FÍSICA comprada; null = dispositivo de SOFTWARE.
+ */
+async function vincularChaveTx(
+  tx: Tx,
+  params: { userId: string; publicKey: string; dispositivoId: string | null; novoEstado: EstadoCofre; hashContDono?: string }
+): Promise<'OK' | 'DISPOSITIVO_INDISPONIVEL'> {
+  let hardwareUuid = hardwareUuidDe(params.publicKey);
+  const agora = new Date();
+
+  if (params.dispositivoId) {
+    const d = await tx.query<{ serial: string; status: string; user_id: string }>(
+      'SELECT serial, status, user_id FROM dispositivos WHERE id = ? FOR UPDATE',
+      [params.dispositivoId]
+    );
+    if (!d[0] || d[0].user_id !== params.userId || d[0].status !== 'DISPONIVEL') return 'DISPOSITIVO_INDISPONIVEL';
+    hardwareUuid = d[0].serial;
+    await tx.execute(
+      `UPDATE dispositivos SET status = 'PAREADO', public_key = ?, pareado_em = ? WHERE id = ?`,
+      [params.publicKey, agora, params.dispositivoId]
+    );
+  }
+
+  await tx.execute(
+    `UPDATE users
+        SET public_key_ed25519 = ?, hardware_uuid = ?, estado_cofre = ?,
+            tipo_dispositivo = ?, dispositivo_id = ?,
+            hash_cont_dono = COALESCE(?, hash_cont_dono), ultimo_sincronismo = ?
+      WHERE id = ?`,
+    [
+      params.publicKey,
+      hardwareUuid,
+      params.novoEstado,
+      params.dispositivoId ? 'FISICO' : 'SOFTWARE',
+      params.dispositivoId,
+      params.hashContDono ?? null,
+      agora,
+      params.userId,
+    ]
+  );
+  return 'OK';
+}
+
+/** Marca como REVOGADO o dispositivo físico atual da conta (se houver) */
+async function revogarDispositivoTx(tx: Tx, dispositivoId: string | null): Promise<void> {
+  if (!dispositivoId) return;
+  await tx.execute(`UPDATE dispositivos SET status = 'REVOGADO', revogado_em = ? WHERE id = ?`, [new Date(), dispositivoId]);
 }
 
 export const VaultModel = {
@@ -184,20 +243,25 @@ export const VaultModel = {
     userId: string;
     publicKey: string;
     hashContDono: string;
+    /** Unidade física comprada (null = dispositivo de software) */
+    dispositivoId?: string | null;
   }): Promise<ResultadoPareamento> {
     try {
-      const r = await execute(
-        `UPDATE users
-           SET public_key_ed25519 = ?,
-               hardware_uuid = ?,
-               hash_cont_dono = ?,
-               estado_cofre = 'ATIVA',
-               ultimo_sincronismo = ?
-         WHERE id = ? AND estado_cofre = 'PENDENTE_PAREAMENTO'`,
-        [params.publicKey, hardwareUuidDe(params.publicKey), params.hashContDono, new Date(), params.userId]
-      );
-      return r.affectedRows > 0 ? 'OK' : 'ESTADO_INVALIDO';
+      return await withTransaction(async (tx): Promise<ResultadoPareamento> => {
+        const conta = await travarConta(tx, params.userId);
+        if (!conta || conta.estado_cofre !== 'PENDENTE_PAREAMENTO') return 'ESTADO_INVALIDO';
+        const r = await vincularChaveTx(tx, {
+          userId: params.userId,
+          publicKey: params.publicKey,
+          dispositivoId: params.dispositivoId ?? null,
+          novoEstado: 'ATIVA',
+          hashContDono: params.hashContDono,
+        });
+        if (r !== 'OK') throw new DispositivoIndisponivel();
+        return 'OK';
+      });
     } catch (err) {
+      if (err instanceof DispositivoIndisponivel) return 'DISPOSITIVO_INDISPONIVEL';
       if (isDuplicateError(err)) return 'CHAVE_EM_USO';
       throw err;
     }
@@ -282,8 +346,11 @@ export const VaultModel = {
         'INSERT INTO chaves_revogadas (id, public_key, user_id, motivo, revogada_em) VALUES (?, ?, ?, ?, ?)',
         [crypto.randomUUID(), conta.public_key_ed25519, params.userId, params.motivo, new Date()]
       );
+      await revogarDispositivoTx(tx, conta.dispositivo_id);
       await tx.execute(
-        `UPDATE users SET estado_cofre = 'REVOGADA', public_key_ed25519 = NULL WHERE id = ?`,
+        `UPDATE users SET estado_cofre = 'REVOGADA', public_key_ed25519 = NULL,
+                          tipo_dispositivo = NULL, dispositivo_id = NULL
+          WHERE id = ?`,
         [params.userId]
       );
       return true;
@@ -291,17 +358,27 @@ export const VaultModel = {
     return ok ? this.obterPorId(params.userId) : null;
   },
 
-  /** Recuperação de hardware: novo ESP32 numa conta REVOGADA */
-  async parearNovoHardware(params: { userId: string; publicKey: string }): Promise<ResultadoPareamento> {
+  /** Recuperação de hardware: dispositivo novo (software ou comprado) numa conta REVOGADA */
+  async parearNovoHardware(params: {
+    userId: string;
+    publicKey: string;
+    dispositivoId?: string | null;
+  }): Promise<ResultadoPareamento> {
     try {
-      const r = await execute(
-        `UPDATE users
-           SET public_key_ed25519 = ?, hardware_uuid = ?, estado_cofre = 'RECUPERACAO_HARDWARE'
-         WHERE id = ? AND estado_cofre = 'REVOGADA'`,
-        [params.publicKey, hardwareUuidDe(params.publicKey), params.userId]
-      );
-      return r.affectedRows > 0 ? 'OK' : 'ESTADO_INVALIDO';
+      return await withTransaction(async (tx): Promise<ResultadoPareamento> => {
+        const conta = await travarConta(tx, params.userId);
+        if (!conta || conta.estado_cofre !== 'REVOGADA') return 'ESTADO_INVALIDO';
+        const r = await vincularChaveTx(tx, {
+          userId: params.userId,
+          publicKey: params.publicKey,
+          dispositivoId: params.dispositivoId ?? null,
+          novoEstado: 'RECUPERACAO_HARDWARE',
+        });
+        if (r !== 'OK') throw new DispositivoIndisponivel();
+        return 'OK';
+      });
     } catch (err) {
+      if (err instanceof DispositivoIndisponivel) return 'DISPOSITIVO_INDISPONIVEL';
       if (isDuplicateError(err)) return 'CHAVE_EM_USO';
       throw err;
     }
@@ -399,10 +476,13 @@ export const VaultModel = {
             [crypto.randomUUID(), conta.public_key_ed25519, params.userId, new Date()]
           );
         }
+        await revogarDispositivoTx(tx, conta.dispositivo_id);
+        // O herdeiro chega com um dispositivo de software (o dele) e consome a CCH
         await tx.execute(
           `UPDATE users
              SET public_key_ed25519 = ?, hardware_uuid = ?,
-                 estado_cofre = 'RECUPERACAO_HARDWARE', hash_cont_herdeiro = NULL
+                 estado_cofre = 'RECUPERACAO_HARDWARE', hash_cont_herdeiro = NULL,
+                 tipo_dispositivo = 'SOFTWARE', dispositivo_id = NULL
            WHERE id = ?`,
           [params.publicKey, hardwareUuidDe(params.publicKey), params.userId]
         );
@@ -424,6 +504,13 @@ export const VaultModel = {
 // escrito antes na transação). Lançamos este erro para o
 // withTransaction dar ROLLBACK e convertemos em { resultado: 'VERSAO' }.
 // ------------------------------------------------------------
+class DispositivoIndisponivel extends Error {
+  constructor() {
+    super('dispositivo indisponível');
+    this.name = 'DispositivoIndisponivel';
+  }
+}
+
 class VersaoRecusada extends Error {
   constructor() {
     super('version_counter recusado');

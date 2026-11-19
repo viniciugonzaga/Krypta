@@ -62,7 +62,16 @@ async function payloadDoDispositivo(d: EstadoDispositivo, extra: Partial<EstadoD
 // ============================================================
 // PAREAMENTO
 // ============================================================
-export async function parearDispositivo(contaId: string, ccp: string, credenciaisIniciais: Credencial[] = []) {
+/**
+ * @param dispositivoSerial número de série de um dispositivo FÍSICO comprado
+ *        (Krypta Pro). Sem ele, o pareamento é de SOFTWARE (Free e Pro).
+ */
+export async function parearDispositivo(
+  contaId: string,
+  ccp: string,
+  dispositivoSerial: string | null = null,
+  credenciaisIniciais: Credencial[] = []
+) {
   // 1. Deriva a prova e a chave do envelope a partir da CCP
   const { prova, chaveEnvelope } = await derivar(ccp, contaId, 'ccp');
 
@@ -80,7 +89,7 @@ export async function parearDispositivo(contaId: string, ccp: string, credenciai
   d.credenciais = credenciaisIniciais;
 
   // 4. Pareia (token do site) e só então guarda o dispositivo
-  await VaultAPI.pair(d.publicKey, prova);
+  await VaultAPI.pair(d.publicKey, prova, dispositivoSerial);
   VirtualDevice.salvar(d);
 
   // 5. Primeiro backup (versão 1)
@@ -254,11 +263,11 @@ export async function acionarKillSwitch(contaId: string, ccp: string) {
 }
 
 /** Vincula um dispositivo novo depois do Kill Switch e recupera o cofre */
-export async function vincularNovoDispositivo(contaId: string, ccp: string) {
+export async function vincularNovoDispositivo(contaId: string, ccp: string, dispositivoSerial: string | null = null) {
   const { prova, chaveEnvelope } = await derivar(ccp, contaId, 'ccp');
   const d = VirtualDevice.criar(contaId);
 
-  await VaultAPI.recoveryHardware(d.publicKey, prova); // REVOGADA → RECUPERACAO_HARDWARE
+  await VaultAPI.recoveryHardware(d.publicKey, prova, dispositivoSerial); // REVOGADA → RECUPERACAO_HARDWARE
   VirtualDevice.salvar(d);
   return concluirComBackup(contaId, chaveEnvelope);
 }

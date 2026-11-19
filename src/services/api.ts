@@ -269,21 +269,47 @@ export interface ContaCofre {
   public_key: string | null;
   status: EstadoCofre;
   hardware_uuid: string | null;
+  tipo_dispositivo: 'SOFTWARE' | 'FISICO' | null;
+  dispositivo_serial: string | null;
   heranca_ativa: boolean;
   ultimo_sincronismo: string;
   criado_em: string;
+  plano?: 'free' | 'pro';
+  recursos?: {
+    armazenamentoBytes: number;
+    dispositivoFisico: boolean;
+    killSwitch: boolean;
+    heranca: boolean;
+    alertasAcesso: boolean;
+  };
+}
+
+export interface EventoCofre {
+  id: string;
+  acao: string;
+  detalhe: string | null;
+  ip: string | null;
+  status: 'success' | 'warning' | 'error';
+  quando: string;
 }
 
 export const VaultAPI = {
   /** Estado do cofre da conta logada */
   account: () => apiRequest<ContaCofre>('/vault/account'),
 
-  /** Primeiro pareamento do dispositivo */
-  pair: (publicKey: string, provaContDono: string) =>
+  /** Primeiro pareamento. Com dispositivoSerial = unidade física comprada (Pro) */
+  pair: (publicKey: string, provaContDono: string, dispositivoSerial?: string | null) =>
     apiRequest<ContaCofre>('/hardware/pair', {
       method: 'POST',
-      body: { public_key: publicKey, prova_cont_dono: provaContDono },
+      body: {
+        public_key: publicKey,
+        prova_cont_dono: provaContDono,
+        ...(dispositivoSerial ? { dispositivo_serial: dispositivoSerial } : {}),
+      },
     }),
+
+  /** Alertas de acesso (Krypta Pro) */
+  activity: () => apiRequest<EventoCofre[]>('/vault/activity'),
 
   /** "Perdi o dispositivo": revoga para sempre a chave atual */
   killSwitch: (provaContDono: string) =>
@@ -293,9 +319,82 @@ export const VaultAPI = {
     }),
 
   /** Vincula um dispositivo novo depois do Kill Switch */
-  recoveryHardware: (publicKey: string, provaContDono: string) =>
+  recoveryHardware: (publicKey: string, provaContDono: string, dispositivoSerial?: string | null) =>
     apiRequest<ContaCofre>('/vault/recovery/hardware', {
       method: 'POST',
-      body: { public_key: publicKey, prova_cont_dono: provaContDono },
+      body: {
+        public_key: publicKey,
+        prova_cont_dono: provaContDono,
+        ...(dispositivoSerial ? { dispositivo_serial: dispositivoSerial } : {}),
+      },
     }),
+};
+
+// ============================================================
+// PEDIDOS E DISPOSITIVOS COMPRADOS (token do site)
+// ============================================================
+export type StatusDispositivo = 'EM_TRANSPORTE' | 'DISPONIVEL' | 'PAREADO' | 'REVOGADO';
+
+export interface DispositivoComprado {
+  serial: string;
+  modelo: string;
+  status: StatusDispositivo;
+  emUsoNoCofre: boolean;
+  entregueEm: string | null;
+  pareadoEm: string | null;
+  revogadoEm: string | null;
+  compradoEm: string;
+}
+
+export interface Pedido {
+  id: string;
+  codigo: string;
+  tipo: 'PLANO' | 'PRODUTO';
+  item: string;
+  descricao: string;
+  quantidade: number;
+  valorUnitario: number;
+  valorTotal: number;
+  periodo: 'MENSAL' | 'ANUAL' | null;
+  metodo: 'card' | 'pix' | 'apple' | 'google';
+  parcelas: number;
+  cartaoFinal: string | null;
+  tokenTransacao: string;
+  enderecoEntrega: string | null;
+  status: 'APROVADO' | 'CANCELADO';
+  criadoEm: string;
+  dispositivos?: Array<{ serial: string; status: StatusDispositivo }>;
+}
+
+export type NovoPedido =
+  | {
+      tipo: 'PLANO';
+      plano: 'pro';
+      periodo: 'MENSAL' | 'ANUAL';
+      metodo: Pedido['metodo'];
+      parcelas: number;
+      cartao_final?: string;
+      token_transacao: string;
+    }
+  | {
+      tipo: 'PRODUTO';
+      produto: string;
+      quantidade: number;
+      metodo: Pedido['metodo'];
+      parcelas: number;
+      cartao_final?: string;
+      token_transacao: string;
+      endereco: { cep: string; endereco: string; numero: string };
+    };
+
+export const OrdersAPI = {
+  create: (pedido: NovoPedido) =>
+    apiRequest<{ pedido: Pedido; user: any; dispositivos: string[] }>('/orders', { method: 'POST', body: pedido }),
+  list: () => apiRequest<Pedido[]>('/orders'),
+};
+
+export const DevicesAPI = {
+  list: () => apiRequest<DispositivoComprado[]>('/devices'),
+  receive: (serial: string) =>
+    apiRequest<DispositivoComprado>(`/devices/${encodeURIComponent(serial)}/receive`, { method: 'POST' }),
 };

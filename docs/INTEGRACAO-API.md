@@ -182,3 +182,43 @@ qualquer plano. A API Node.js exige o plano **Business** ou **Cloud** (o Premium
 - Quem vazar a CCH de uma conta com herança ativa pode revogar o dispositivo do dono.
 - O Kill Switch exige a CCP inteira: quem perde o dispositivo **e** a CCP não consegue revogar sozinho.
 - O dispositivo virtual guarda a chave privada no navegador: é só para demonstração.
+
+## 11. Planos, compras e dispositivos (migração 003)
+
+**Regras dos planos** — `server/src/config/planos.ts` (o servidor é quem bloqueia; o front só mostra):
+
+| Recurso | Free | Pro |
+|---|---|---|
+| Cofre com dispositivo de software | ✔ | ✔ |
+| Recuperação local e troca da CCP | ✔ | ✔ |
+| Espaço do backup cifrado | 64 KB | 1 MB |
+| Dispositivo físico (serial comprado) | ✘ | ✔ |
+| Kill Switch | ✘ | ✔ |
+| Herança digital | ✘ | ✔ |
+| Alertas de acesso (`GET /api/vault/activity`) | ✘ | ✔ |
+
+Recurso bloqueado → `403` com `details.motivo = 'PLANO'`. Backup acima do limite → `413`.
+O Pro só é ativado por compra: `POST /api/plans/change` com `pro` responde `402`.
+
+**Tabelas novas** (`server/sql/003_pedidos_dispositivos.sql`): `pedidos` e `dispositivos`;
+`users` ganha `tipo_dispositivo` (`SOFTWARE`/`FISICO`) e `dispositivo_id`.
+
+**Rotas novas**
+
+| Método | Rota | O que faz |
+|---|---|---|
+| POST | `/api/orders` | compra simulada (plano Pro ou dispositivo); preço calculado no servidor |
+| GET | `/api/orders` | pedidos do usuário com os seriais de cada um |
+| GET | `/api/devices` | dispositivos comprados e o status de cada um |
+| POST | `/api/devices/:serial/receive` | confirma o recebimento (`EM_TRANSPORTE → DISPONIVEL`) |
+| GET | `/api/vault/activity` | últimos 25 eventos de segurança do cofre (Pro) |
+
+`POST /api/hardware/pair` e `/api/contingency/recovery-hardware` aceitam `dispositivo_serial` opcional.
+
+**Ciclo de um dispositivo físico:** `EM_TRANSPORTE` → (Recebi) → `DISPONIVEL` → (Parear) → `PAREADO`
+→ (Kill Switch ou herança) → `REVOGADO`. Cada conta tem **um** cofre e **um** dispositivo pareado por vez.
+
+**Telas novas:** `/como-funciona` (pública), `/compras` (logado). O kit do herdeiro traz o link
+`/heranca#kit=<conta_id>:<CCH>`; o fragmento `#` não é enviado ao servidor.
+
+**Teste:** `npm run sim -- planos <email> <senha>` (ou `testar-tudo`, que já inclui).

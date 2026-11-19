@@ -27,6 +27,8 @@ import { Products } from '../pages/Products';
 import { AuthCallback } from '../pages/AuthCallback';
 import { Device } from '../pages/Device';
 import { InheritanceClaim } from '../pages/InheritanceClaim';
+import { HowItWorks } from '../pages/HowItWorks';
+import { Orders } from '../pages/Orders';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -92,6 +94,9 @@ export function AppRoutes() {
           {/* Resgate de herança: público (o herdeiro não tem conta) */}
           <Route path="/heranca" element={<PageTransition variant="slide-up"><InheritanceClaim /></PageTransition>} />
 
+          {/* Como funciona o cofre, o dispositivo e a herança: público */}
+          <Route path="/como-funciona" element={<PageTransition variant="slide-up"><HowItWorks /></PageTransition>} />
+
           {/* Retorno do login social (GitHub / Apple) */}
           <Route path="/auth/callback/:provider" element={<AuthCallback />} />
 
@@ -113,6 +118,7 @@ export function AppRoutes() {
           <Route path="/profile" element={<PageTransition><PrivateRoute><Profile /></PrivateRoute></PageTransition>} />
           <Route path="/plans" element={<PageTransition><PrivateRoute><Plans /></PrivateRoute></PageTransition>} />
           <Route path="/device" element={<PageTransition><PrivateRoute><Device /></PrivateRoute></PageTransition>} />
+          <Route path="/compras" element={<PageTransition><PrivateRoute><Orders /></PrivateRoute></PageTransition>} />
           <Route path="/vault" element={<PageTransition><PrivateRoute><Vault /></PrivateRoute></PageTransition>} />
           <Route path="/settings" element={<PageTransition variant="slide-up"><PrivateRoute><Settings /></PrivateRoute></PageTransition>} />
 

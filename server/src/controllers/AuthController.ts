@@ -37,6 +37,7 @@ function serializeUser(u: any) {
     // (as provas da CCP/CCH NUNCA saem do servidor; só dizemos se existem)
     estadoCofre: u.estado_cofre ?? 'PENDENTE_PAREAMENTO',
     dispositivoPareado: !!u.public_key_ed25519,
+    tipoDispositivo: u.public_key_ed25519 ? (u.tipo_dispositivo ?? 'SOFTWARE') : null,
     hardwareUuid: u.public_key_ed25519 ? u.hardware_uuid : null,
     herancaAtiva: !!u.hash_cont_herdeiro,
     ultimoSincronismo: u.ultimo_sincronismo ?? null,

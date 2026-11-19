@@ -32,7 +32,7 @@ import { VaultModel } from '../models/VaultModel.js';
 import { AuditModel } from '../models/AuditModel.js';
 import { UserModel } from '../models/UserModel.js';
 import { EmailService } from '../services/EmailService.js';
-import { conferirProvaDono, exigirConta, resultadoOuErro } from '../services/VaultRules.js';
+import { conferirProvaDono, exigirConta, exigirEspaco, exigirRecurso, resultadoOuErro } from '../services/VaultRules.js';
 import type { VaultRequest } from '../middlewares/vaultAuth.js';
 
 // Mesma mensagem para TODO tipo de falha no resgate: conta inexistente,
@@ -59,6 +59,7 @@ export const InheritanceController = {
   // ------------------------------------------------------------
   enable: asyncHandler<VaultRequest>(async (req, res: Response) => {
     const userId = req.vault!.userId;
+    exigirRecurso(req.user!.plan, 'heranca'); // Krypta Pro
     const provaAtual = validarProva(req.body?.prova_cont_dono_atual, 'prova_cont_dono_atual');
     const provaHerdeiro = validarProva(req.body?.prova_cont_herdeiro, 'prova_cont_herdeiro');
     if (provaAtual === provaHerdeiro) {
@@ -66,6 +67,7 @@ export const InheritanceController = {
     }
     const versionCounter = validarVersionCounter(req.body?.version_counter);
     const payload = decodificarPayload(req.body?.payload_cifrado);
+    exigirEspaco(req.user!.plan, payload);
 
     const hashDonoAtual = await exigirDonoAtivo(userId, provaAtual);
     const novoHashHerdeiro = await hashComPepper(provaHerdeiro);
@@ -97,6 +99,7 @@ export const InheritanceController = {
     const provaAtual = validarProva(req.body?.prova_cont_dono_atual, 'prova_cont_dono_atual');
     const versionCounter = validarVersionCounter(req.body?.version_counter);
     const payload = decodificarPayload(req.body?.payload_cifrado);
+    exigirEspaco(req.user!.plan, payload);
 
     const hashDonoAtual = await exigirDonoAtivo(userId, provaAtual);
 

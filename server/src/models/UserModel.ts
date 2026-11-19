@@ -37,6 +37,10 @@ export interface UserRow {
   public_key_ed25519: string | null;
   /** Estado do COFRE / dispositivo (separado do status do site) */
   estado_cofre: EstadoCofre;
+  /** Origem do dispositivo pareado: SOFTWARE ou FISICO (comprado) */
+  tipo_dispositivo: 'SOFTWARE' | 'FISICO' | null;
+  /** Unidade física pareada (tabela dispositivos) */
+  dispositivo_id: string | null;
   /** bcrypt(pepper(prova da CCP)) — nunca sai do servidor */
   hash_cont_dono: string | null;
   /** bcrypt(pepper(prova da CCH)) — null = herança desativada */

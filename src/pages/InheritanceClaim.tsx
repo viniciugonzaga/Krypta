@@ -9,11 +9,15 @@
 //   3. baixa o backup e abre o Envelope do Herdeiro com a CCH
 //   4. grava no dispositivo e conclui a recuperação
 // A CCH vale UMA vez.
+//
+// O herdeiro não precisa digitar a rota nem o ID: o kit traz um link
+// /heranca#kit=<conta_id>:<CCH>. O que vem depois do # NUNCA vai ao servidor
+// (o navegador não envia o fragmento), então a CCH não aparece em logs.
 // ============================================================
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertCircle, Check, KeyRound, Loader2, Lock, Users } from 'lucide-react';
+import { AlertCircle, Check, ClipboardPaste, KeyRound, Loader2, Lock, Users } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
@@ -30,6 +34,31 @@ export function InheritanceClaim() {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [credenciais, setCredenciais] = useState<Credencial[] | null>(null);
+  const [doLink, setDoLink] = useState(false);
+  const [codigoKit, setCodigoKit] = useState('');
+
+  // Aceita "conta_id:CCH" (o formato do link e do código do kit)
+  const aplicarCodigo = (bruto: string): boolean => {
+    const txt = decodeURIComponent(bruto.trim()).replace(/^.*#kit=/, '');
+    const i = txt.indexOf(':');
+    if (i < 0) return false;
+    const id = txt.slice(0, i).trim();
+    const chave = txt.slice(i + 1).trim();
+    if (!UUID.test(id)) return false;
+    setContaId(id);
+    setCch(normalizarSegredo(chave));
+    return true;
+  };
+
+  useEffect(() => {
+    const m = window.location.hash.match(/kit=([^&]+)/);
+    if (m && aplicarCodigo(m[1])) {
+      setDoLink(true);
+      // tira a chave da barra de endereço (e do histórico)
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const bright = isDark ? '#a97aff' : '#6131C9';
   const fg = isDark ? '#FFFFFF' : '#1a1a1a';
@@ -84,6 +113,40 @@ export function InheritanceClaim() {
 
           {!credenciais ? (
             <div className="space-y-4">
+              {doLink ? (
+                <div className="rounded-lg p-3 flex items-start gap-2 text-sm" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', color: isDark ? '#86efac' : '#15803d' }}>
+                  <Check className="w-4 h-4 mt-0.5 shrink-0" /> Kit carregado pelo link. Confira os dados e clique em "Resgatar cofre".
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-[10.5px] font-semibold tracking-[0.12em] uppercase mb-1.5" style={{ color: muted }}>
+                    Cole o link ou o código do kit (opcional)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      value={codigoKit}
+                      onChange={(e) => setCodigoKit(e.target.value)}
+                      placeholder="https://.../heranca#kit=...  ou  conta_id:CCH"
+                      spellCheck={false}
+                      autoComplete="off"
+                      className="flex-1 min-w-0 py-3 px-4 rounded-lg text-[13px] font-mono outline-none focus:ring-2 focus:ring-purple-500/50"
+                      style={{ background: fieldBg, border: `1px solid ${border}`, color: fg }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (aplicarCodigo(codigoKit)) { setErro(null); setCodigoKit(''); }
+                        else setErro('Código do kit inválido. Ele tem o formato conta_id:CCH.');
+                      }}
+                      className="px-4 rounded-lg text-sm font-semibold flex items-center gap-1.5"
+                      style={{ border: `1px solid ${bright}`, color: bright }}
+                    >
+                      <ClipboardPaste className="w-4 h-4" /> Usar
+                    </button>
+                  </div>
+                  <p className="text-[11px] mt-1" style={{ color: muted }}>Ou preencha os dois campos abaixo, como está escrito no kit.</p>
+                </div>
+              )}
               <div>
                 <label className="block text-[10.5px] font-semibold tracking-[0.12em] uppercase mb-1.5" style={{ color: muted }}>
                   ID da conta (conta_id)
@@ -155,7 +218,10 @@ export function InheritanceClaim() {
           )}
 
           <p className="text-[11px] mt-6" style={{ color: muted }}>
-            Dispositivo virtual de demonstração. <Link to="/" className="underline" style={{ color: bright }}>Voltar ao início</Link>
+            Dispositivo virtual de demonstração.{' '}
+            <Link to="/como-funciona#heranca" className="underline" style={{ color: bright }}>Como funciona a herança</Link>
+            {' · '}
+            <Link to="/" className="underline" style={{ color: bright }}>Voltar ao início</Link>
           </p>
         </motion.div>
       </main>

@@ -27,6 +27,8 @@ const site = exigirEscopo(['admin_web']);
 
 // ============ CONTA (Parte 3) ============
 router.get('/account', exigirEscopo(['admin_web', 'hardware']), VaultController.account);
+// Alertas de acesso (Krypta Pro)
+router.get('/activity', site, VaultController.activity);
 
 // ============ BACKUP (Parte 4) — só o dispositivo ============
 router.put('/backup', hardware, BackupController.enviar);

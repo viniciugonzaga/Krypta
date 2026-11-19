@@ -27,3 +27,15 @@ export function getPlanLabel(plan?: string | null): string {
 export function getPlanFullName(plan?: string | null): string {
   return isProPlan(plan) ? 'Krypta Pro' : 'Krypta Free';
 }
+/**
+ * Recursos de cada plano (espelho de server/src/config/planos.ts).
+ * Só para exibir na interface: quem bloqueia de verdade é o servidor.
+ */
+export const RECURSOS_PLANO = {
+  free: { armazenamentoKB: 64, dispositivoFisico: false, killSwitch: false, heranca: false, alertasAcesso: false },
+  pro: { armazenamentoKB: 1024, dispositivoFisico: true, killSwitch: true, heranca: true, alertasAcesso: true },
+} as const;
+
+export function recursosDoPlano(plan?: string | null) {
+  return RECURSOS_PLANO[normalizePlan(plan)];
+}

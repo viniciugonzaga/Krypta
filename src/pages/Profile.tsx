@@ -387,7 +387,7 @@ export function Profile() {
           <p className="relative" style={{ color: muted }}>
             Dispositivo Krypta:{' '}
             <span style={{ color: fg }}>{estadoCofreLabel[u.estadoCofre] ?? (deviceConfigured ? 'Configurado' : 'Não configurado')}</span>
-            {deviceConfigured && u.hardwareUuid && <span style={{ color: accent }}> ({u.hardwareUuid})</span>}
+            {deviceConfigured && u.hardwareUuid && <span style={{ color: accent }}> ({u.tipoDispositivo === 'FISICO' ? `físico ${u.hardwareUuid}` : 'software'})</span>}
             {' · '}
             <Link to="/device" className="underline font-semibold" style={{ color: bright }}>
               {deviceConfigured ? 'Gerenciar' : 'Parear agora'}
@@ -395,6 +395,12 @@ export function Profile() {
           </p>
           <p className="relative" style={{ color: muted }}>
             Herança digital: <span style={{ color: fg }}>{u.herancaAtiva ? 'Ativa' : 'Desativada'}</span>
+          </p>
+          <p className="relative" style={{ color: muted }}>
+            Compras e dispositivos:{' '}
+            <Link to="/compras" className="underline font-semibold" style={{ color: bright }}>Minhas compras</Link>
+            {' · '}
+            <Link to="/como-funciona" className="underline font-semibold" style={{ color: bright }}>Como funciona</Link>
           </p>
           <p className="relative" style={{ color: muted }}>
             Tema atual: <span style={{ color: fg }}>{isDark ? 'Escuro' : 'Claro'}</span>

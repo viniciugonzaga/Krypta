@@ -23,6 +23,7 @@ import {
   Sun,
   Menu,
   X,
+  Package,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -45,13 +46,16 @@ const baseNavItems: NavItem[] = [
   { id: 'contatos', label: 'Contatos', path: '/contact', icon: Mail },
 ];
 
-// "Krypta" (só logado) → Meu Krypta: dispositivo, cofre e contingência
+// "Krypta": logado → Meu Krypta (cofre e dispositivo);
+//           não logado → Como funciona (cofre, dispositivo, herança e planos)
 const kryptaNavItem: NavItem = { id: 'krypta', label: 'Krypta', path: '/device', icon: Info };
+const kryptaPublicNavItem: NavItem = { id: 'krypta', label: 'Krypta', path: '/como-funciona', icon: Info };
 
 // Menu de perfil: Perfil, Planos, Configurações e Sair (igual à referência)
 const profileMenu = [
   { id: 'perfil', label: 'Perfil', path: '/profile', icon: User },
   { id: 'dispositivo', label: 'Meu Krypta', path: '/device', icon: Info },
+  { id: 'compras', label: 'Minhas compras', path: '/compras', icon: Package },
   { id: 'planos', label: 'Planos', path: '/plans', icon: Sparkles },
   { id: 'config', label: 'Configurações', path: '/settings', icon: Settings },
 ];
@@ -322,10 +326,8 @@ export function Navbar() {
   const accent = isDark ? PURPLE : '#5100BD';
   const borderSoft = isDark ? 'rgba(141,81,255,0.2)' : 'rgba(81,0,189,0.1)';
 
-  // Adiciona o item Krypta dinamicamente se o usuário estiver logado
-  const currentNavItems = user
-    ? [...baseNavItems, kryptaNavItem]
-    : baseNavItems;
+  // Item Krypta: destino muda se o usuário está logado
+  const currentNavItems = [...baseNavItems, user ? kryptaNavItem : kryptaPublicNavItem];
 
   const handleSignOut = () => {
     signOut();

@@ -19,7 +19,10 @@
 //   npm run sim -- resgatar                   o HERDEIRO resgata o cofre
 //   npm run sim -- kill-switch <email> <senha>  "perdi o dispositivo" + novo dispositivo
 //
-//   npm run sim -- testar-tudo <email> <senha>  roda TODOS os testes 4-6 em sequência
+//   PLANOS E COMPRAS
+//   npm run sim -- planos <email> <senha>     confere as travas do Free e assina o Pro
+//
+//   npm run sim -- testar-tudo <email> <senha>  roda TODOS os testes em sequência
 //
 //   npm run sim -- status | esquecer
 //
@@ -117,6 +120,50 @@ async function loginDispositivo(publicKey: string, secretKey: string): Promise<s
   const v = await chamar('POST', '/auth/verify', { public_key: publicKey, assinatura: b64(assinatura) });
   if (v.status !== 200) falha(`Verify falhou (${v.status}): ${v.json.error}`);
   return v.json.data.token as string;
+}
+
+/** Token de transação no formato do Krypta Pay (pagamento simulado) */
+const tokenTransacao = () => `tok_kp_${crypto.randomBytes(12).toString('hex')}`;
+
+async function planoAtual(tokenSite: string): Promise<string> {
+  const r = await chamar('GET', '/users/me', undefined, tokenSite);
+  if (r.status !== 200) falha(`Não consegui ler a conta (${r.status}): ${r.json.error}`);
+  return r.json.data.plan as string;
+}
+
+/** Assina o Pro pela COMPRA (pedido gravado no servidor) */
+async function assinarPro(tokenSite: string): Promise<void> {
+  if ((await planoAtual(tokenSite)) === 'pro') {
+    ok('A conta já é Krypta Pro');
+    return;
+  }
+  const r = await chamar(
+    'POST',
+    '/orders',
+    { tipo: 'PLANO', plano: 'pro', periodo: 'MENSAL', metodo: 'card', parcelas: 1, cartao_final: '4242', token_transacao: tokenTransacao() },
+    tokenSite
+  );
+  esperar(r, 201, `Krypta Pro assinado (pedido ${r.json.data?.pedido?.codigo})`);
+}
+
+/** Compra 1 dispositivo físico e devolve o número de série */
+async function comprarDispositivo(tokenSite: string): Promise<string> {
+  const r = await chamar(
+    'POST',
+    '/orders',
+    {
+      tipo: 'PRODUTO',
+      produto: 'krypta-device-v1',
+      quantidade: 1,
+      metodo: 'pix',
+      parcelas: 1,
+      token_transacao: tokenTransacao(),
+      endereco: { cep: '01001000', endereco: 'Praça da Sé', numero: '1' },
+    },
+    tokenSite
+  );
+  esperar(r, 201, `Dispositivo comprado (pedido ${r.json.data?.pedido?.codigo})`);
+  return r.json.data.dispositivos[0] as string;
 }
 
 /** Versão atual do backup (0 se ainda não existe) */
@@ -361,14 +408,32 @@ async function killSwitch(email?: string, senha?: string) {
   const reusar = await chamar('POST', '/vault/recovery/hardware', { public_key: k.publicKey, prova_cont_dono: k.provaContDono }, tokenSite);
   esperar(reusar, 409, 'Chave revogada não pode ser vinculada de novo (banida para sempre)');
 
+  // O novo dispositivo vem de uma COMPRA (origem rastreada pelo número de série)
+  const serial = await comprarDispositivo(tokenSite);
   const novo = nacl.sign.keyPair();
+
+  const naoEntregue = await chamar(
+    'POST',
+    '/vault/recovery/hardware',
+    { public_key: b64(novo.publicKey), prova_cont_dono: k.provaContDono, dispositivo_serial: serial },
+    tokenSite
+  );
+  esperar(naoEntregue, 409, 'Dispositivo ainda em transporte não pode ser pareado');
+
+  esperar(await chamar('POST', `/devices/${serial}/receive`, undefined, tokenSite), 200, `Recebimento confirmado (${serial})`);
+
   const vincular = await chamar(
     'POST',
     '/vault/recovery/hardware',
-    { public_key: b64(novo.publicKey), prova_cont_dono: k.provaContDono },
+    { public_key: b64(novo.publicKey), prova_cont_dono: k.provaContDono, dispositivo_serial: serial },
     tokenSite
   );
-  esperar(vincular, 200, `Novo dispositivo vinculado → ${vincular.json.data?.status}`);
+  esperar(vincular, 200, `Dispositivo comprado vinculado → ${vincular.json.data?.status} · ${vincular.json.data?.hardware_uuid} (${vincular.json.data?.tipo_dispositivo})`);
+
+  const lista = await chamar('GET', '/devices', undefined, tokenSite);
+  const unidade = (lista.json.data as Array<{ serial: string; status: string }>).find((d) => d.serial === serial);
+  if (unidade?.status === 'PAREADO') ok('Em "Minhas compras" o dispositivo aparece como PAREADO');
+  else falha(`Esperava o dispositivo PAREADO e veio ${unidade?.status}`);
 
   k.publicKey = b64(novo.publicKey);
   k.secretKey = b64(novo.secretKey);
@@ -514,6 +579,53 @@ async function resgatar() {
 }
 
 // ============================================================
+// PLANOS — o que o Free bloqueia e o que o Pro libera
+// ============================================================
+async function planos(email?: string, senha?: string) {
+  if (!email || !senha) falha('Uso: npm run sim -- planos <email> <senha>');
+  const k = lerChaves();
+  titulo('💎 Planos — travas do Free e liberação pelo Pro');
+
+  const tokenSite = await loginSite(email, senha);
+  ok('Login no site');
+
+  const virarPro = await chamar('POST', '/plans/change', { tier: 'pro' }, tokenSite);
+  esperar(virarPro, 402, 'Virar Pro "de graça" pela rota de plano é recusado (só pela compra)');
+
+  esperar(await chamar('POST', '/plans/change', { tier: 'free' }, tokenSite), 200, 'Conta no plano Free');
+
+  const token = await loginDispositivo(k.publicKey, k.secretKey);
+  const v = await versaoAtual(token);
+
+  const heranca = await chamar(
+    'POST',
+    '/vault/inheritance/enable',
+    { prova_cont_dono_atual: k.provaContDono, prova_cont_herdeiro: aleatorio32(), version_counter: v + 1, payload_cifrado: payloadFalso() },
+    token
+  );
+  esperar(heranca, 403, 'Free: herança bloqueada');
+
+  esperar(await chamar('POST', '/vault/kill-switch', { prova_cont_dono: k.provaContDono }, tokenSite), 403, 'Free: Kill Switch bloqueado');
+  esperar(await chamar('GET', '/vault/activity', undefined, tokenSite), 403, 'Free: alertas de acesso bloqueados');
+
+  const grande = await chamar('PUT', '/vault/backup', { version_counter: v + 1, payload_cifrado: payloadFalso(100 * 1024) }, token);
+  esperar(grande, 413, 'Free: backup acima de 64 KB recusado');
+
+  await assinarPro(tokenSite);
+
+  const grandePro = await chamar('PUT', '/vault/backup', { version_counter: v + 1, payload_cifrado: payloadFalso(100 * 1024) }, token);
+  esperar(grandePro, 200, 'Pro: backup de 100 KB aceito');
+
+  const atividade = await chamar('GET', '/vault/activity', undefined, tokenSite);
+  esperar(atividade, 200, `Pro: alertas de acesso liberados (${atividade.json.data?.length} eventos)`);
+
+  const pedidos = await chamar('GET', '/orders', undefined, tokenSite);
+  esperar(pedidos, 200, `Pedidos gravados no servidor: ${pedidos.json.data?.length}`);
+
+  console.log('\n  Planos OK! 🎉\n');
+}
+
+// ============================================================
 // TUDO EM SEQUÊNCIA
 // ============================================================
 async function testarTudo(email?: string, senha?: string) {
@@ -523,13 +635,14 @@ async function testarTudo(email?: string, senha?: string) {
   const estado = await estadoCofre(token);
   if (estado !== 'ATIVA') falha(`O cofre precisa estar ATIVO para começar (está ${estado}).`);
 
+  await planos(email, senha); // deixa a conta no Pro
   await backup();
   await recuperar();
   await trocarCcp();
   await heranca();
   await resgatar();
   await killSwitch(email, senha); // o dono retoma a conta depois do resgate
-  console.log(falhas === 0 ? '\n🏁 PARTES 4, 5 e 6 — TODOS OS TESTES PASSARAM! 🎉\n' : `\n⚠️  ${falhas} falha(s)\n`);
+  console.log(falhas === 0 ? '\n🏁 COFRE, PLANOS E COMPRAS — TODOS OS TESTES PASSARAM! 🎉\n' : `\n⚠️  ${falhas} falha(s)\n`);
 }
 
 async function status() {
@@ -556,6 +669,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
   heranca,
   resgatar,
   'kill-switch': () => killSwitch(args[0], args[1]),
+  planos: () => planos(args[0], args[1]),
   'testar-tudo': () => testarTudo(args[0], args[1]),
   status,
   esquecer,
@@ -563,7 +677,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
 
 if (!comando || !comandos[comando]) {
   console.log(
-    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | testar-tudo email senha | status | esquecer>'
+    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | testar-tudo email senha | status | esquecer>'
   );
   process.exit(1);
 }

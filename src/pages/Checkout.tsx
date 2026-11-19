@@ -37,6 +37,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ROUNDED_FONT, LILAC, AppleIcon } from '../components/auth/authShared';
 import { normalizePlan } from '../utils/plan';
+import { OrdersAPI } from '../services/api';
 import { KRYPTA_DEVICE } from '../data/catalog';
 import {
   BRAND_LABEL,
@@ -417,6 +418,7 @@ function SuccessOverlay({
     ['Parcelas', order.installments > 1 ? `${order.installments}x de ${formatBRL(order.total / order.installments)}` : 'À vista'],
     ['Total', formatBRL(order.total)],
     ['Data', new Date(order.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })],
+    ...((order.serials ?? []).map((s, i) => [`Dispositivo ${i + 1}`, s]) as [string, string][]),
   ];
 
   return (
@@ -472,7 +474,7 @@ function SuccessOverlay({
         <p className="text-center text-sm mb-6" style={{ color: muted }}>
           {isPlan
             ? 'Seu plano já está ativo. Todos os recursos foram liberados.'
-            : 'Seu Dispositivo Krypta foi reservado. Previsão de entrega: 5 a 8 dias úteis.'}
+            : 'Pedido gravado na sua conta. Quando o dispositivo chegar, confirme o recebimento em "Minhas compras" e pareie em Meu Krypta.'}
         </p>
 
         <div
@@ -514,7 +516,7 @@ function SuccessOverlay({
             className="w-full py-3 rounded-xl font-bold text-sm text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
             style={{ background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)', boxShadow: '0 0 24px rgba(141,81,255,0.5)', fontFamily: ROUNDED_FONT }}
           >
-            {isPlan ? 'Ir para o meu perfil' : 'Continuar navegando'}
+            {isPlan ? 'Ir para Meu Krypta' : 'Ver minhas compras'}
           </button>
           <button
             type="button"
@@ -522,7 +524,7 @@ function SuccessOverlay({
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
             style={{ color: isDark ? '#C6AEF6' : DEEP, fontFamily: ROUNDED_FONT }}
           >
-            {isPlan ? 'Conhecer o Dispositivo Krypta' : 'Ver planos Krypta'}
+            {isPlan ? 'Conhecer o Dispositivo Krypta' : 'Ir para Meu Krypta'}
           </button>
         </div>
       </motion.div>
@@ -632,7 +634,7 @@ export function Checkout() {
   const { isDark } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, changePlan, signOut } = useAuth();
+  const { user, refreshUser, signOut } = useAuth();
 
   const state = (location.state ?? null) as CheckoutState | null;
   const kind: OrderKind | null = state?.kind ?? (state?.plan ? 'plan' : null);
@@ -808,11 +810,35 @@ export function Checkout() {
         if (mountedRef.current) setStepIndex(i);
       });
 
-      // Plano: grava de verdade no banco (rota protegida por JWT)
-      if (kind === 'plan') await changePlan(planTier as any);
+      // Grava o PEDIDO no servidor (rota protegida por JWT). O servidor recalcula
+      // o preço e aplica o efeito: plano → conta Pro · produto → dispositivos com nº de série.
+      const cartaoFinal = pay === 'card' ? onlyDigits(cardNumber).slice(-4) : undefined;
+      const resposta = await OrdersAPI.create(
+        kind === 'plan'
+          ? {
+              tipo: 'PLANO',
+              plano: 'pro',
+              periodo: isAnnual ? 'ANUAL' : 'MENSAL',
+              metodo: pay,
+              parcelas: 1,
+              cartao_final: cartaoFinal,
+              token_transacao: token,
+            }
+          : {
+              tipo: 'PRODUTO',
+              produto: KRYPTA_DEVICE.id,
+              quantidade: qty,
+              metodo: pay,
+              parcelas: pay === 'card' ? installments : 1,
+              cartao_final: cartaoFinal,
+              token_transacao: token,
+              endereco: { cep, endereco: address, numero: addressNumber },
+            }
+      );
+      await refreshUser(); // plano novo aparece na hora em todo o site
 
       const newOrder: SimulatedOrder = {
-        id: pay === 'pix' ? pixOrderId : generateOrderId(),
+        id: resposta.pedido.codigo ?? (pay === 'pix' ? pixOrderId : generateOrderId()),
         token,
         kind,
         items: [
@@ -827,6 +853,7 @@ export function Checkout() {
         cardLast4: pay === 'card' ? onlyDigits(cardNumber).slice(-4) : undefined,
         isAnnual: kind === 'plan' ? isAnnual : undefined,
         shipping: kind === 'product' ? { cep, address, number: addressNumber } : undefined,
+        serials: resposta.dispositivos,
         createdAt: new Date().toISOString(),
       };
       saveOrder(newOrder);
@@ -1598,8 +1625,8 @@ export function Checkout() {
             key="success"
             order={order}
             isDark={isDark}
-            onPrimary={() => navigate(order.kind === 'plan' ? '/profile' : '/products')}
-            onSecondary={() => navigate(order.kind === 'plan' ? '/products' : '/services#planos')}
+            onPrimary={() => navigate(order.kind === 'plan' ? '/device' : '/compras')}
+            onSecondary={() => navigate(order.kind === 'plan' ? '/products' : '/device')}
           />
         )}
         {stage === 'error' && (

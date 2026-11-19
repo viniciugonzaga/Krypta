@@ -80,6 +80,12 @@ export const PlanController = {
       const plan = PLANS.find((p) => p.tier === tier);
       if (!plan) throw new ApiError(400, 'Plano inválido.');
 
+      // Virar Pro só pela COMPRA (POST /api/orders), que grava o pedido.
+      // Esta rota fica só para voltar ao plano gratuito (cancelamento).
+      if (plan.tier === 'pro') {
+        throw new ApiError(402, 'Para assinar o Krypta Pro, finalize a compra no checkout.');
+      }
+
       const updated = await UserModel.update(user.id, { plan: plan.tier });
 
       console.log(`✅ [BACKEND] Banco de dados atualizado. Plano retornado do DB: ${updated?.plan}`);

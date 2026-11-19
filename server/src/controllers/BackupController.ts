@@ -26,7 +26,7 @@ import {
   estaEm,
 } from '../config/estados.js';
 import { VaultModel } from '../models/VaultModel.js';
-import { exigirConta, resultadoOuErro } from '../services/VaultRules.js';
+import { exigirConta, exigirEspaco, resultadoOuErro } from '../services/VaultRules.js';
 import type { VaultRequest } from '../middlewares/vaultAuth.js';
 
 export const BackupController = {
@@ -36,6 +36,7 @@ export const BackupController = {
   enviar: asyncHandler<VaultRequest>(async (req, res: Response) => {
     const versionCounter = validarVersionCounter(req.body?.version_counter);
     const payload = decodificarPayload(req.body?.payload_cifrado);
+    exigirEspaco(req.user!.plan, payload); // Free 64 KB · Pro 1 MB
 
     const r = await VaultModel.salvarBackup({
       userId: req.vault!.userId,

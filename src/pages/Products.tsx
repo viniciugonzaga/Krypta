@@ -1,6 +1,6 @@
 // src/pages/Products.tsx
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star,
@@ -30,6 +30,9 @@ import {
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { DevicesAPI, type DispositivoComprado } from '../services/api';
+import { isProPlan } from '../utils/plan';
 import { KRYPTA_DEVICE } from '../data/catalog';
 import { formatBRL } from '../services/fakePayment';
 
@@ -128,6 +131,14 @@ const FEATURES = [
   },
 ];
 
+// Do pedido ao cofre: de onde vem o dispositivo que o usuário pareia
+const JORNADA = [
+  { icon: ShoppingCart, titulo: 'Compre', texto: 'O pedido fica salvo na sua conta, com um número de série para cada dispositivo.' },
+  { icon: Truck, titulo: 'Receba', texto: 'Acompanhe em "Minhas compras" e confirme quando o dispositivo chegar.' },
+  { icon: Cpu, titulo: 'Pareie', texto: 'No Meu Krypta, escolha o número de série e gere sua chave de contingência (CCP).' },
+  { icon: Lock, titulo: 'Proteja', texto: 'O dispositivo passa a guardar o cofre. O servidor só recebe o backup cifrado.' },
+];
+
 const SPECS: [string, string][] = [
   ['Processador', 'ESP32'],
   ['Autenticação', 'Digital, NFC, cabo USB e senha'],
@@ -219,7 +230,20 @@ const faqs = [
 
 export function Products() {
   const { isDark } = useTheme();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [meusDispositivos, setMeusDispositivos] = useState<DispositivoComprado[] | null>(null);
+
+  // Logado: mostra quantos dispositivos a pessoa já tem e em que etapa estão
+  useEffect(() => {
+    if (!user) {
+      setMeusDispositivos(null);
+      return;
+    }
+    DevicesAPI.list()
+      .then(setMeusDispositivos)
+      .catch(() => setMeusDispositivos(null));
+  }, [user]);
   const [activeImg, setActiveImg] = useState(0);
   const [direction, setDirection] = useState(1);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -664,6 +688,101 @@ export function Products() {
                   <span className="flex items-center justify-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5" style={{ color: purple }} /> Compra segura</span>
                   <span className="flex items-center justify-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5" style={{ color: purple }} /> Garantia 12 meses</span>
                 </div>
+              </div>
+            </motion.div>
+          </section>
+
+          {/* ============================================================
+              SEÇÃO 1.5 — DO PEDIDO AO COFRE
+             ============================================================ */}
+          <section className="mb-28">
+            <div className="text-center mb-10">
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7 }}
+                className="text-4xl md:text-5xl mb-4"
+                style={titleBaseStyle(isDark)}
+              >
+                Do pedido ao <span style={titleAccentStyle(isDark)}>cofre</span>
+              </motion.h2>
+              <p className="max-w-2xl mx-auto text-[15px]" style={{ color: textMuted, fontFamily: ROUNDED_FONT }}>
+                O dispositivo que você compra aqui é o mesmo que você liga no seu cofre, no Meu Krypta.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {JORNADA.map((j, i) => (
+                <motion.div
+                  key={j.titulo}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: i * 0.1 }}
+                  className="relative rounded-2xl p-5"
+                  style={{ background: cardBg, border: `1px solid ${cardBorder}` }}
+                >
+                  <Corners />
+                  <span className="absolute top-4 right-4 text-3xl font-black opacity-15" style={{ color: purple, fontFamily: ROUNDED_FONT }}>
+                    {i + 1}
+                  </span>
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3" style={{ background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)' }}>
+                    <j.icon className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="font-bold mb-1" style={{ color: textMain, fontFamily: ROUNDED_FONT }}>{j.titulo}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: textMuted }}>{j.texto}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Situação da pessoa logada */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mt-6 rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-4"
+              style={{ background: isDark ? 'rgba(141,81,255,0.08)' : 'rgba(81,0,189,0.05)', border: `1px dashed ${purple}` }}
+            >
+              <div className="flex-1 text-sm" style={{ color: textMain }}>
+                {!user ? (
+                  <>Entre na sua conta para comprar, acompanhar a entrega e parear o dispositivo no seu cofre.</>
+                ) : meusDispositivos && meusDispositivos.length > 0 ? (
+                  <>
+                    Você tem <strong>{meusDispositivos.length}</strong> dispositivo(s):{' '}
+                    {meusDispositivos.filter((d) => d.status === 'EM_TRANSPORTE').length} em transporte,{' '}
+                    {meusDispositivos.filter((d) => d.status === 'DISPONIVEL').length} pronto(s) para parear,{' '}
+                    {meusDispositivos.filter((d) => d.status === 'PAREADO').length} em uso no cofre.
+                  </>
+                ) : (
+                  <>Você ainda não tem um Dispositivo Krypta. Ele protege o cofre com a chave física (recurso do Krypta Pro).</>
+                )}
+                {user && !isProPlan(user.plan) && (
+                  <p className="text-xs mt-1" style={{ color: textMuted }}>
+                    Para parear o dispositivo físico no cofre é preciso o <strong>Krypta Pro</strong>.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {!user ? (
+                  <Link to="/login" className="px-4 py-2.5 rounded-lg text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)' }}>
+                    Entrar
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/compras" className="px-4 py-2.5 rounded-lg text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)' }}>
+                      Minhas compras
+                    </Link>
+                    {!isProPlan(user.plan) && (
+                      <Link to="/services#planos" className="px-4 py-2.5 rounded-lg text-sm font-bold" style={{ border: `1px solid ${bright}`, color: bright }}>
+                        Ver o Krypta Pro
+                      </Link>
+                    )}
+                  </>
+                )}
+                <Link to="/como-funciona" className="px-4 py-2.5 rounded-lg text-sm font-bold inline-flex items-center gap-1" style={{ color: bright }}>
+                  Como funciona <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
             </motion.div>
           </section>

@@ -35,6 +35,8 @@ export interface SimulatedOrder {
   cardLast4?: string;
   isAnnual?: boolean;
   shipping?: ShippingInfo;
+  /** Números de série dos dispositivos comprados (pedido de produto) */
+  serials?: string[];
   createdAt: string; // ISO
 }
 

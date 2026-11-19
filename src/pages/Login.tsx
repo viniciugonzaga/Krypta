@@ -688,6 +688,16 @@ export function LoginForm() {
           Cadastre-se
         </Link>
       </p>
+      <p className="text-[11px] mt-2 text-center" style={{ color: mutedText }}>
+        Recebeu um kit de herança?{' '}
+        <Link to="/heranca" className="font-semibold hover:underline" style={{ color: accent }}>
+          Resgatar sem conta
+        </Link>
+        {' · '}
+        <Link to="/como-funciona" className="font-semibold hover:underline" style={{ color: accent }}>
+          Como funciona
+        </Link>
+      </p>
     </>
   );
 }

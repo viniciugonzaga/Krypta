@@ -30,6 +30,7 @@ export interface User {
   hardwareUuid?: string | null;
   herancaAtiva?: boolean;
   ultimoSincronismo?: string | null;
+  tipoDispositivo?: 'SOFTWARE' | 'FISICO' | null;
 }
 
 interface AuthContextValue {

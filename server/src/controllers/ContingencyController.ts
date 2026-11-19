@@ -34,7 +34,14 @@ import { VaultModel } from '../models/VaultModel.js';
 import { AuditModel } from '../models/AuditModel.js';
 import { UserModel } from '../models/UserModel.js';
 import { EmailService } from '../services/EmailService.js';
-import { conferirProvaDono, exigirConta, resultadoOuErro } from '../services/VaultRules.js';
+import {
+  conferirProvaDono,
+  exigirConta,
+  exigirEspaco,
+  exigirRecurso,
+  resolverDispositivoFisico,
+  resultadoOuErro,
+} from '../services/VaultRules.js';
 import type { VaultRequest } from '../middlewares/vaultAuth.js';
 
 export const ContingencyController = {
@@ -94,6 +101,7 @@ export const ContingencyController = {
   // ------------------------------------------------------------
   killSwitch: asyncHandler<VaultRequest>(async (req, res: Response) => {
     const userId = req.vault!.userId;
+    exigirRecurso(req.user!.plan, 'killSwitch'); // Krypta Pro
     const prova = validarProva(req.body?.prova_cont_dono);
 
     const conta = await exigirConta(userId);
@@ -148,8 +156,13 @@ export const ContingencyController = {
     if (await VaultModel.obterPorPublicKey(publicKey)) {
       throw new ApiError(409, 'Este dispositivo já está vinculado a outra conta (RN01).');
     }
+    // O novo dispositivo pode ser de software ou outra unidade comprada (Pro)
+    const dispositivoId = await resolverDispositivoFisico(userId, req.user!.plan, req.body?.dispositivo_serial);
 
-    const r = await VaultModel.parearNovoHardware({ userId, publicKey });
+    const r = await VaultModel.parearNovoHardware({ userId, publicKey, dispositivoId });
+    if (r === 'DISPOSITIVO_INDISPONIVEL') {
+      throw new ApiError(409, 'O dispositivo escolhido não está mais disponível para pareamento.');
+    }
     if (r !== 'OK') {
       throw new ApiError(409, 'Não foi possível vincular o dispositivo (estado ou chave em conflito).');
     }
@@ -177,6 +190,7 @@ export const ContingencyController = {
     }
     const versionCounter = validarVersionCounter(req.body?.version_counter);
     const payload = decodificarPayload(req.body?.payload_cifrado);
+    exigirEspaco(req.user!.plan, payload);
 
     const conta = await exigirConta(userId);
     if (conta.status !== 'ATIVA') {
