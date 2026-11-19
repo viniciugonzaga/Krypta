@@ -25,6 +25,8 @@ import { Plans } from '../pages/Plans';
 // NOVA PÁGINA DE PRODUTOS IMPORTADA AQUI
 import { Products } from '../pages/Products';
 import { AuthCallback } from '../pages/AuthCallback';
+import { Device } from '../pages/Device';
+import { InheritanceClaim } from '../pages/InheritanceClaim';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -87,6 +89,9 @@ export function AppRoutes() {
           <Route path="/login" element={<PageTransition variant="fade"><PublicOnlyRoute><AuthPage /></PublicOnlyRoute></PageTransition>} />
           <Route path="/register" element={<PageTransition variant="fade"><PublicOnlyRoute><AuthPage /></PublicOnlyRoute></PageTransition>} />
 
+          {/* Resgate de herança: público (o herdeiro não tem conta) */}
+          <Route path="/heranca" element={<PageTransition variant="slide-up"><InheritanceClaim /></PageTransition>} />
+
           {/* Retorno do login social (GitHub / Apple) */}
           <Route path="/auth/callback/:provider" element={<AuthCallback />} />
 
@@ -107,6 +112,7 @@ export function AppRoutes() {
           {/* Protegidas */}
           <Route path="/profile" element={<PageTransition><PrivateRoute><Profile /></PrivateRoute></PageTransition>} />
           <Route path="/plans" element={<PageTransition><PrivateRoute><Plans /></PrivateRoute></PageTransition>} />
+          <Route path="/device" element={<PageTransition><PrivateRoute><Device /></PrivateRoute></PageTransition>} />
           <Route path="/vault" element={<PageTransition><PrivateRoute><Vault /></PrivateRoute></PageTransition>} />
           <Route path="/settings" element={<PageTransition variant="slide-up"><PrivateRoute><Settings /></PrivateRoute></PageTransition>} />
 

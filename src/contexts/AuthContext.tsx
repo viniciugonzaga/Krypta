@@ -24,6 +24,12 @@ export interface User {
   createdAt?: string;
   updatedAt?: string;
   lastLoginAt?: string | null;
+  // ---- Cofre / dispositivo Krypta (vem do serializeUser do servidor) ----
+  estadoCofre?: 'PENDENTE_PAREAMENTO' | 'ATIVA' | 'REVOGADA' | 'RECUPERACAO_LOCAL' | 'RECUPERACAO_HARDWARE';
+  dispositivoPareado?: boolean;
+  hardwareUuid?: string | null;
+  herancaAtiva?: boolean;
+  ultimoSincronismo?: string | null;
 }
 
 interface AuthContextValue {

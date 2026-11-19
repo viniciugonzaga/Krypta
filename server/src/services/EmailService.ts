@@ -1,6 +1,6 @@
 // server/src/services/EmailService.ts
 import nodemailer from 'nodemailer';
-import { env } from '../config/env.js';
+import { env, isProduction, smtpOnlyTo } from '../config/env.js';
 
 const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
@@ -13,6 +13,10 @@ const transporter = nodemailer.createTransport({
 });
 
 const smtpConfigurado = () => !!env.SMTP_USER && !!env.SMTP_PASS;
+
+/** Fora de produção, com SMTP_ONLY_TO preenchido, só esses endereços recebem */
+const destinatarioLiberado = (para: string) =>
+  isProduction || smtpOnlyTo.length === 0 || smtpOnlyTo.includes(para.toLowerCase());
 
 // ------------------------------------------------------------
 // Layout padrão dos e-mails do Krypta
@@ -32,12 +36,18 @@ function layout(titulo: string, corpoHtml: string, alerta = false): string {
   `;
 }
 
-async function enviar(para: string, assunto: string, html: string): Promise<void> {
+/** Devolve true SÓ se o e-mail saiu. Lança erro se o SMTP recusar. */
+async function enviar(para: string, assunto: string, html: string): Promise<boolean> {
   if (!smtpConfigurado()) {
     console.warn(`⚠️  SMTP não configurado — e-mail NÃO enviado para ${para}: "${assunto}"`);
-    return;
+    return false;
+  }
+  if (!destinatarioLiberado(para)) {
+    console.warn(`⚠️  ${para} fora do SMTP_ONLY_TO — e-mail NÃO enviado: "${assunto}"`);
+    return false;
   }
   await transporter.sendMail({ from: env.MAIL_FROM, to: para, subject: assunto, html });
+  return true;
 }
 
 /**
@@ -74,6 +84,35 @@ export const EmailService = {
         `
       ),
     });
+  },
+
+  /**
+   * Aviso de inatividade (Parte 7). Devolve true SÓ se o e-mail saiu:
+   * a rotina só registra o aviso (e, portanto, só exclui a conta depois)
+   * quando o envio foi confirmado. Se lançar erro, o aviso fica pendente.
+   */
+  sendInactivityNotice(to: string, name: string, nivel: 'D30' | 'D15' | 'H48', diasRestantes: number): Promise<boolean> {
+    const prazo = nivel === 'H48' ? 'em até 48 horas' : `em cerca de ${diasRestantes} dias`;
+    const assunto =
+      nivel === 'H48'
+        ? 'Krypta — Sua conta será excluída em até 48 horas'
+        : `Krypta — Sua conta será excluída em ${diasRestantes} dias`;
+    return enviar(
+      to,
+      assunto,
+      layout(
+        nivel === 'H48' ? 'Último aviso de inatividade' : 'Aviso de inatividade',
+        `
+        <p>Olá, <strong>${name}</strong>.</p>
+        <p>Sua conta Krypta está inativa e será <strong>excluída permanentemente ${prazo}</strong>,
+        junto com o backup na nuvem e as chaves de contingência (política de inatividade de 365 dias).</p>
+        <p><strong>Para manter a conta</strong>, conecte o seu dispositivo Krypta ao aplicativo e faça login:
+        isso renova o prazo. Entrar apenas no site não renova.</p>
+        <p style="color:#B4A0C8;">Se você não pretende mais usar o Krypta, nenhuma ação é necessária.</p>
+        `,
+        nivel === 'H48'
+      )
+    );
   },
 
   /** Kill Switch acionado (Parte 5) */

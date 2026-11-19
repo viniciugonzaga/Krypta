@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, ShieldCheck } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
@@ -106,7 +106,14 @@ export function Profile() {
 
   const lastAccess = formatDate(u.lastLoginAt);
   const memberSince = formatDate(u.createdAt);
-  const deviceConfigured = !!u.hardwareUuid;
+  const deviceConfigured = !!u.dispositivoPareado;
+  const estadoCofreLabel: Record<string, string> = {
+    PENDENTE_PAREAMENTO: 'Não pareado',
+    ATIVA: 'Ativo',
+    REVOGADA: 'Revogado (Kill Switch)',
+    RECUPERACAO_LOCAL: 'Em recuperação',
+    RECUPERACAO_HARDWARE: 'Novo dispositivo em recuperação',
+  };
   const masterPasswordSet = u.masterPasswordSet ?? true;
   const firstName = (user.name ?? '').trim().split(' ')[0] || 'por aqui';
 
@@ -379,8 +386,15 @@ export function Profile() {
           />
           <p className="relative" style={{ color: muted }}>
             Dispositivo Krypta:{' '}
-            <span style={{ color: fg }}>{deviceConfigured ? 'Configurado' : 'Não configurado'}</span>
-            {deviceConfigured && <span style={{ color: accent }}> ({u.hardwareUuid})</span>}
+            <span style={{ color: fg }}>{estadoCofreLabel[u.estadoCofre] ?? (deviceConfigured ? 'Configurado' : 'Não configurado')}</span>
+            {deviceConfigured && u.hardwareUuid && <span style={{ color: accent }}> ({u.hardwareUuid})</span>}
+            {' · '}
+            <Link to="/device" className="underline font-semibold" style={{ color: bright }}>
+              {deviceConfigured ? 'Gerenciar' : 'Parear agora'}
+            </Link>
+          </p>
+          <p className="relative" style={{ color: muted }}>
+            Herança digital: <span style={{ color: fg }}>{u.herancaAtiva ? 'Ativa' : 'Desativada'}</span>
           </p>
           <p className="relative" style={{ color: muted }}>
             Tema atual: <span style={{ color: fg }}>{isDark ? 'Escuro' : 'Claro'}</span>

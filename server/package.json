@@ -9,6 +9,7 @@
     "start": "node dist/app.js",
     "seed": "tsx src/config/seed.ts",
     "sim": "tsx scripts/simular-dispositivo.ts",
+    "ttl": "tsx scripts/testar-inatividade.ts",
     "gerar-segredo": "node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
   },
   "dependencies": {

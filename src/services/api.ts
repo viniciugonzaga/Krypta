@@ -1,5 +1,7 @@
 // src/services/api.ts
-const API_URL = 'http://localhost:3333/api';
+// Endereço da API. Em desenvolvimento usa o localhost; em produção vem do
+// .env do front:  VITE_API_URL=https://api.seudominio.com.br/api
+export const API_URL: string = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3333/api';
 
 // Chaves do localStorage (as mesmas do AuthContext)
 export const STORAGE_KEYS = {
@@ -247,4 +249,53 @@ export const PlanAPI = {
     apiRequest('/plans', { method: 'POST', body: data }),
   update: (id: string, data: any) => apiRequest(`/plans/${id}`, { method: 'PUT', body: data }),
   delete: (id: string) => apiRequest(`/plans/${id}`, { method: 'DELETE' }),
+};
+
+// ============================================================
+// VAULT API — cofre, rotas do PORTAL (token do site / admin_web)
+// As rotas do DISPOSITIVO (token hardware) ficam em virtualDevice.ts,
+// porque usam outro token e não passam pela renovação do portal.
+// ============================================================
+export type EstadoCofre =
+  | 'PENDENTE_PAREAMENTO'
+  | 'ATIVA'
+  | 'REVOGADA'
+  | 'RECUPERACAO_LOCAL'
+  | 'RECUPERACAO_HARDWARE';
+
+export interface ContaCofre {
+  id: string;
+  email: string;
+  public_key: string | null;
+  status: EstadoCofre;
+  hardware_uuid: string | null;
+  heranca_ativa: boolean;
+  ultimo_sincronismo: string;
+  criado_em: string;
+}
+
+export const VaultAPI = {
+  /** Estado do cofre da conta logada */
+  account: () => apiRequest<ContaCofre>('/vault/account'),
+
+  /** Primeiro pareamento do dispositivo */
+  pair: (publicKey: string, provaContDono: string) =>
+    apiRequest<ContaCofre>('/hardware/pair', {
+      method: 'POST',
+      body: { public_key: publicKey, prova_cont_dono: provaContDono },
+    }),
+
+  /** "Perdi o dispositivo": revoga para sempre a chave atual */
+  killSwitch: (provaContDono: string) =>
+    apiRequest<ContaCofre>('/vault/kill-switch', {
+      method: 'POST',
+      body: { prova_cont_dono: provaContDono },
+    }),
+
+  /** Vincula um dispositivo novo depois do Kill Switch */
+  recoveryHardware: (publicKey: string, provaContDono: string) =>
+    apiRequest<ContaCofre>('/vault/recovery/hardware', {
+      method: 'POST',
+      body: { public_key: publicKey, prova_cont_dono: provaContDono },
+    }),
 };

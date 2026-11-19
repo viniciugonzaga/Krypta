@@ -45,11 +45,13 @@ const baseNavItems: NavItem[] = [
   { id: 'contatos', label: 'Contatos', path: '/contact', icon: Mail },
 ];
 
-const kryptaNavItem: NavItem = { id: 'krypta', label: 'Krypta', path: '#', icon: Info };
+// "Krypta" (só logado) → Meu Krypta: dispositivo, cofre e contingência
+const kryptaNavItem: NavItem = { id: 'krypta', label: 'Krypta', path: '/device', icon: Info };
 
 // Menu de perfil: Perfil, Planos, Configurações e Sair (igual à referência)
 const profileMenu = [
   { id: 'perfil', label: 'Perfil', path: '/profile', icon: User },
+  { id: 'dispositivo', label: 'Meu Krypta', path: '/device', icon: Info },
   { id: 'planos', label: 'Planos', path: '/plans', icon: Sparkles },
   { id: 'config', label: 'Configurações', path: '/settings', icon: Settings },
 ];

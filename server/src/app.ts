@@ -6,6 +6,7 @@ import { env, corsOrigins } from './config/env.js';
 import { testConnection } from './config/database.js';
 import routes from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
+import { iniciarTtlJob } from './jobs/ttlJob.js';
 
 const app = express();
 
@@ -68,8 +69,11 @@ async function bootstrap() {
     console.log(`  🗄️  MySQL: ${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`);
     console.log(`  🔓 CORS: ${corsOrigins.join(', ')}`);
     console.log(`  🔐 Cofre: pareamento, login do dispositivo, backup, contingência e herança ativos`);
+    console.log(`  ⏳ Inatividade: varredura a cada 6 h (1ª em 30 s)`);
     console.log('');
   });
+  // Rotina de inatividade (RN11). Sem SMTP, só avisa no log: nenhuma conta é excluída.
+  iniciarTtlJob();
 }
 
 bootstrap().catch((err) => {

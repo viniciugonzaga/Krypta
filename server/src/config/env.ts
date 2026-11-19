@@ -47,6 +47,9 @@ const envSchema = z
     SMTP_USER: z.string().default(''),
     SMTP_PASS: z.string().default(''),
     MAIL_FROM: z.string().default('Krypta <no-reply@krypta.local>'),
+    // Fora de produção, se preenchido, SÓ estes endereços recebem e-mail
+    // (separados por vírgula). Evita mandar e-mail para contas de teste.
+    SMTP_ONLY_TO: z.string().default(''),
 
     // ============ LOGIN SOCIAL (opcional) ============
     GOOGLE_CLIENT_ID: z.string().default(''),
@@ -74,3 +77,8 @@ export const corsOrigins = env.CORS_ORIGIN.split(',')
   .filter(Boolean);
 
 export const isProduction = env.NODE_ENV === 'production';
+
+/** Endereços liberados para receber e-mail fora de produção (vazio = todos) */
+export const smtpOnlyTo = env.SMTP_ONLY_TO.split(',')
+  .map((e: string) => e.trim().toLowerCase())
+  .filter(Boolean);
