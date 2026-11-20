@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.tsx';
 import './index.css';
+import { SOCIAL_AUTH } from './config/socialAuth';
 
-// Substitua pelo seu Client ID gerado no Google Cloud (aquele longo)
-const GOOGLE_CLIENT_ID = '295912561573-ps4fq5c5nft16i4518ecdvobt5d5vq7.apps.googleusercontent.com';
+// O Client ID do Google vem do .env (VITE_GOOGLE_CLIENT_ID), o mesmo que o
+// servidor confere. Vazio = login com Google desligado.
+const GOOGLE_CLIENT_ID = SOCIAL_AUTH.google.clientId || 'login-google-desligado';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -371,8 +371,8 @@ export const AuthController = {
       const { email, code, newPassword } = req.body ?? {};
 
       const user = await UserModel.findByEmail(email);
-      if (!user) throw new ApiError(404, 'Usuário não encontrado.');
-      if (!user.recovery_code || user.recovery_code !== code)
+      // Mesma mensagem para e-mail inexistente: não revela quem tem conta
+      if (!user || !user.recovery_code || user.recovery_code !== String(code ?? '').trim().toUpperCase())
         throw new ApiError(400, 'Código inválido.');
       if (
         !user.recovery_code_expires_at ||

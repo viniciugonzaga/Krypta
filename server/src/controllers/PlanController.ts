@@ -1,5 +1,7 @@
 import type { Response, NextFunction } from 'express';
-import { UserModel, type UserPlan } from '../models/UserModel.js';
+import { UserModel, normalizePlan, type UserPlan } from '../models/UserModel.js';
+import { OrderModel } from '../models/OrderModel.js';
+import { comparePassword } from '../utils/hash.js';
 import { AuditModel } from '../models/AuditModel.js';
 import { ApiError } from '../utils/ApiError.js';
 import type { AuthedRequest } from '../middlewares/auth.js';
@@ -65,6 +67,35 @@ const PLANS: Array<{
 ];
 
 export const PlanController = {
+  /**
+   * POST /api/plans/cancel  { password }
+   * Cancela o Krypta Pro e volta para o Free. Pede a senha do site para
+   * confirmar (evita cancelamento por alguém com o navegador aberto).
+   * O cofre continua funcionando; recursos Pro ficam travados para novas ações.
+   */
+  async cancel(req: AuthedRequest, res: Response, next: NextFunction) {
+    try {
+      const user = req.user!;
+      const { password } = req.body ?? {};
+      if (typeof password !== 'string' || !password) throw new ApiError(400, 'Digite sua senha para confirmar.');
+      if (!(await comparePassword(password, user.password_hash))) throw new ApiError(401, 'Senha incorreta.');
+      if (normalizePlan(user.plan) !== 'pro') throw new ApiError(409, 'Você já está no Krypta Free.');
+
+      const updated = await UserModel.update(user.id, { plan: 'free' });
+      await OrderModel.cancelarAssinaturas(user.id);
+      await AuditModel.log({
+        userId: user.id,
+        action: 'PLAN_CANCELED',
+        detail: 'Assinatura do Krypta Pro cancelada (voltou ao Free)',
+        status: 'warning',
+      });
+
+      res.json({ success: true, data: serializeUser(updated) });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async list(_req: AuthedRequest, res: Response) {
     res.json({ success: true, data: PLANS });
   },

@@ -120,8 +120,13 @@ export function Plans() {
 
   const currentPlan = user ? normalizePlan((user as any).plan) : null;
 
-  // Clicar em um plano leva para a seção de planos da página de serviços
+  // Plano atual ou troca para o Free → gerenciar a assinatura no perfil.
+  // Assinar o Pro → seção de planos (mensal/anual) que leva ao checkout.
   const handleSelect = (tier: PlanId) => {
+    if (currentPlan === tier || (tier === 'free' && currentPlan === 'pro')) {
+      navigate('/profile#assinatura');
+      return;
+    }
     navigate('/services#planos', { state: { tier } });
   };
 
@@ -427,7 +432,11 @@ export function Plans() {
                         }
                   }
                 >
-                  {isCurrent ? 'Plano Atual' : 'Ver plano'}
+                  {isCurrent
+                    ? 'Plano atual · Gerenciar'
+                    : tier === 'free' && currentPlan === 'pro'
+                      ? 'Cancelar o Pro'
+                      : 'Assinar o Pro'}
                 </button>
               </motion.div>
             );

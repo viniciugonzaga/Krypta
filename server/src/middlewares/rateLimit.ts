@@ -26,6 +26,8 @@ const MIN = 60 * 1000;
 // ---- Portal (site) ----
 export const limitarLoginPortal = criar(15 * MIN, 10);
 export const limitarCadastro = criar(60 * MIN, 30);
+// Formulário de contato: evita spam na caixa do suporte
+export const limitarContato = criar(60 * MIN, 5, 'Você já enviou várias mensagens. Tente de novo mais tarde.');
 
 // ---- Dispositivo ----
 export const limitarAuthHardware = criar(1 * MIN, 30, 'Muitas requisições. Aguarde um instante.');

@@ -1,6 +1,6 @@
 // src/routes/AppRoutes.tsx
 import { useState, useEffect, useRef } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import type { ReactNode } from 'react';
 
@@ -8,12 +8,13 @@ import type { ReactNode } from 'react';
 import { PageTransition } from '../components/ui/PageTransition';
 import { LoadingScreen } from '../components/ui/LoadingScreen';
 import { useAuth } from '../contexts/AuthContext';
+import { AUTH_EVENTS } from '../services/api';
+import type { DestinoLogin } from './destino';
 
 // Páginas
 import { Welcome } from '../pages/Welcome';
 import { AuthPage } from '../pages/AuthPage';
 import { Profile } from '../pages/Profile';
-import { Vault } from '../pages/Vault';
 import { Settings } from '../pages/Settings'; 
 import { RecoverPassword } from '../pages/RecoverPassword';
 import { Checkout } from '../pages/Checkout';
@@ -32,7 +33,11 @@ import { Orders } from '../pages/Orders';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!user) {
+    const from: DestinoLogin = { pathname: location.pathname, search: location.search, hash: location.hash, state: location.state };
+    return <Navigate to="/login" replace state={{ from }} />;
+  }
   if (user.status === 'SUSPENSA' || user.status === 'REVOGADA') {
     return <Navigate to="/suspended" replace />;
   }
@@ -41,14 +46,27 @@ function PrivateRoute({ children }: { children: ReactNode }) {
 
 function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  // Redireciona para "/" (Welcome) caso já esteja logado e tente acessar login/registro
-  if (user) return <Navigate to="/" replace />;
+  const location = useLocation();
+  // Já logado: volta para a página que pediu o login (ou o perfil)
+  if (user) {
+    const from = (location.state as { from?: DestinoLogin } | null)?.from;
+    if (from) return <Navigate to={`${from.pathname}${from.search ?? ''}${from.hash ?? ''}`} replace state={from.state} />;
+    return <Navigate to="/profile" replace />;
+  }
   return <>{children}</>;
 }
 
 export function AppRoutes() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [showLoading, setShowLoading] = useState(false);
+
+  // Sessão venceu de vez (refresh token inválido): mostra a tela "Sessão expirada"
+  useEffect(() => {
+    const onExpired = () => navigate('/error', { state: { code: 419 }, replace: true });
+    window.addEventListener(AUTH_EVENTS.sessionExpired, onExpired);
+    return () => window.removeEventListener(AUTH_EVENTS.sessionExpired, onExpired);
+  }, [navigate]);
 
   const prevPathRef = useRef(location.pathname);
 
@@ -119,7 +137,8 @@ export function AppRoutes() {
           <Route path="/plans" element={<PageTransition><PrivateRoute><Plans /></PrivateRoute></PageTransition>} />
           <Route path="/device" element={<PageTransition><PrivateRoute><Device /></PrivateRoute></PageTransition>} />
           <Route path="/compras" element={<PageTransition><PrivateRoute><Orders /></PrivateRoute></PageTransition>} />
-          <Route path="/vault" element={<PageTransition><PrivateRoute><Vault /></PrivateRoute></PageTransition>} />
+          {/* O cofre de verdade fica no Meu Krypta */}
+          <Route path="/vault" element={<Navigate to="/device" replace />} />
           <Route path="/settings" element={<PageTransition variant="slide-up"><PrivateRoute><Settings /></PrivateRoute></PageTransition>} />
 
           {/* 404 */}

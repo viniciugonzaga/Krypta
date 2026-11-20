@@ -1255,9 +1255,13 @@ export function Services() {
 
   // Toda a lógica de seleção de plano acontece aqui
   const handlePlanSelect = (plan: PlanData, isAnnual: boolean) => {
-    // Não logado → redireciona para cadastro
+    // Não logado → cadastro; depois dele, volta direto para o checkout do plano escolhido
     if (!user) {
-      navigate('/register');
+      if (plan.tier === 'pro') {
+        navigate('/register', { state: { from: { pathname: '/checkout', state: { kind: 'plan', plan, isAnnual } } } });
+      } else {
+        navigate('/register');
+      }
       return;
     }
 
@@ -1274,11 +1278,14 @@ export function Services() {
       return;
     }
 
-    // Já é Pro → nada a fazer
-    if (currentPlan === plan.tier) return;
+    // Já é Pro → leva para o gerenciamento da assinatura
+    if (currentPlan === plan.tier) {
+      navigate('/profile#assinatura');
+      return;
+    }
 
     // Navega para a tela de checkout com o plano escolhido
-    navigate('/checkout', { state: { plan, isAnnual } });
+    navigate('/checkout', { state: { kind: 'plan', plan, isAnnual } });
   };
 
   return (
@@ -1359,7 +1366,7 @@ export function Services() {
                   color: isDark ? '#FFFFFF' : '#1a1a1a',
                 }}
               >
-                Plano Pago em Uso
+                Você já é Krypta Pro
               </h3>
 
               <p
@@ -1369,10 +1376,24 @@ export function Services() {
                   fontFamily: ROUNDED_FONT,
                 }}
               >
-                Prezado usuário, identificamos que você possui um plano pago ativo no momento.
-                Para retornar ao plano gratuito, é necessário cancelar sua assinatura atual ou
-                aguardar o término do período vigente.
+                Você está no Krypta Pro. Para voltar ao plano gratuito, cancele a assinatura no seu
+                perfil. O cofre continua funcionando; só os recursos do Pro ficam travados.
               </p>
+
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  navigate('/profile#assinatura');
+                }}
+                className="w-full py-3 mb-3 rounded-xl font-bold text-[15px] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  border: `1px solid ${isDark ? '#a97aff' : '#5100BD'}`,
+                  color: isDark ? '#a97aff' : '#5100BD',
+                  fontFamily: ROUNDED_FONT,
+                }}
+              >
+                Gerenciar assinatura
+              </button>
 
               <button
                 onClick={() => setIsModalOpen(false)}

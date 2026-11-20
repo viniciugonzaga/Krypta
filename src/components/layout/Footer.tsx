@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ContactAPI } from '../../services/api';
 
 import logoTextoClaro from '../../assets/logos/Krypta_de_texto.png';
 import logoTextoEscuro from '../../assets/logos/Krypta_de_texto2.png';
@@ -51,10 +52,24 @@ export function Footer() {
 
   const logoTextoAtual = isDark ? logoTextoClaro : logoTextoEscuro;
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const [inscricao, setInscricao] = useState<'idle' | 'enviando' | 'ok' | 'erro'>('idle');
+
+  // Inscrição vai para a caixa do suporte (mesma rota do formulário de contato)
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Inscrito com o email:', email);
-    setEmail('');
+    setInscricao('enviando');
+    try {
+      await ContactAPI.send({
+        nome: 'Inscrição na newsletter',
+        email: email.trim(),
+        assunto: 'Newsletter',
+        mensagem: `Quero receber as novidades do Krypta: ${email.trim()}`,
+      });
+      setInscricao('ok');
+      setEmail('');
+    } catch {
+      setInscricao('erro');
+    }
   };
 
   return (
@@ -149,6 +164,11 @@ export function Footer() {
                 <Mail size={18} className="text-white" />
               </button>
             </form>
+            {inscricao !== 'idle' && (
+              <p className="text-xs" style={{ color: inscricao === 'erro' ? '#f87171' : isDark ? '#a97aff' : '#5100BD' }}>
+                {inscricao === 'enviando' ? 'Enviando...' : inscricao === 'ok' ? 'Pronto! Você vai receber nossas novidades.' : 'Não deu para inscrever agora. Tente mais tarde.'}
+              </p>
+            )}
           </div>
         </div>
 

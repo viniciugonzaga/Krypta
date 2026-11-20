@@ -50,6 +50,8 @@ const envSchema = z
     // Fora de produção, se preenchido, SÓ estes endereços recebem e-mail
     // (separados por vírgula). Evita mandar e-mail para contas de teste.
     SMTP_ONLY_TO: z.string().default(''),
+    // Quem recebe as mensagens do formulário de Contato (vazio = o endereço do MAIL_FROM)
+    SUPPORT_EMAIL: z.string().default(''),
 
     // ============ LOGIN SOCIAL (opcional) ============
     GOOGLE_CLIENT_ID: z.string().default(''),

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Home,
@@ -14,13 +14,14 @@ import {
   LogIn,
   LifeBuoy,
   RotateCw,
+  LogOut,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 
 import spriteX from '../assets/sprites/sprite_robo_x.png';
 import spriteInterrogacao from '../assets/sprites/sprite_robo_interrogacao.png';
 import spriteDormindo from '../assets/sprites/sprite_robo_dormindo.png';
-// ATENÇÃO: este arquivo não aparece na pasta sprites do print. Adicione-o ou troque o import.
 import spriteExclamacao from '../assets/sprites/sprite_robo_exclamacao.png';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
@@ -354,6 +355,8 @@ const SPRITE_MOTION: Record<Effect, any> = {
 export function ErrorPage({ code = 500, title, description }: ErrorPageProps) {
   const { isDark } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const stateCode = (location.state as any)?.code ?? code;
   const preset = PRESETS[stateCode] ?? PRESETS[500];
   const finalTitle = title ?? preset.title;
@@ -488,7 +491,7 @@ export function ErrorPage({ code = 500, title, description }: ErrorPageProps) {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {showRetry && (
               <button
-                onClick={() => window.location.reload()}
+                onClick={() => (location.pathname === '/error' && window.history.length > 1 ? navigate(-1) : window.location.reload())}
                 className="px-7 py-3 rounded-lg font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.03] active:scale-[0.97]"
                 style={{
                   background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)',
@@ -531,6 +534,20 @@ export function ErrorPage({ code = 500, title, description }: ErrorPageProps) {
                 style={{ border: `1px solid ${tone}`, color: tone, fontFamily: ROUNDED_FONT }}
               >
                 <ArrowLeft className="w-4 h-4" /> Voltar
+              </button>
+            )}
+
+            {/* Conta suspensa/revogada: deixa sair para entrar com outra conta */}
+            {user && (stateCode === 410 || stateCode === 423) && (
+              <button
+                onClick={() => {
+                  signOut();
+                  navigate('/', { replace: true });
+                }}
+                className="px-7 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.03]"
+                style={{ border: `1px solid ${tone}`, color: tone, fontFamily: ROUNDED_FONT }}
+              >
+                <LogOut className="w-4 h-4" /> Sair da conta
               </button>
             )}
           </div>

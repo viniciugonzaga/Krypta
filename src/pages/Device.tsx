@@ -825,11 +825,19 @@ export function Device() {
                       ) : (
                         <>
                       <CampoSegredo c={c} label="Sua CCP (confirma que é você)" valor={ccp} onChange={setCcp} />
+                      {!recursos?.heranca && conta?.heranca_ativa && (
+                        <p className="text-xs rounded-lg p-2.5" style={{ border: `1px solid ${c.border}`, color: c.muted }}>
+                          Seu plano voltou ao Free: o kit já entregue continua valendo e você pode desativá-lo. Para trocar a CCH,{' '}
+                          <Link to="/services#planos" className="underline" style={{ color: c.bright }}>assine o Pro</Link>.
+                        </p>
+                      )}
                       {!segredoNovo ? (
                         <div className="flex flex-wrap gap-2">
-                          <Botao c={c} variante="secundario" disabled={!ccpOk} onClick={() => setSegredoNovo(gerarSegredo())}>
-                            {conta?.heranca_ativa ? 'Gerar nova CCH (troca o kit)' : 'Gerar o kit do herdeiro'}
-                          </Botao>
+                          {recursos?.heranca && (
+                            <Botao c={c} variante="secundario" disabled={!ccpOk} onClick={() => setSegredoNovo(gerarSegredo())}>
+                              {conta?.heranca_ativa ? 'Gerar nova CCH (troca o kit)' : 'Gerar o kit do herdeiro'}
+                            </Botao>
+                          )}
                           {conta?.heranca_ativa && (
                             <Botao c={c} variante="perigo" disabled={!ccpOk || !!ocupado} onClick={() => executar('Desativando a herança...', () => Flows.desativarHeranca(contaId, ccp), 'Herança desativada. O kit antigo não funciona mais.')}>
                               Desativar herança

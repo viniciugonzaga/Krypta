@@ -7,6 +7,7 @@ import hardwareRoutes from './hardware.routes.js';
 import vaultRoutes from './vault.routes.js';
 import orderRoutes from './order.routes.js';
 import deviceRoutes from './device.routes.js';
+import contactRoutes from './contact.routes.js';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.use('/users', userRoutes);
 router.use('/plans', planRoutes);
 router.use('/orders', orderRoutes); // compras (plano e dispositivo)
 router.use('/devices', deviceRoutes); // dispositivos comprados
+router.use('/contact', contactRoutes); // formulário de contato (público)
 
 // ---- Cofre (API zero-knowledge) ----
 router.use('/hardware', hardwareRoutes); // pareamento

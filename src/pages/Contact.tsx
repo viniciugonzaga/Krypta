@@ -5,10 +5,11 @@ import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
 import { ROUNDED_FONT, LILAC } from '../components/auth/authShared';
+import { useAuth } from '../contexts/AuthContext';
+import { ContactAPI } from '../services/api';
 
 // Imagem do robô com interrogação
 import spriteRoboDuvida from '../assets/sprites/sprite_robo_interrogacao.png';
-// ALTERADO AQUI: Agora importa a imagem .gif do robô acenando
 import spriteRoboAcenando from '../assets/sprites/sprite_robo_acenando.png';
 
 // Link do botão "Conversar com o Cody" (troque pela rota/URL do chat)
@@ -133,7 +134,9 @@ const EMPTY_FORM: FormState = { name: '', birth: '', email: '', phone: '', messa
 export function Contact() {
   const { isDark } = useTheme();
 
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const { user } = useAuth();
+  // Logado: já vem com nome e e-mail da conta
+  const [form, setForm] = useState<FormState>(() => ({ ...EMPTY_FORM, name: user?.name ?? '', email: user?.email ?? '' }));
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -155,7 +158,7 @@ export function Contact() {
     setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
 
@@ -165,11 +168,19 @@ export function Contact() {
     if (form.message.trim().length < 10) return setError('Explique sua dúvida com pelo menos 10 caracteres.');
 
     setStatus('sending');
-    // TODO: trocar pela chamada real da API de contato
-    setTimeout(() => {
+    try {
+      const extras = [form.phone && `Telefone: ${form.phone}`, form.birth && `Nascimento: ${form.birth}`].filter(Boolean).join('\n');
+      await ContactAPI.send({
+        nome: form.name.trim(),
+        email: form.email.trim(),
+        mensagem: extras ? `${form.message.trim()}\n\n${extras}` : form.message.trim(),
+      });
       setStatus('sent');
-      setForm(EMPTY_FORM);
-    }, 1200);
+      setForm({ ...EMPTY_FORM, name: user?.name ?? '', email: user?.email ?? '' });
+    } catch (err) {
+      setStatus('idle');
+      setError(err instanceof Error ? err.message : 'Não foi possível enviar agora. Tente de novo.');
+    }
   };
 
   return (

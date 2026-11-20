@@ -43,7 +43,8 @@ interface AuthContextValue {
   signOut: () => void;
   refreshUser: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
-  changePlan: (tier: string) => Promise<void>;
+  /** Cancela o Krypta Pro (confirma com a senha do site) */
+  cancelPlan: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -181,17 +182,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((prev) => (prev ? normalizeUser({ ...prev, ...patch }) : prev));
   };
 
-  const changePlan = async (tier: string) => {
-    const updatedUser = await apiRequest<User>('/plans/change', {
+  const cancelPlan = async (password: string) => {
+    const updatedUser = await apiRequest<User>('/plans/cancel', {
       method: 'POST',
-      body: { tier },
+      body: { password },
     });
-    updateUser(updatedUser);
+    setUser(normalizeUser(updatedUser));
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, signIn, signUp, signInWithSocial, signOut, refreshUser, updateUser, changePlan }}
+      value={{ user, token, loading, signIn, signUp, signInWithSocial, signOut, refreshUser, updateUser, cancelPlan }}
     >
       {children}
     </AuthContext.Provider>

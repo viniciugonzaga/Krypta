@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import type { DestinoLogin } from '../routes/destino';
 import { motion } from 'framer-motion';
-import { Mail, Lock, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   ROUNDED_FONT,
@@ -462,6 +463,14 @@ export function LoginForm() {
 
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Veio de uma página protegida (ex.: checkout)? Volta para ela depois de entrar
+  const from = (location.state as { from?: DestinoLogin } | null)?.from;
+  // Aviso deixado por outra tela (ex.: "Senha alterada! Entre de novo.")
+  const [aviso] = useState(() => sessionStorage.getItem('krypta:aviso-login'));
+  useEffect(() => {
+    sessionStorage.removeItem('krypta:aviso-login');
+  }, []);
   const { isDark, inputStyle, labelStyle, mutedText, accent } = useAuthTheme();
 
   useEffect(() => {
@@ -502,7 +511,8 @@ export function LoginForm() {
     setLoading(true);
     try {
       await signIn(email, password);
-      navigate('/profile'); // Redireciona para o perfil
+      if (from) navigate(`${from.pathname}${from.search ?? ''}${from.hash ?? ''}`, { replace: true, state: from.state });
+      else navigate('/profile', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao entrar.');
     } finally {
@@ -641,6 +651,17 @@ export function LoginForm() {
             </Link>
           </div>
 
+          {aviso && !error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl p-2.5 flex items-start gap-2 text-xs"
+              style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.4)', color: '#22c55e' }}
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0" /> {aviso}
+            </motion.div>
+          )}
+
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
@@ -684,7 +705,7 @@ export function LoginForm() {
 
       <p className="text-xs mt-4 text-center" style={{ color: mutedText }}>
         Não tem uma conta?{' '}
-        <Link to="/register" className="font-bold transition-colors" style={{ color: accent }}>
+        <Link to="/register" state={location.state} className="font-bold transition-colors" style={{ color: accent }}>
           Cadastre-se
         </Link>
       </p>

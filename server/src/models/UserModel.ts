@@ -141,6 +141,9 @@ export const UserModel = {
   },
 
   async delete(id: string): Promise<boolean> {
+    // Solta o dispositivo pareado antes: users.dispositivo_id → dispositivos → users
+    // é um ciclo de chaves estrangeiras e o MySQL recusaria o DELETE em cascata.
+    await query('UPDATE users SET dispositivo_id = NULL WHERE id = ?', [id]);
     const result: any = await query('DELETE FROM users WHERE id = ?', [id]);
     return result.affectedRows > 0;
   },

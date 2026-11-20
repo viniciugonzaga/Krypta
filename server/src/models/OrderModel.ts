@@ -92,6 +92,11 @@ export const OrderModel = {
     return rows[0] ?? null;
   },
 
+  /** Marca as assinaturas do Pro como CANCELADAS (o histórico fica) */
+  async cancelarAssinaturas(userId: string): Promise<void> {
+    await query("UPDATE pedidos SET status = 'CANCELADO' WHERE user_id = ? AND tipo = 'PLANO' AND status = 'APROVADO'", [userId]);
+  },
+
   async listarPorUsuario(userId: string): Promise<Pedido[]> {
     return query<Pedido>('SELECT * FROM pedidos WHERE user_id = ? ORDER BY criado_em DESC', [userId]);
   },

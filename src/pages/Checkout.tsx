@@ -1497,6 +1497,19 @@ export function Checkout() {
                   </div>
                 )}
 
+                {kind === 'product' && !!user && normalizePlan(user.plan) !== 'pro' && (
+                  <div
+                    className="rounded-lg p-2.5 flex items-start gap-2 text-xs"
+                    style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.4)', color: isDark ? '#fcd34d' : '#92400e' }}
+                  >
+                    <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>
+                      Você está no Krypta Free. O dispositivo fica salvo em Minhas compras, mas só pode ser pareado no cofre com o{' '}
+                      <Link to="/services#planos" className="underline font-semibold">Krypta Pro</Link>.
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-2 pt-4 border-t text-[12px]" style={{ borderColor: panelBorder }}>
                   <div className="flex justify-between">
                     <span style={{ color: mutedText }}>

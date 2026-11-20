@@ -222,3 +222,27 @@ O Pro só é ativado por compra: `POST /api/plans/change` com `pro` responde `40
 `/heranca#kit=<conta_id>:<CCH>`; o fragmento `#` não é enviado ao servidor.
 
 **Teste:** `npm run sim -- planos <email> <senha>` (ou `testar-tudo`, que já inclui).
+
+## 12. Revisão do front (conta, assinatura e navegação)
+
+**Rotas novas no servidor**
+
+| Método | Rota | O que faz |
+|---|---|---|
+| POST | `/api/plans/cancel` | cancela o Pro com a senha do site; pedidos de plano viram `CANCELADO` |
+| POST | `/api/users/me/sessions/revoke` | encerra todas as sessões do site |
+| POST | `/api/contact` | formulário de Contato e newsletter → e-mail do suporte (`SUPPORT_EMAIL`) |
+
+**Comportamentos**
+- Rota protegida sem login → `/login` guarda a página (e o carrinho) e volta para ela depois.
+- Sessão vencida de vez → tela "Sessão expirada" (`/error`, código 419).
+- `/vault` (tela de exemplo) → redireciona para `/device` (o cofre real).
+- `/suspended` usa a tela de erro do site (423 suspensa, 410 revogada) com "Sair da conta".
+- Perfil: editar nome/e-mail, assinatura (cancelar), trocar senha, sair de tudo, atividade, excluir conta.
+- Configurações: só itens reais (tema, idioma, atalhos com o estado real da herança e do Kill Switch).
+- Excluir conta solta `users.dispositivo_id` antes do DELETE (ciclo de chaves com `dispositivos`).
+
+**Onde o plano é conferido (servidor):** `exigirRecurso` em herança (ativar/trocar), Kill Switch,
+alertas, pareamento com `dispositivo_serial`; `exigirEspaco` em todo envio de backup.
+O Pro só entra por `POST /api/orders` (preço calculado no servidor). Pagamento ainda é simulado:
+com um gateway real, o pedido só deve ser aprovado depois da confirmação do provedor (webhook).

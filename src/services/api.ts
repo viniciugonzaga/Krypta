@@ -242,13 +242,41 @@ export const AuthAPI = {
 // ============================================================
 export const PlanAPI = {
   list: () => apiRequest('/plans', { method: 'GET', auth: false }),
-  getAll: () => apiRequest('/plans', { method: 'GET', auth: false }),
-  getById: (id: string) => apiRequest(`/plans/${id}`, { method: 'GET' }),
+  /** Volta ao Free (sem senha). Para o usuário, prefira cancel(). */
   change: (tier: string) => apiRequest('/plans/change', { method: 'POST', body: { tier } }),
-  create: (data: { name: string; price: number; features: string[] }) =>
-    apiRequest('/plans', { method: 'POST', body: data }),
-  update: (id: string, data: any) => apiRequest(`/plans/${id}`, { method: 'PUT', body: data }),
-  delete: (id: string) => apiRequest(`/plans/${id}`, { method: 'DELETE' }),
+  /** Cancela o Krypta Pro (confirma com a senha do site) e devolve o usuário atualizado */
+  cancel: (password: string) => apiRequest<any>('/plans/cancel', { method: 'POST', body: { password } }),
+};
+
+// ============================================================
+// USER API — dados da conta do site (perfil e segurança)
+// ============================================================
+export interface EventoConta {
+  id: string;
+  action: string;
+  detail: string | null;
+  ip: string | null;
+  status: 'success' | 'warning' | 'error';
+  timestamp: string;
+}
+
+export const UserAPI = {
+  me: () => apiRequest<any>('/users/me'),
+  update: (data: { name?: string; email?: string }) => apiRequest<any>('/users/me', { method: 'PUT', body: data }),
+  /** Depois de trocar a senha, TODAS as sessões são encerradas: faça login de novo */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiRequest('/users/me/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
+  revokeSessions: () => apiRequest('/users/me/sessions/revoke', { method: 'POST' }),
+  remove: (password: string) => apiRequest('/users/me', { method: 'DELETE', body: { password } }),
+  audit: () => apiRequest<EventoConta[]>('/users/me/audit'),
+};
+
+// ============================================================
+// CONTACT API — formulário de contato (público)
+// ============================================================
+export const ContactAPI = {
+  send: (data: { nome: string; email: string; assunto?: string; mensagem: string }) =>
+    apiRequest<{ enviado: boolean }>('/contact', { method: 'POST', body: data, auth: false }),
 };
 
 // ============================================================

@@ -60,7 +60,37 @@ function silencioso(para: string, assunto: string, html: string): void {
   });
 }
 
+const escapar = (t: string) =>
+  t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
+/** Endereço do suporte: SUPPORT_EMAIL ou o e-mail dentro do MAIL_FROM */
+const emailSuporte = () => env.SUPPORT_EMAIL || (env.MAIL_FROM.match(/<([^>]+)>/)?.[1] ?? env.MAIL_FROM);
+
 export const EmailService = {
+  /** Formulário de Contato do site → caixa do suporte. Devolve true se saiu. */
+  async sendContactMessage(m: { nome: string; email: string; assunto: string; mensagem: string }): Promise<boolean> {
+    const para = emailSuporte();
+    const html = layout(
+      `Contato: ${escapar(m.assunto)}`,
+      `
+      <p><strong>De:</strong> ${escapar(m.nome)} &lt;${escapar(m.email)}&gt;</p>
+      <p style="white-space:pre-wrap; background:#14062b; padding:12px; border-radius:8px;">${escapar(m.mensagem)}</p>
+      `
+    );
+    if (!smtpConfigurado()) {
+      console.warn(`⚠️  SMTP não configurado — mensagem de contato de ${m.email}:\n${m.mensagem}\n`);
+      return false;
+    }
+    try {
+      await transporter.sendMail({ from: env.MAIL_FROM, to: para, replyTo: m.email, subject: `Krypta — Contato: ${m.assunto}`, html });
+      return true;
+    } catch (err: any) {
+      console.error('❌ Falha ao enviar mensagem de contato:', err?.message ?? err);
+      return false;
+    }
+  },
+
+
   /** Recuperação de senha do SITE (já existia) */
   async sendRecoveryCode(to: string, code: string, name: string) {
     if (!smtpConfigurado()) {

@@ -1,43 +1,28 @@
 // src/pages/Settings.tsx
-import { useEffect, useState } from 'react';
+// ============================================================
+// CONFIGURAÇÕES (/settings)
+//
+// Só mostra o que funciona de verdade:
+//   • Aparência        → tema claro/escuro (salvo neste navegador)
+//   • Idioma           → português (outros idiomas ainda não existem)
+//   • Assinatura       → plano real da conta → Perfil #assinatura
+//   • Senha / sessões  → Perfil #seguranca
+//   • Herança e Kill Switch → estado real do cofre → Meu Krypta
+//   • Avisos de segurança por e-mail: sempre ligados (não dá para desligar)
+// ============================================================
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronDown, Moon, Sun } from 'lucide-react';
+import { ChevronRight, Crown, Lock, Moon, Sun } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { getPlanFullName, recursosDoPlano } from '../utils/plan';
 
 import spriteRoboConfig from '../assets/sprites/sprite_robo_configuracao.png';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
-const STORAGE_KEY = 'krypta:settings';
-
-interface SettingsState {
-  language: 'pt' | 'en' | 'es';
-  cody: boolean;
-  notifications: boolean;
-  inheritance: boolean;
-  remoteLock: boolean;
-}
-
-const DEFAULT_SETTINGS: SettingsState = {
-  language: 'pt',
-  cody: true,
-  notifications: true,
-  inheritance: true,
-  remoteLock: false,
-};
-
-function loadSettings(): SettingsState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
 
 /* ------------------------------------------------------------------ */
 /* Peças reutilizáveis                                                 */
@@ -167,33 +152,31 @@ export function Settings() {
   const { isDark, toggleTheme } = useTheme();
   const { user } = useAuth();
 
-  const [settings, setSettings] = useState<SettingsState>(loadSettings);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    } catch {
-      /* storage indisponível: ignora */
-    }
-  }, [settings]);
-
-  const update = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) =>
-    setSettings((prev) => ({ ...prev, [key]: value }));
-
-  const planRaw = (user as any)?.plan;
-  const paymentStatus = !planRaw || planRaw === 'free' ? 'Plano gratuito' : 'Mensalidade ativa';
-
-  const handleRemoteLock = () => {
-    if (!settings.remoteLock) {
-      const ok = window.confirm(
-        'Ativar o Bloqueio Remoto vai bloquear o seu Krypta. Use apenas em caso de roubo ou perda. Deseja continuar?'
-      );
-      if (!ok) return;
-    }
-    update('remoteLock', !settings.remoteLock);
-  };
-
+  const recursos = recursosDoPlano(user?.plan);
   const accent = isDark ? '#8d51ff' : '#5100BD';
+  const killSwitchAcionado = user?.estadoCofre === 'REVOGADA';
+
+  const LinkPill = ({ to, children }: { to: string; children: ReactNode }) => (
+    <Link
+      to={to}
+      className="inline-flex items-center gap-1 px-3.5 py-1 rounded-lg text-[15px] transition-transform hover:scale-105"
+      style={{
+        fontFamily: ROUNDED_FONT,
+        fontWeight: 500,
+        color: accent,
+        background: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.9)',
+        border: `1px solid ${isDark ? 'rgba(255,255,255,0.85)' : 'rgba(81,0,189,0.55)'}`,
+      }}
+    >
+      {children} <ChevronRight size={14} />
+    </Link>
+  );
+
+  const SeloPro = () => (
+    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full text-white font-bold" style={{ background: 'linear-gradient(135deg, #5100BD, #8d51ff)' }}>
+      <Crown size={10} /> PRO
+    </span>
+  );
 
   return (
     <div
@@ -226,19 +209,12 @@ export function Settings() {
           >
             <h1
               className="text-4xl md:text-5xl leading-tight"
-              style={{
-                fontFamily: ROUNDED_FONT,
-                fontWeight: 500,
-                color: isDark ? '#FFFFFF' : '#1a1a1a',
-              }}
+              style={{ fontFamily: ROUNDED_FONT, fontWeight: 500, color: isDark ? '#FFFFFF' : '#1a1a1a' }}
             >
-              Configurações do Sistema
+              Configurações
             </h1>
-            <p
-              className="mt-1 text-[15px]"
-              style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(26,26,26,0.65)' }}
-            >
-              Veja todos os detalhes das configurações aqui
+            <p className="mt-1 text-[15px]" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(26,26,26,0.65)' }}>
+              Aparência do site e atalhos para a sua conta e o seu cofre.
             </p>
             <div
               className="mt-2 h-px w-full"
@@ -275,85 +251,42 @@ export function Settings() {
                     onClick={toggleTheme}
                     ariaLabel={isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
                   >
-                    <span className="text-[13px]">{isDark ? 'Dark' : 'Light'}</span>
+                    <span className="text-[13px]">{isDark ? 'Escuro' : 'Claro'}</span>
                     {isDark ? <Moon size={13} /> : <Sun size={13} />}
                   </PillButton>
+                  <MutedText isDark={isDark}>Salvo neste navegador</MutedText>
                 </SettingRow>
 
                 <SettingRow label="Idioma" isDark={isDark} delay={0.26}>
-                  <div className="relative inline-block">
-                    <select
-                      value={settings.language}
-                      onChange={(e) => update('language', e.target.value as SettingsState['language'])}
-                      className="appearance-none cursor-pointer pl-3.5 pr-8 py-1 rounded-lg text-[15px] outline-none transition-colors duration-300"
-                      style={{
-                        fontFamily: ROUNDED_FONT,
-                        fontWeight: 500,
-                        color: accent,
-                        background: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.9)',
-                        border: `1px solid ${isDark ? 'rgba(255,255,255,0.85)' : 'rgba(81,0,189,0.55)'}`,
-                      }}
-                    >
-                      <option value="pt">Português</option>
-                      <option value="en">English</option>
-                      <option value="es">Español</option>
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                      style={{ color: accent }}
-                    />
-                  </div>
+                  <PillButton isDark={isDark}>Português (Brasil)</PillButton>
+                  <MutedText isDark={isDark}>Inglês e espanhol em breve</MutedText>
                 </SettingRow>
 
-                <SettingRow label="Status de Pagamento" isDark={isDark} delay={0.32}>
-                  <MutedText isDark={isDark}>{paymentStatus}</MutedText>
+                <SettingRow label="Assinatura" isDark={isDark} delay={0.32}>
+                  <MutedText isDark={isDark}>{getPlanFullName(user?.plan)}</MutedText>
+                  <LinkPill to="/profile#assinatura">Gerenciar</LinkPill>
                 </SettingRow>
 
-                <SettingRow label="Assistente Cody" isDark={isDark} delay={0.38}>
-                  <PillButton isDark={isDark} onClick={() => update('cody', !settings.cody)}>
-                    {settings.cody ? 'Ativado' : 'Desativado'}
-                  </PillButton>
+                <SettingRow label="Senha e sessões" isDark={isDark} delay={0.38}>
+                  <LinkPill to="/profile#seguranca">Trocar senha</LinkPill>
+                  <MutedText isDark={isDark}>A senha do site não abre o cofre</MutedText>
                 </SettingRow>
 
-                <SettingRow label="Notificações" isDark={isDark} delay={0.44}>
-                  <PillButton
-                    isDark={isDark}
-                    onClick={() => update('notifications', !settings.notifications)}
-                  >
-                    {settings.notifications ? 'Ativadas' : 'Desativadas'}
-                  </PillButton>
+                <SettingRow label="Herança Digital" isDark={isDark} delay={0.44}>
+                  <MutedText isDark={isDark}>{user?.herancaAtiva ? 'Ativada' : 'Desativada'}</MutedText>
+                  {recursos.heranca || user?.herancaAtiva ? <LinkPill to="/device">Configurar</LinkPill> : <SeloPro />}
                 </SettingRow>
 
-                <SettingRow label="Gerenciar senha mestre" isDark={isDark} delay={0.5}>
-                  <button
-                    type="button"
-                    // TODO: ligar à rota/modal de troca de senha mestre quando existir
-                    onClick={() => {}}
-                    className="text-[14px] md:text-[15px] transition-colors duration-300 hover:underline"
-                    style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(26,26,26,0.65)' }}
-                  >
-                    Alterar senha Mestre
-                  </button>
+                <SettingRow label="Bloqueio Remoto" isDark={isDark} delay={0.5}>
+                  <MutedText isDark={isDark}>{killSwitchAcionado ? 'Acionado: dispositivo bloqueado' : 'Pronto para usar se perder o dispositivo'}</MutedText>
+                  {recursos.killSwitch ? <LinkPill to="/device">{killSwitchAcionado ? 'Vincular novo' : 'Abrir'}</LinkPill> : <SeloPro />}
                 </SettingRow>
 
-                <SettingRow label="Herança Digital" isDark={isDark} delay={0.56}>
-                  <PillButton
-                    isDark={isDark}
-                    onClick={() => update('inheritance', !settings.inheritance)}
-                  >
-                    {settings.inheritance ? 'Ativada' : 'Desativada'}
-                  </PillButton>
-                  <MutedText isDark={isDark}>Configurar no aplicativo</MutedText>
-                </SettingRow>
-
-                <SettingRow label="Bloqueio Remoto" isDark={isDark} delay={0.62}>
-                  <PillButton isDark={isDark} onClick={handleRemoteLock}>
-                    {settings.remoteLock ? 'Ativado' : 'Desativado'}
-                  </PillButton>
-                  <span className="max-w-md">
+                <SettingRow label="Avisos por e-mail" isDark={isDark} delay={0.56}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Lock size={14} style={{ color: accent }} />
                     <MutedText isDark={isDark}>
-                      Apenas alterar em caso de roubo e desligar apenas caso o Krypta for encontrado*
+                      Sempre ligados: Kill Switch, resgate de herança e inatividade do cofre
                     </MutedText>
                   </span>
                 </SettingRow>

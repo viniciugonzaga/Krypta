@@ -21,6 +21,7 @@
 //
 //   PLANOS E COMPRAS
 //   npm run sim -- planos <email> <senha>     confere as travas do Free e assina o Pro
+//   npm run sim -- conta <email> <senha>      cancelar o Pro, contato e "sair de tudo"
 //
 //   npm run sim -- testar-tudo                 CRIA UMA CONTA NOVA e roda TODOS os testes
 //   npm run sim -- testar-tudo <email> <senha> roda tudo numa conta que você já pareou
@@ -635,6 +636,44 @@ async function planos(email?: string, senha?: string) {
 }
 
 // ============================================================
+// CONTA DO SITE — cancelar o Pro, contato e sessões
+// ============================================================
+async function conta(email?: string, senha?: string) {
+  if (!email || !senha) falha('Uso: npm run sim -- conta <email> <senha>');
+  titulo('👤 Conta do site — cancelar assinatura, contato e sessões');
+
+  const tokenSite = await loginSite(email, senha);
+  ok('Login no site');
+  if ((await planoAtual(tokenSite)) !== 'pro') await assinarPro(tokenSite);
+
+  esperar(await chamar('POST', '/plans/cancel', { password: 'senha-errada-123' }, tokenSite), 401, 'Cancelar com a senha errada é recusado');
+  const cancelar = await chamar('POST', '/plans/cancel', { password: senha }, tokenSite);
+  esperar(cancelar, 200, `Assinatura cancelada → plano ${cancelar.json.data?.plan}`);
+  esperar(await chamar('POST', '/plans/cancel', { password: senha }, tokenSite), 409, 'Cancelar de novo recusado (já é Free)');
+
+  const pedidos = await chamar('GET', '/orders', undefined, tokenSite);
+  const planoAtivo = (pedidos.json.data as Array<{ tipo: string; status: string }>).some((p) => p.tipo === 'PLANO' && p.status === 'APROVADO');
+  if (planoAtivo) falha('Ainda há pedido de plano APROVADO depois do cancelamento');
+  ok('Pedidos de plano marcados como CANCELADO');
+
+  esperar(await chamar('GET', '/vault/activity', undefined, tokenSite), 403, 'Depois de cancelar, os alertas de acesso voltam a ficar travados');
+
+  esperar(
+    await chamar('POST', '/contact', { nome: 'Simulador Krypta', email, mensagem: 'Teste do formulário de contato.' }),
+    201,
+    'Formulário de contato aceito'
+  );
+  esperar(await chamar('POST', '/contact', { nome: 'x', email: 'invalido', mensagem: 'curta' }), 400, 'Contato inválido recusado');
+
+  const sair = await chamar('POST', '/users/me/sessions/revoke', undefined, tokenSite);
+  esperar(sair, 200, 'Saiu de todos os dispositivos');
+  esperar(await chamar('GET', '/users/me', undefined, tokenSite), 401, 'A sessão antiga não vale mais');
+
+  await assinarPro(await loginSite(email, senha)); // deixa a conta no Pro de novo
+  console.log('\n  Conta do site OK! 🎉\n');
+}
+
+// ============================================================
 // TUDO EM SEQUÊNCIA
 // ============================================================
 /** Cria uma conta de teste nova (Free, sem dispositivo) */
@@ -672,6 +711,7 @@ async function testarTudo(emailArg?: string, senhaArg?: string) {
   await heranca();
   await resgatar();
   await killSwitch(email, senha); // o dono retoma a conta depois do resgate
+  await conta(email, senha);
   console.log(falhas === 0 ? '\n🏁 COFRE, PLANOS E COMPRAS — TODOS OS TESTES PASSARAM! 🎉\n' : `\n⚠️  ${falhas} falha(s)\n`);
   if (!emailArg) {
     console.log(`  Conta usada: ${email}  (senha: ${senha})`);
@@ -716,6 +756,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
   'kill-switch': () => killSwitch(args[0], args[1]),
   planos: () => planos(args[0], args[1]),
   'testar-tudo': () => testarTudo(args[0], args[1]),
+  conta: () => conta(args[0], args[1]),
   status,
   esquecer,
   limpar,
@@ -723,7 +764,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
 
 if (!comando || !comandos[comando]) {
   console.log(
-    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | testar-tudo [email senha] | limpar | status | esquecer>'
+    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | testar-tudo [email senha] | limpar | status | esquecer>'
   );
   process.exit(1);
 }

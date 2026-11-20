@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import type { DestinoLogin } from '../routes/destino';
 import { motion } from 'framer-motion';
 import { Mail, ArrowRight, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -363,6 +364,9 @@ function getStrength(pw: string): number {
 export function RegisterForm() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Veio de uma página protegida (ex.: checkout)? Volta para ela depois de entrar
+  const from = (location.state as { from?: DestinoLogin } | null)?.from;
   const { isDark, inputStyle, labelStyle, mutedText, accent, divider } = useAuthTheme();
 
   const [firstName, setFirstName] = useState('');
@@ -394,7 +398,8 @@ export function RegisterForm() {
     try {
       const fullName = `${firstName} ${lastName}`.trim();
       await signUp(fullName, email, password);
-      navigate('/profile'); // Alterado para redirecionar ao perfil
+      if (from) navigate(`${from.pathname}${from.search ?? ''}${from.hash ?? ''}`, { replace: true, state: from.state });
+      else navigate('/profile', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar conta.');
     } finally {
@@ -573,7 +578,7 @@ export function RegisterForm() {
 
       <p className="text-xs mt-5 text-center" style={{ color: mutedText }}>
         Já tem uma conta?{' '}
-        <Link to="/login" className="font-bold transition-colors" style={{ color: accent }}>
+        <Link to="/login" state={location.state} className="font-bold transition-colors" style={{ color: accent }}>
           Faça login
         </Link>
       </p>

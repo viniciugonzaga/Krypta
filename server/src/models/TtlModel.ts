@@ -110,6 +110,12 @@ export const TtlModel = {
     if (alvos.length === 0) return [];
 
     const marcadores = alvos.map(() => '?').join(', ');
+    // Solta o dispositivo pareado antes (ciclo users ↔ dispositivos nas chaves estrangeiras)
+    await execute(`UPDATE users SET dispositivo_id = NULL WHERE id IN (${marcadores}) AND ${condicao}`, [
+      ...alvos.map((a) => a.id),
+      limitePrazo,
+      limiteAviso,
+    ]);
     await execute(`DELETE FROM users WHERE id IN (${marcadores}) AND ${condicao}`, [
       ...alvos.map((a) => a.id),
       limitePrazo,

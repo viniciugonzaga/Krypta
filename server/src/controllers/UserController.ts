@@ -92,6 +92,18 @@ export const UserController = {
     } catch (err) { next(err); }
   },
 
+  // POST /api/users/me/sessions/revoke — sai de TODOS os navegadores
+  async revokeSessions(req: AuthedRequest, res: Response, next: NextFunction) {
+    try {
+      const user = req.user!;
+      await SessionModel.revokeAllForUser(user.id);
+      await AuditModel.log({
+        userId: user.id, action: 'SESSIONS_REVOKED', detail: 'Saiu de todos os dispositivos', status: 'warning',
+      });
+      res.json({ success: true });
+    } catch (err) { next(err); }
+  },
+
   // GET /api/users/me/audit
   async getAuditLogs(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
