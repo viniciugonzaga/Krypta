@@ -5,6 +5,10 @@ import App from './App.tsx';
 import './index.css';
 import { SOCIAL_AUTH } from './config/socialAuth';
 import { IS_DESKTOP, instalarLinksExternos } from './config/desktop';
+import { iniciarPwa } from './config/pwa';
+
+// App de celular (PWA): guarda a oferta de instalação e registra o service worker
+iniciarPwa();
 
 // App desktop (Tauri): links externos abrem no navegador e o CSS pode
 // ajustar detalhes com .krypta-desktop (o resto é idêntico ao site)

@@ -165,3 +165,39 @@ Substitua `src-tauri/app-icon.png` (1024×1024) e rode `npm run desktop:icon`.
 | Erro de CORS no console do app (F12 só no `desktop:dev`) | Reinicie o servidor: as origens do app já estão liberadas no `env.ts` |
 | Windows mostra "O Windows protegeu o computador" | Normal para app sem certificado de assinatura: "Mais informações" → "Executar assim mesmo". Para sumir, é preciso um certificado de assinatura de código (pago) |
 | Link do kit de herança não aparece no arquivo gerado pelo app | Defina `VITE_SITE_URL` no `.env.desktop` (sem ele, o kit traz só o código para colar) |
+
+---
+
+# App de celular (PWA)
+
+O mesmo site vira um app instalável pelo navegador do celular, **sem loja**:
+
+| Aparelho | O que o usuário faz no menu **Aplicações** |
+|---|---|
+| Android (Chrome, Edge, Samsung) | Toca em **Instalar no celular** → janela do sistema → **Instalar** |
+| iPhone (Safari) | A página mostra o caminho: **Compartilhar → Adicionar à Tela de Início** (a Apple não permite um botão que instale sozinho) |
+| Computador | Aparece um **QR code**: aponta a câmera do celular e a página abre lá, com o botão |
+| Mac / Linux (Chrome ou Edge) | Botão **Instalar neste computador** (o mesmo PWA, em janela própria) |
+
+O app instalado é o mesmo site: mesma conta, mesma API, mesmo banco.
+
+| Arquivo | Para quê |
+|---|---|
+| `public/manifest.webmanifest` | Nome, cores e ícones do app |
+| `public/pwa/*.png` | Ícones (Android, maskable e iPhone) |
+| `public/sw.js` | Service worker: guarda só a "casca" do site (nunca a API) para abrir rápido |
+| `src/config/pwa.ts` | Botão de instalar, detecção de "já instalado" e registro do service worker |
+
+### Quando funciona
+- **Precisa de HTTPS.** No `localhost` do seu PC já dá para testar (Chrome → Aplicações → "Instalar neste computador"),
+  mas o celular só oferece a instalação com o site hospedado em `https://` (a Hostinger dá o certificado grátis).
+- O service worker só liga no build de produção (`npm run build` + `npm run preview`, ou o site hospedado).
+  No `npm run dev` ele fica desligado de propósito.
+- O QR code aparece quando `VITE_SITE_URL` é um endereço `https://` (defina no `.env` do site depois da hospedagem).
+
+### Testar agora no PC
+```
+npm run build
+npm run preview
+```
+Abra `http://localhost:4173/aplicacoes` no Chrome: o cartão do celular mostra **Instalar neste computador**.

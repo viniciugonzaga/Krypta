@@ -87,6 +87,8 @@ export const corsOrigins = [
       .map((o: string) => o.trim())
       .filter(Boolean),
     ...ORIGENS_DESKTOP,
+    // Desenvolvimento: "npm run preview" (testar o build e o app de celular/PWA no PC)
+    ...(env.NODE_ENV === 'production' ? [] : ['http://localhost:4173']),
   ]),
 ];
 

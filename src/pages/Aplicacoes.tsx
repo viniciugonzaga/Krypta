@@ -4,7 +4,9 @@
 //
 // • Windows: botão que baixa o instalador NA HORA (link direto da última
 //   versão publicada no GitHub Releases, ver src/config/desktop.ts).
-// • Celular (PWA): próxima etapa.
+// • Celular (PWA): instala pelo navegador. Android abre a janela do sistema;
+//   iPhone mostra o caminho (Compartilhar → Adicionar à Tela de Início);
+//   no computador aparece um QR code para abrir esta página no celular.
 // • Navegador: o próprio site.
 //
 // Site, app e (em breve) celular usam a mesma conta, a mesma API e o
@@ -24,7 +26,10 @@ import {
   Monitor,
   RefreshCw,
   ShieldCheck,
+  Share,
+  SquarePlus,
   Smartphone,
+  EllipsisVertical,
 } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
@@ -36,11 +41,13 @@ import {
   IS_DESKTOP,
   KRYPTA_VERSION,
   NOME_INSTALADOR,
+  SITE_URL,
   buscarUltimaVersao,
   detectarSistema,
   type VersaoPublicada,
 } from '../config/desktop';
 
+import { aoMudarPwa, foiInstalado, instalarPwa, podeInstalar } from '../config/pwa';
 import spriteRoboAcenando from '../assets/sprites/sprite_robo_acenando.png';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
@@ -68,6 +75,15 @@ export function Aplicacoes() {
   const [versao, setVersao] = useState<VersaoPublicada | null>(null);
   const [estado, setEstado] = useState<EstadoVersao>(IS_DESKTOP ? 'desconhecida' : 'carregando');
   const [baixou, setBaixou] = useState(false);
+
+  // App de celular (PWA): o navegador avisa quando dá para instalar
+  const [pwa, setPwa] = useState(() => ({ pode: podeInstalar(), instalado: foiInstalado() }));
+  const [instalando, setInstalando] = useState(false);
+  useEffect(() => aoMudarPwa(() => setPwa({ pode: podeInstalar(), instalado: foiInstalado() })), []);
+  const noCelular = sistema === 'android' || sistema === 'ios';
+  const linkCelular = SITE_URL ? `${SITE_URL}/aplicacoes` : null;
+  // O celular só instala com HTTPS: endereço local (localhost / IP da rede) não serve para o QR code
+  const linkCelularValido = !!linkCelular && linkCelular.startsWith('https://');
 
   useEffect(() => {
     if (IS_DESKTOP) return;
@@ -127,6 +143,97 @@ export function Aplicacoes() {
       </motion.a>
     );
 
+  // ---------- ações do app de celular, conforme o aparelho ----------
+  const Passos = ({ itens }: { itens: Array<{ icone: ReactNode; texto: ReactNode }> }) => (
+    <ol className="space-y-2 text-sm">
+      {itens.map((p, i) => (
+        <li key={i} className="flex items-center gap-2.5">
+          <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ background: GRAD }}>{i + 1}</span>
+          <span className="shrink-0" style={{ color: bright }}>{p.icone}</span>
+          <span>{p.texto}</span>
+        </li>
+      ))}
+    </ol>
+  );
+
+  const AcoesCelular = ({ grande }: { grande?: boolean }) => {
+    if (pwa.instalado) {
+      return (
+        <span className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold self-start" style={{ border: '1px solid rgba(34,197,94,0.5)', color: '#22c55e' }}>
+          <Check className="w-5 h-5" /> Instalado: abra pelo ícone Krypta
+        </span>
+      );
+    }
+    if (pwa.pode) {
+      return (
+        <motion.button
+          type="button"
+          disabled={instalando}
+          onClick={async () => {
+            setInstalando(true);
+            await instalarPwa().catch(() => false);
+            setInstalando(false);
+          }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          className={`inline-flex items-center justify-center gap-2 rounded-xl font-bold text-white self-start disabled:opacity-60 ${grande ? 'px-7 py-4 text-lg' : 'px-5 py-3'}`}
+          style={{ background: GRAD, fontFamily: ROUNDED_FONT, boxShadow: '0 0 28px rgba(141,81,255,0.5)' }}
+        >
+          {instalando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className={grande ? 'w-6 h-6' : 'w-5 h-5'} />}
+          {noCelular ? 'Instalar no celular' : 'Instalar neste computador'}
+        </motion.button>
+      );
+    }
+    if (sistema === 'ios') {
+      return (
+        <div className="rounded-xl p-4" style={card}>
+          <p className="text-sm font-semibold mb-3">No iPhone, pelo Safari:</p>
+          <Passos
+            itens={[
+              { icone: <Share className="w-4 h-4" />, texto: <>Toque em <strong>Compartilhar</strong> (quadrado com seta, embaixo)</> },
+              { icone: <SquarePlus className="w-4 h-4" />, texto: <>Escolha <strong>Adicionar à Tela de Início</strong></> },
+              { icone: <Check className="w-4 h-4" />, texto: <>Toque em <strong>Adicionar</strong>. Pronto!</> },
+            ]}
+          />
+        </div>
+      );
+    }
+    if (sistema === 'android') {
+      return (
+        <div className="rounded-xl p-4" style={card}>
+          <p className="text-sm font-semibold mb-3">No Android, pelo Chrome:</p>
+          <Passos
+            itens={[
+              { icone: <EllipsisVertical className="w-4 h-4" />, texto: <>Toque no menu <strong>⋮</strong> (canto de cima)</> },
+              { icone: <SquarePlus className="w-4 h-4" />, texto: <>Escolha <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong></> },
+              { icone: <Check className="w-4 h-4" />, texto: <>Confirme. O ícone Krypta aparece na tela inicial</> },
+            ]}
+          />
+        </div>
+      );
+    }
+    // Computador: QR code para abrir esta página no celular
+    return linkCelularValido ? (
+      <div className="flex items-center gap-4">
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(linkCelular!)}`}
+          alt="QR code para abrir o Krypta no celular"
+          width={112}
+          height={112}
+          className="rounded-lg bg-white p-1 shrink-0"
+        />
+        <p className="text-xs" style={{ color: muted }}>
+          Aponte a câmera do celular para o código. A página abre no celular com o botão de instalar.
+        </p>
+      </div>
+    ) : (
+      <p className="text-xs rounded-lg p-3" style={{ border: `1px dashed ${border}`, color: muted }}>
+        Abra este site no navegador do celular e entre em <strong style={{ color: fg }}>Aplicações</strong> para instalar.
+        {!window.isSecureContext && ' (A instalação no celular precisa do site com HTTPS, depois da hospedagem.)'}
+      </p>
+    );
+  };
+
   const infoVersao =
     estado === 'pronta' && versao
       ? `Versão ${versao.versao}${versao.tamanhoMB ? ` · ${versao.tamanhoMB} MB` : ''} · ${new Date(versao.publicadaEm).toLocaleDateString('pt-BR')}`
@@ -163,11 +270,8 @@ export function Aplicacoes() {
                 <BotaoWindows grande />
                 {!IS_DESKTOP && <span className="text-xs" style={{ color: muted }}>{infoVersao}</span>}
               </div>
-            ) : sistema === 'android' || sistema === 'ios' ? (
-              <div className="rounded-xl p-4 inline-flex items-center gap-3" style={card}>
-                <Smartphone className="w-6 h-6" style={{ color: bright }} />
-                <p className="text-sm">O app para celular chega em breve. Por enquanto, use o Krypta pelo navegador do celular.</p>
-              </div>
+            ) : noCelular ? (
+              <AcoesCelular grande />
             ) : (
               <div className="rounded-xl p-4 inline-flex items-center gap-3" style={card}>
                 <Monitor className="w-6 h-6" style={{ color: bright }} />
@@ -236,20 +340,20 @@ export function Aplicacoes() {
           </motion.div>
 
           {/* Celular */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="rounded-2xl p-6 flex flex-col" style={card}>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="rounded-2xl p-6 flex flex-col" style={noCelular ? { ...card, borderColor: bright, boxShadow: `0 0 30px ${bright}33` } : card}>
             <div className="flex items-center justify-between mb-3">
-              <span className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ border: `1px solid ${border}` }}>
-                <Smartphone className="w-6 h-6" style={{ color: bright }} />
+              <span className="w-12 h-12 rounded-xl flex items-center justify-center" style={noCelular ? { background: GRAD } : { border: `1px solid ${border}` }}>
+                <Smartphone className="w-6 h-6" style={{ color: noCelular ? '#fff' : bright }} />
               </span>
-              <Selo cor="#f59e0b">EM BREVE</Selo>
+              <Selo cor="#22c55e">{pwa.instalado ? 'INSTALADO' : 'DISPONÍVEL'}</Selo>
             </div>
             <h2 className="text-xl font-bold" style={{ fontFamily: ROUNDED_FONT }}>Android e iPhone</h2>
-            <p className="text-sm mt-1 mb-4 flex-1" style={{ color: muted }}>
-              App instalável direto pelo navegador do celular (sem loja), com ícone na tela inicial.
+            <p className="text-sm mt-1 mb-4" style={{ color: muted }}>
+              Instala direto do navegador, sem loja e sem ocupar quase nada. Ganha ícone na tela inicial e abre em tela cheia.
             </p>
-            <span className="inline-flex items-center gap-2 text-sm font-semibold" style={{ color: muted }}>
-              <Clock className="w-4 h-4" /> Próxima etapa (PWA)
-            </span>
+            <div className="flex-1 flex flex-col justify-end">
+              <AcoesCelular />
+            </div>
           </motion.div>
 
           {/* Navegador */}
