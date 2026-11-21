@@ -1,0 +1,79 @@
+# ============================================================
+# KRYPTA — gera o instalador do app desktop (.exe) no GitHub
+#
+# Como usar (não precisa de Rust no seu PC):
+#   1. GitHub → Settings → Secrets and variables → Actions → aba "Variables":
+#        VITE_API_URL  = https://api.seudominio.com.br/api   (API pública)
+#        VITE_SITE_URL = https://seudominio.com.br            (opcional)
+#   2. Crie uma tag de versão e envie:   git tag v1.0.0  →  git push origin v1.0.0
+#      (ou: aba Actions → "App desktop (Windows)" → Run workflow)
+#   3. Em ~10 min o .exe aparece em Releases, também como "Krypta-Setup.exe".
+#      O botão "Baixar para Windows" (menu Aplicações) baixa esse arquivo na hora.
+# ============================================================
+name: App desktop (Windows)
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Instalar dependências do front
+        run: npm ci
+
+      - name: Endereço da API do app (.env.desktop)
+        shell: bash
+        env:
+          API: ${{ vars.VITE_API_URL }}
+          SITE: ${{ vars.VITE_SITE_URL }}
+        run: |
+          : > .env.desktop
+          if [ -n "$API" ]; then echo "VITE_API_URL=$API" >> .env.desktop; else echo "::warning::VITE_API_URL não definida: o app vai procurar a API em http://localhost:3333/api"; fi
+          if [ -n "$SITE" ]; then echo "VITE_SITE_URL=$SITE" >> .env.desktop; fi
+          cat .env.desktop
+
+      - name: Gerar o instalador e publicar na Release
+        id: tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'Krypta v__VERSION__'
+          releaseBody: |
+            Instalador do Krypta para Windows 10 e 11 (64 bits).
+            Baixe o arquivo **Krypta-Setup.exe** abaixo, execute e entre com a sua conta do site.
+          releaseDraft: false
+          prerelease: false
+
+      # Cópia com nome FIXO: o botão "Baixar para Windows" do site usa
+      # .../releases/latest/download/Krypta-Setup.exe e sempre pega a versão mais nova
+      - name: Publicar Krypta-Setup.exe (link direto do site)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSAO: ${{ steps.tauri.outputs.appVersion }}
+        run: |
+          INSTALADOR=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n 1)
+          echo "Instalador gerado: $INSTALADOR"
+          cp "$INSTALADOR" Krypta-Setup.exe
+          gh release upload "v$VERSAO" Krypta-Setup.exe --clobber

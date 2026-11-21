@@ -73,10 +73,22 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-/** Lista de origens liberadas no CORS */
-export const corsOrigins = env.CORS_ORIGIN.split(',')
-  .map((o: string) => o.trim())
-  .filter(Boolean);
+/**
+ * Origens do app desktop (Tauri). Só existem dentro do Krypta instalado:
+ * nenhum site da internet consegue ter essas origens.
+ *   Windows: http://tauri.localhost   ·   macOS/Linux: tauri://localhost
+ */
+const ORIGENS_DESKTOP = ['http://tauri.localhost', 'https://tauri.localhost', 'tauri://localhost'];
+
+/** Lista de origens liberadas no CORS (as do .env + as do app desktop) */
+export const corsOrigins = [
+  ...new Set([
+    ...env.CORS_ORIGIN.split(',')
+      .map((o: string) => o.trim())
+      .filter(Boolean),
+    ...ORIGENS_DESKTOP,
+  ]),
+];
 
 export const isProduction = env.NODE_ENV === 'production';
 

@@ -44,6 +44,7 @@ import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { SITE_URL } from '../config/desktop';
 import { DevicesAPI, VaultAPI, type ContaCofre, type DispositivoComprado, type EstadoCofre, type EventoCofre } from '../services/api';
 import { VirtualDevice, type EstadoDispositivo } from '../services/virtualDevice';
 import * as Flows from '../services/vaultFlows';
@@ -221,8 +222,11 @@ function RevelarSegredo({
     const a = document.createElement('a');
     a.href = url;
     a.download = nomeArquivo;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    // Solta o arquivo só depois que o download começou (no app desktop ele demora um instante)
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
 
   return (
@@ -538,13 +542,15 @@ export function Device() {
     }
   };
 
-  const linkKit = (cch: string) => `${window.location.origin}/heranca#kit=${encodeURIComponent(`${contaId}:${cch}`)}`;
+  // Link pronto para o herdeiro. No app desktop usa o endereço público do site (VITE_SITE_URL);
+  // sem ele, o kit traz só o código (ID da conta + CCH) para colar na página de resgate.
+  const linkKit = (cch: string) => (SITE_URL ? `${SITE_URL}/heranca#kit=${encodeURIComponent(`${contaId}:${cch}`)}` : null);
   const ccpOk = segredoValido(ccp);
 
   const kitArquivo = (tipo: 'ccp' | 'cch', segredo: string) =>
     tipo === 'ccp'
       ? `KRYPTA — CHAVE DE CONTINGÊNCIA (CCP)\n\nConta: ${user?.email}\nCCP: ${segredo}\n\nGuarde em papel, em lugar seguro. Ela recupera o cofre e aciona o Kill Switch.\nO Krypta NÃO consegue recuperá-la para você.\n`
-      : `KRYPTA — KIT DO HERDEIRO\n\nTitular: ${user?.name}\nID da conta: ${contaId}\nChave do herdeiro (CCH): ${segredo}\n\nCOMO RESGATAR\n1. Abra este link (ele já preenche tudo):\n   ${linkKit(segredo)}\n2. Ou acesse o site Krypta → "Como funciona" → "Recebi um kit de herança"\n   e cole o ID da conta e a CCH.\n\nA CCH vale UMA vez. Guarde este kit em lugar seguro.\n`;
+      : `KRYPTA — KIT DO HERDEIRO\n\nTitular: ${user?.name}\nID da conta: ${contaId}\nChave do herdeiro (CCH): ${segredo}\n\nCOMO RESGATAR\n${linkKit(segredo) ? `1. Abra este link (ele já preenche tudo):\n   ${linkKit(segredo)}\n2. Ou acesse` : `1. Acesse`} o site Krypta → "Como funciona" → "Recebi um kit de herança"\n   e cole o ID da conta e a CCH.\n\nA CCH vale UMA vez. Guarde este kit em lugar seguro.\n`;
 
   // ------------------------------------------------------------
   // Cofre (credenciais de demonstração)

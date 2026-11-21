@@ -103,6 +103,10 @@ const FAQ = [
     r: 'Não. Ele abre o link do kit (ou a página de resgate) e o cofre é aberto num dispositivo novo, no navegador dele.',
   },
   {
+    p: 'Tem versão para instalar no computador?',
+    r: 'Sim: o app Krypta para Windows (menu "Aplicações"). É o mesmo Krypta do site, com a mesma conta, o mesmo plano e o mesmo cofre, tudo sincronizado pelo servidor.',
+  },
+  {
     p: 'Se eu cancelar o Pro, o que acontece?',
     r: 'O cofre continua funcionando. Recursos Pro ficam travados para novas ações e o limite de espaço volta a 64 KB para os próximos backups.',
   },

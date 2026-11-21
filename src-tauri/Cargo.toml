@@ -1,0 +1,37 @@
+# ============================================================
+# KRYPTA DESKTOP — app Tauri 2 (Windows .exe)
+# A janela mostra o MESMO front do site (pasta dist/), e o front
+# conversa com a MESMA API e o MESMO banco. Nada de lógica nova aqui.
+# ============================================================
+[package]
+name = "krypta"
+version = "1.0.0"
+description = "Krypta — cofre de senhas zero-knowledge"
+authors = ["Equipe Krypta"]
+edition = "2021"
+
+[lib]
+name = "krypta_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# Abre links externos (redes sociais, e-mail, site) no navegador do usuário
+tauri-plugin-opener = "2"
+# Lembra tamanho e posição da janela
+tauri-plugin-window-state = "2"
+
+[target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
+# Só uma janela do Krypta aberta por vez (abrir de novo traz a existente para a frente)
+tauri-plugin-single-instance = "2"
+
+[profile.release]
+# .exe menor e mais rápido
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

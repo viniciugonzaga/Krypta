@@ -1,7 +1,7 @@
 {
   "name": "krypta",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix server\" \"vite\"",
@@ -9,7 +9,14 @@
     "dev:back": "npm run dev --prefix server",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:desktop": "tsc -b && vite build --mode desktop",
+    "tauri": "tauri",
+    "desktop:dev": "concurrently -n api,app \"npm run dev:back\" \"tauri dev\"",
+    "desktop:build": "tauri build",
+    "desktop:icon": "tauri icon src-tauri/app-icon.png",
+    "desktop:lancar": "node scripts/lancar-versao.mjs",
+    "desktop:copiar": "node scripts/copiar-instalador.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -27,6 +34,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

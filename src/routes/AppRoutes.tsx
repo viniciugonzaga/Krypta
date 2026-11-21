@@ -29,6 +29,7 @@ import { AuthCallback } from '../pages/AuthCallback';
 import { Device } from '../pages/Device';
 import { InheritanceClaim } from '../pages/InheritanceClaim';
 import { HowItWorks } from '../pages/HowItWorks';
+import { Aplicacoes } from '../pages/Aplicacoes';
 import { Orders } from '../pages/Orders';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -114,6 +115,9 @@ export function AppRoutes() {
 
           {/* Como funciona o cofre, o dispositivo e a herança: público */}
           <Route path="/como-funciona" element={<PageTransition variant="slide-up"><HowItWorks /></PageTransition>} />
+          {/* Aplicações: baixar o app desktop (Windows) e, em breve, o app do celular. Público */}
+          <Route path="/aplicacoes" element={<PageTransition variant="slide-up"><Aplicacoes /></PageTransition>} />
+          <Route path="/download" element={<Navigate to="/aplicacoes" replace />} />
 
           {/* Retorno do login social (GitHub / Apple) */}
           <Route path="/auth/callback/:provider" element={<AuthCallback />} />

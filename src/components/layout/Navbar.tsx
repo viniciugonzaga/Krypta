@@ -24,6 +24,7 @@ import {
   Menu,
   X,
   Package,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -44,6 +45,8 @@ const baseNavItems: NavItem[] = [
   { id: 'servicos', label: 'Serviços', path: '/services', icon: Briefcase },
   { id: 'produtos', label: 'Produtos', path: '/products', icon: BookOpen },
   { id: 'contatos', label: 'Contatos', path: '/contact', icon: Mail },
+  // Baixar o app (Windows agora; celular/PWA em seguida). Aparece logado ou não.
+  { id: 'aplicacoes', label: 'Aplicações', path: '/aplicacoes', icon: Download },
 ];
 
 // "Krypta": logado → Meu Krypta (cofre e dispositivo);

@@ -15,6 +15,9 @@ dist-ssr
 # Variáveis de ambiente (segredos)
 .env
 .env.production
+.env.desktop
+# Instalador do app (é gerado; não vai para o Git)
+public/downloads/
 
 # Editor directories and files
 .vscode/*

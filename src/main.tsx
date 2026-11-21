@@ -4,6 +4,14 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.tsx';
 import './index.css';
 import { SOCIAL_AUTH } from './config/socialAuth';
+import { IS_DESKTOP, instalarLinksExternos } from './config/desktop';
+
+// App desktop (Tauri): links externos abrem no navegador e o CSS pode
+// ajustar detalhes com .krypta-desktop (o resto é idêntico ao site)
+if (IS_DESKTOP) {
+  document.documentElement.classList.add('krypta-desktop');
+  instalarLinksExternos();
+}
 
 // O Client ID do Google vem do .env (VITE_GOOGLE_CLIENT_ID), o mesmo que o
 // servidor confere. Vazio = login com Google desligado.

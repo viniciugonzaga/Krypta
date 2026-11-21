@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Mail } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ContactAPI } from '../../services/api';
+import { Link } from 'react-router-dom';
+import { IS_DESKTOP } from '../../config/desktop';
 
 import logoTextoClaro from '../../assets/logos/Krypta_de_texto.png';
 import logoTextoEscuro from '../../assets/logos/Krypta_de_texto2.png';
@@ -127,6 +129,15 @@ export function Footer() {
               >
                 +55 (11) 98765-4321
               </a>
+              {!IS_DESKTOP && (
+                <Link
+                  to="/aplicacoes"
+                  className="text-sm font-semibold transition-colors duration-300 hover:text-[#8d51ff]"
+                  style={{ color: isDark ? '#a97aff' : '#5100BD' }}
+                >
+                  ⬇ Baixar o Krypta para Windows
+                </Link>
+              )}
             </div>
           </div>
 
