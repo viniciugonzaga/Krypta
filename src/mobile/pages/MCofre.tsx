@@ -2,25 +2,22 @@
 // ============================================================
 // MODO MOBILE — Cofre
 //   MCofre         → "/device"            Cofre Digital (chaves + atalhos)
-//   MChaves        → "/cofre/chaves"       todas as chaves (ver, copiar, excluir)
-//   MNovaChave     → "/cofre/nova-chave"   o botão "+" da barra
+//   (Minhas chaves e Nova chave ficam em MChaves.tsx)
+//   MVerCofre/MPerdiCcp ficam em MAcesso.tsx
 //   MHerancaApp    → "/heranca-digital"    estado da herança digital
 //   MBloqueio      → "/bloqueio"           Kill Switch e vincular este aparelho
 //   MEmergencia    → "/emergencia"         recursos de emergência
 //   MCofreCompleto → "/cofre/completo"     tela completa do site (pareamento, CCP, herança...)
 // Tudo usa as mesmas funções do site (services/vaultFlows.ts).
 // ============================================================
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
-  Check,
   ChevronRight,
-  Copy,
   Cpu,
   Eye,
-  EyeOff,
   HelpCircle,
   KeyRound,
   Lightbulb,
@@ -30,101 +27,17 @@ import {
   Plus,
   Search,
   ShieldAlert,
-  Trash2,
   Users,
-  Wand2,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Device } from '../../pages/Device';
 import { handleApiError } from '../../services/api';
 import * as Flows from '../../services/vaultFlows';
-import { normalizarSegredo, segredoValido, type Credencial } from '../../crypto/kryptaCrypto';
-import { gerarSenhaForte, useCofre } from '../useCofre';
-import { FONTE, GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MInterruptor, MLinhaAcao, MTitulo, MobileShell, useMCores, type MCores } from '../ui';
-
-export const CATEGORIAS = ['Pessoal', 'Bancos', 'Redes sociais', 'Trabalho', 'Estudos', 'Compras', 'Jogos', 'Outros'];
-
-// Cor e letra do "ícone" de cada chave (sem baixar logos de terceiros)
-const CORES_ICONE = ['#6131C9', '#2563eb', '#db2777', '#059669', '#d97706', '#7c3aed', '#dc2626', '#0891b2'];
-function IconeChave({ nome }: { nome: string }) {
-  const n = nome.trim() || '?';
-  const cor = CORES_ICONE[[...n].reduce((a, ch) => a + ch.charCodeAt(0), 0) % CORES_ICONE.length];
-  return (
-    <span className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-[15px] shrink-0" style={{ background: cor }}>
-      {n[0].toUpperCase()}
-    </span>
-  );
-}
-
-/** Quando o cofre ainda não está pronto neste aparelho */
-function CofreNaoPronto({ c, estado, aqui }: { c: MCores; estado?: string; aqui: boolean }) {
-  const navigate = useNavigate();
-  const textos: Record<string, [string, string]> = {
-    PENDENTE_PAREAMENTO: ['Seu cofre ainda não foi ativado', 'Pareie este aparelho (ou um dispositivo Krypta) e gere sua chave de contingência.'],
-    REVOGADA: ['Dispositivo bloqueado', 'O Kill Switch foi acionado. Vincule este aparelho para recuperar o cofre.'],
-    RECUPERACAO_LOCAL: ['Recuperação em andamento', 'Termine a recuperação para voltar a usar o cofre.'],
-    RECUPERACAO_HARDWARE: ['Novo dispositivo em recuperação', 'Termine a recuperação para voltar a usar o cofre.'],
-  };
-  const [titulo, texto] =
-    estado === 'ATIVA' && !aqui
-      ? ['O cofre está em outro aparelho', 'A chave do cofre fica no dispositivo onde você pareou (outro navegador, o app ou o Krypta físico). As ações de emergência continuam aqui.']
-      : textos[estado ?? 'PENDENTE_PAREAMENTO'] ?? textos.PENDENTE_PAREAMENTO;
-  return (
-    <MCard c={c} destaque className="mb-4">
-      <div className="flex gap-3">
-        <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-white" style={{ background: GRAD }}>
-          <Lock className="w-5 h-5" />
-        </span>
-        <div>
-          <p className="font-semibold">{titulo}</p>
-          <p className="text-[12.5px] mt-1" style={{ color: c.suave }}>{texto}</p>
-        </div>
-      </div>
-      {estado !== 'ATIVA' && (
-        <MBotao className="mt-4" onClick={() => navigate(estado === 'REVOGADA' ? '/bloqueio' : '/cofre/completo')}>
-          {estado === 'PENDENTE_PAREAMENTO' ? 'Ativar meu cofre' : estado === 'REVOGADA' ? 'Vincular este aparelho' : 'Continuar'}
-        </MBotao>
-      )}
-    </MCard>
-  );
-}
-
-function LinhaChave({ c, cred, onExcluir }: { c: MCores; cred: Credencial; onExcluir?: () => void }) {
-  const [ver, setVer] = useState(false);
-  const [copiado, setCopiado] = useState(false);
-  const copiar = async () => {
-    try {
-      await navigator.clipboard.writeText(cred.senha);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 1400);
-    } catch {
-      /* sem permissão */
-    }
-  };
-  return (
-    <li className="flex items-center gap-3 py-2.5" style={{ borderBottom: `1px solid ${c.faixa}` }}>
-      <IconeChave nome={cred.servico} />
-      <span className="flex-1 min-w-0">
-        <span className="block font-semibold text-[14px] truncate">{cred.servico}</span>
-        <span className="block text-[12px] font-mono truncate" style={{ color: c.suave }}>
-          {ver ? cred.senha : '••••••••••••'}
-        </span>
-        {ver && cred.usuario && <span className="block text-[11px] truncate" style={{ color: c.suave }}>{cred.usuario}</span>}
-      </span>
-      <button type="button" onClick={() => setVer((v) => !v)} aria-label={ver ? 'Esconder senha' : 'Mostrar senha'} className="p-2" style={{ color: c.roxo }}>
-        {ver ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
-      </button>
-      <button type="button" onClick={copiar} aria-label="Copiar senha" className="p-2" style={{ color: copiado ? '#22c55e' : c.roxo }}>
-        {copiado ? <Check className="w-[18px] h-[18px]" /> : <Copy className="w-[18px] h-[18px]" />}
-      </button>
-      {onExcluir && (
-        <button type="button" onClick={onExcluir} aria-label="Excluir chave" className="p-2" style={{ color: '#f87171' }}>
-          <Trash2 className="w-[18px] h-[18px]" />
-        </button>
-      )}
-    </li>
-  );
-}
+import { normalizarSegredo, segredoValido } from '../../crypto/kryptaCrypto';
+import { useCofre } from '../useCofre';
+import { LinhaChave } from './MChaves';
+import { CofreNaoPronto } from './CofreNaoPronto';
+import { FONTE, GRAD, MAviso, MBotao, MCampo, MCard, MFolha, MInterruptor, MLinhaAcao, MTitulo, MobileShell, useMCores } from '../ui';
 
 // ============================================================
 // COFRE DIGITAL
@@ -145,6 +58,9 @@ export function MCofre() {
         <>
           {erro && <div className="mb-4"><MAviso tipo="erro">{erro}</MAviso></div>}
           {!pronto && <CofreNaoPronto c={c} estado={conta?.status} aqui={aqui} />}
+          {!aqui && conta && conta.status !== 'PENDENTE_PAREAMENTO' && (
+            <MLinhaAcao c={c} i={1} icone={<Eye className="w-5 h-5" />} titulo="Ver o cofre neste aparelho" texto="Só leitura, com a sua chave de contingência (CCP)." to="/cofre/ver" trava={!r?.multiAparelho} />
+          )}
 
           {pronto && (
             <>
@@ -175,7 +91,7 @@ export function MCofre() {
                 {chaves.length === 0 ? (
                   <p className="text-[13px] py-4 text-center" style={{ color: c.suave }}>Nenhuma chave ainda. Toque no + para criar a primeira.</p>
                 ) : (
-                  <ul>{chaves.slice(0, 3).map((cred) => <LinhaChave key={cred.id} c={c} cred={cred} />)}</ul>
+                  <ul>{chaves.slice(0, 3).map((cred) => <LinhaChave key={cred.id} c={c} cred={cred} onAbrir={() => navigate('/cofre/chaves')} />)}</ul>
                 )}
               </MCard>
             </>
@@ -198,165 +114,6 @@ export function MCofre() {
             Abrir a tela completa do cofre (CCP, dispositivo, kit de herança)
           </button>
         </>
-      )}
-    </MobileShell>
-  );
-}
-
-// ============================================================
-// TODAS AS CHAVES
-// ============================================================
-export function MChaves() {
-  const c = useMCores();
-  const navigate = useNavigate();
-  const { dispositivo, pronto, carregando, conta, aqui, salvar } = useCofre();
-  const [busca, setBusca] = useState('');
-  const [excluir, setExcluir] = useState<Credencial | null>(null);
-  const [ocupado, setOcupado] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  const lista = useMemo(() => {
-    const t = busca.trim().toLowerCase();
-    const todas = [...(dispositivo?.credenciais ?? [])].sort((a, b) => a.servico.localeCompare(b.servico));
-    return t ? todas.filter((x) => `${x.servico} ${x.usuario} ${x.categoria ?? ''}`.toLowerCase().includes(t)) : todas;
-  }, [dispositivo, busca]);
-
-  const confirmarExclusao = async () => {
-    if (!excluir || !dispositivo) return;
-    setOcupado(true);
-    setErro(null);
-    try {
-      await salvar(dispositivo.credenciais.filter((x) => x.id !== excluir.id));
-      setExcluir(null);
-    } catch (err) {
-      setErro(handleApiError(err).message);
-    } finally {
-      setOcupado(false);
-    }
-  };
-
-  return (
-    <MobileShell voltar="/device">
-      <MTitulo c={c} titulo="Minhas chaves" sub="Aqui estão todas as suas chaves salvas." />
-      {carregando ? (
-        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
-      ) : !pronto ? (
-        <CofreNaoPronto c={c} estado={conta?.status} aqui={aqui} />
-      ) : (
-        <>
-          <label className="relative block mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: c.suave }} />
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar chave" className="w-full h-11 pl-9 pr-3 rounded-xl text-[14px] outline-none" style={{ background: c.campo, border: `1.5px solid ${c.borda}`, color: c.texto }} />
-          </label>
-          <MCard c={c} className="mb-4">
-            {lista.length === 0 ? (
-              <p className="text-[13px] py-4 text-center" style={{ color: c.suave }}>{busca ? 'Nada encontrado.' : 'Nenhuma chave ainda.'}</p>
-            ) : (
-              <ul>{lista.map((cred) => <LinhaChave key={cred.id} c={c} cred={cred} onExcluir={() => setExcluir(cred)} />)}</ul>
-            )}
-          </MCard>
-          <MBotao onClick={() => navigate('/cofre/nova-chave')}><Plus className="w-5 h-5" /> Criar nova chave</MBotao>
-        </>
-      )}
-
-      <MFolha aberta={!!excluir} onFechar={() => setExcluir(null)} titulo="Excluir chave?">
-        <p className="text-[13.5px] mb-4" style={{ color: c.suave }}>
-          A chave <strong style={{ color: c.texto }}>{excluir?.servico}</strong> sai do cofre e do backup. Não dá para desfazer.
-        </p>
-        {erro && <div className="mb-3"><MAviso tipo="erro">{erro}</MAviso></div>}
-        <MBotao variante="perigo" carregando={ocupado} onClick={confirmarExclusao}><Trash2 className="w-4 h-4" /> Excluir</MBotao>
-      </MFolha>
-    </MobileShell>
-  );
-}
-
-// ============================================================
-// CRIAR NOVA CHAVE (botão "+")
-// ============================================================
-export function MNovaChave() {
-  const c = useMCores();
-  const navigate = useNavigate();
-  const { dispositivo, pronto, carregando, conta, aqui, salvar } = useCofre();
-  const [f, setF] = useState({ servico: '', usuario: '', senha: '', categoria: '', nota: '' });
-  const [ver, setVer] = useState(false);
-  const [ocupado, setOcupado] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  const salvarChave = async () => {
-    setErro(null);
-    if (!f.servico.trim()) return setErro('Dê um nome para a chave (ex.: Google, Netflix).');
-    if (!f.senha) return setErro('Digite a senha ou toque em "Gerar".');
-    if (!f.categoria) return setErro('Escolha uma categoria.');
-    if (!dispositivo) return;
-    setOcupado(true);
-    try {
-      const nova: Credencial = {
-        id: crypto.randomUUID(),
-        servico: f.servico.trim(),
-        usuario: f.usuario.trim(),
-        senha: f.senha,
-        categoria: f.categoria,
-        nota: f.nota.trim() || undefined,
-        criadaEm: new Date().toISOString(),
-      };
-      await salvar([...dispositivo.credenciais, nova]);
-      navigate('/cofre/chaves', { replace: true });
-    } catch (err) {
-      setErro(handleApiError(err).message);
-    } finally {
-      setOcupado(false);
-    }
-  };
-
-  return (
-    <MobileShell voltar={true}>
-      <MTitulo c={c} titulo="Criar nova chave" sub="Adicione uma nova credencial ao seu cofre de forma segura." />
-      {carregando ? (
-        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
-      ) : !pronto ? (
-        <CofreNaoPronto c={c} estado={conta?.status} aqui={aqui} />
-      ) : (
-        <MCard c={c}>
-          <MFaixa c={c} icone={<KeyRound className="w-5 h-5" />} titulo="Informações da nova chave" />
-          <div className="space-y-3.5">
-            <MCampo c={c} rotulo="Nome da chave *" placeholder="Ex.: Google, Netflix, Banco do Brasil" value={f.servico} onChange={(e) => setF({ ...f, servico: e.target.value })} />
-            <MCampo c={c} rotulo="E-mail, telefone ou usuário (opcional)" placeholder="Ex.: user@gmail.com" value={f.usuario} onChange={(e) => setF({ ...f, usuario: e.target.value })} autoComplete="off" />
-            <div>
-              <MCampo
-                c={c}
-                rotulo="Senha *"
-                type={ver ? 'text' : 'password'}
-                autoComplete="new-password"
-                value={f.senha}
-                onChange={(e) => setF({ ...f, senha: e.target.value })}
-                direita={
-                  <button type="button" onClick={() => setVer((v) => !v)} aria-label={ver ? 'Esconder' : 'Mostrar'} className="p-1" style={{ color: c.suave }}>
-                    {ver ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                }
-              />
-              <button type="button" onClick={() => { setF({ ...f, senha: gerarSenhaForte() }); setVer(true); }} className="mt-2 text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: c.roxo }}>
-                <Wand2 className="w-4 h-4" /> Gerar senha forte
-              </button>
-            </div>
-            <label className="block">
-              <span className="block text-[13px] font-medium mb-1">Categoria *</span>
-              <select value={f.categoria} onChange={(e) => setF({ ...f, categoria: e.target.value })} className="w-full h-11 px-3 rounded-lg text-[14px] outline-none" style={{ background: c.campo, border: `1.5px solid ${c.borda}`, color: c.texto }}>
-                <option value="">Selecione uma categoria</option>
-                {CATEGORIAS.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-            </label>
-            <MCampo c={c} rotulo="Informação adicional (opcional)" placeholder="Ex.: PIN, pergunta de segurança" value={f.nota} onChange={(e) => setF({ ...f, nota: e.target.value })} autoComplete="off" />
-          </div>
-          <p className="text-[12px] mt-4 rounded-lg p-2.5 flex items-center gap-2" style={{ background: c.faixa }}>
-            <Lightbulb className="w-4 h-4 shrink-0" style={{ color: c.roxo }} /> Dica: use uma senha única e forte para cada conta.
-          </p>
-          {erro && <div className="mt-3"><MAviso tipo="erro">{erro}</MAviso></div>}
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <MBotao variante="secundario" onClick={() => navigate(-1)}>Cancelar</MBotao>
-            <MBotao carregando={ocupado} onClick={salvarChave}>Salvar chave</MBotao>
-          </div>
-        </MCard>
       )}
     </MobileShell>
   );
@@ -505,6 +262,7 @@ export function MEmergencia() {
       </p>
       <div className="space-y-3">
         <MLinhaAcao c={c} i={0} icone={<KeyRound className="w-5 h-5" />} titulo="Recuperação de acesso" texto="Esqueceu a senha mestre? Recupere o cofre com a sua CCP." to="/cofre/completo" />
+        <MLinhaAcao c={c} i={1} icone={<ShieldAlert className="w-5 h-5" />} titulo="Perdi minha CCP" texto="Crie uma CCP nova pelo dispositivo ou abandone o cofre antigo." to="/perdi-ccp" perigo />
         <MLinhaAcao c={c} i={1} icone={<Search className="w-5 h-5" />} titulo="Acesso suspeito" texto="Veja as atividades recentes e onde sua conta está aberta." to="/profile#sessoes" />
         <MLinhaAcao c={c} i={2} icone={<Cpu className="w-5 h-5" />} titulo="Perdi meu dispositivo" texto="Bloqueio remoto e proteção do cofre." to="/bloqueio" perigo />
         <MLinhaAcao c={c} i={3} icone={<HelpCircle className="w-5 h-5" />} titulo="Preciso de ajuda" texto="Fale com a equipe do Krypta." to="/contact" />

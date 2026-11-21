@@ -31,6 +31,7 @@ import { InheritanceClaim } from '../pages/InheritanceClaim';
 import { HowItWorks } from '../pages/HowItWorks';
 import { Aplicacoes } from '../pages/Aplicacoes';
 import { MOnboarding } from '../mobile/pages/MOnboarding';
+import { MPerdiCcp, MVerCofre } from '../mobile/pages/MAcesso';
 import { Orders } from '../pages/Orders';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -141,6 +142,9 @@ export function AppRoutes() {
           <Route path="/profile" element={<PageTransition><PrivateRoute><Profile /></PrivateRoute></PageTransition>} />
           <Route path="/plans" element={<PageTransition><PrivateRoute><Plans /></PrivateRoute></PageTransition>} />
           <Route path="/device" element={<PageTransition><PrivateRoute><Device /></PrivateRoute></PageTransition>} />
+          {/* Cofre em outro aparelho (Pro, só leitura) e "Perdi minha CCP" — mesmas telas do app */}
+          <Route path="/cofre/ver" element={<PrivateRoute><MVerCofre /></PrivateRoute>} />
+          <Route path="/perdi-ccp" element={<PrivateRoute><MPerdiCcp /></PrivateRoute>} />
           {/* Questionário do primeiro acesso → plano recomendado (mesma tela do modo Mobile) */}
           <Route path="/boas-vindas" element={<PrivateRoute><MOnboarding /></PrivateRoute>} />
           <Route path="/compras" element={<PageTransition><PrivateRoute><Orders /></PrivateRoute></PageTransition>} />

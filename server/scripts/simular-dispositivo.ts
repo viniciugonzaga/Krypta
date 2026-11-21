@@ -23,6 +23,7 @@
 //   npm run sim -- planos <email> <senha>     confere as travas do Free e assina o Pro
 //   npm run sim -- conta <email> <senha>      cancelar o Pro, contato e "sair de tudo"
 //   npm run sim -- mobile <email> <senha>    modo Mobile: servidor identifica o cliente + plano recomendado
+//   npm run sim -- acesso <email> <senha>    cofre em outro aparelho (CCP), CCP esquecida, abandonar
 //   npm run sim -- esp32                      faz o papel do ESP32 real (apresentação, pareamento, login, Kill Switch)
 //
 //   npm run sim -- testar-tudo                 CRIA UMA CONTA NOVA e roda TODOS os testes
@@ -752,6 +753,7 @@ async function esp32() {
 // ============================================================
 async function mobile(email?: string, senha?: string) {
   if (!email || !senha) falha('Uso: npm run sim -- mobile <email> <senha>');
+//   npm run sim -- acesso <email> <senha>    cofre em outro aparelho (CCP), CCP esquecida, abandonar
   titulo('📱 Modo Mobile — identificação do cliente e plano recomendado');
 
   const pwa = await chamar('GET', '/client/context', undefined, undefined, { 'X-Krypta-Cliente': 'pwa' });
@@ -798,6 +800,59 @@ async function mobile(email?: string, senha?: string) {
 }
 
 // ============================================================
+// ACESSO ESPECIAL — outro aparelho com a CCP, CCP esquecida, abandonar
+// ============================================================
+async function acesso(email?: string, senha?: string) {
+  if (!email || !senha) falha('Uso: npm run sim -- acesso <email> <senha>');
+  const k = lerChaves();
+  titulo('🗝️  Acesso especial — cofre em outro aparelho, CCP esquecida e abandonar cofre');
+
+  const tokenSite = await loginSite(email, senha);
+  await assinarPro(tokenSite);
+
+  // 1) Outro aparelho, só leitura, com a CCP (Pro)
+  esperar(await chamar('POST', '/vault/backup/ccp', { prova_cont_dono: aleatorio32() }, tokenSite), 401, 'Outro aparelho com a CCP errada: recusado');
+  const aberto = await chamar('POST', '/vault/backup/ccp', { prova_cont_dono: k.provaContDono }, tokenSite);
+  esperar(aberto, 200, `Outro aparelho com a CCP certa: recebeu o cofre CIFRADO (versão ${aberto.json.data?.version_counter})`);
+
+  esperar(await chamar('POST', '/plans/change', { tier: 'free' }, tokenSite), 200, 'Conta volta ao Free');
+  esperar(await chamar('POST', '/vault/backup/ccp', { prova_cont_dono: k.provaContDono }, tokenSite), 403, 'Free: abrir em outro aparelho é do Pro');
+  await assinarPro(tokenSite);
+
+  // 2) Esqueci a CCP, mas estou com o dispositivo (+ senha)
+  const token = await loginDispositivo(k.publicKey, k.secretKey);
+  const v = await versaoAtual(token);
+  const provaNova = aleatorio32();
+  esperar(
+    await chamar('POST', '/vault/ccp/reset', { password: 'senha-errada-123', prova_cont_dono_nova: provaNova, version_counter: v + 1, payload_cifrado: payloadFalso() }, token),
+    401,
+    'CCP nova com a senha errada: recusado'
+  );
+  esperar(
+    await chamar('POST', '/vault/ccp/reset', { password: senha, prova_cont_dono_nova: provaNova, version_counter: v + 1, payload_cifrado: payloadFalso() }, tokenSite),
+    403,
+    'CCP nova sem o dispositivo (token do site): recusado'
+  );
+  esperar(
+    await chamar('POST', '/vault/ccp/reset', { password: senha, prova_cont_dono_nova: provaNova, version_counter: v + 1, payload_cifrado: payloadFalso() }, token),
+    200,
+    'Dispositivo + senha criaram uma CCP nova'
+  );
+  esperar(await chamar('POST', '/vault/backup/ccp', { prova_cont_dono: k.provaContDono }, tokenSite), 401, 'A CCP antiga deixou de valer');
+  k.provaContDono = provaNova;
+  salvarChaves(k);
+
+  // 3) Abandonar: pede senha e código do e-mail
+  esperar(await chamar('POST', '/vault/abandon/request', { password: 'senha-errada-123' }, tokenSite), 401, 'Abandonar com a senha errada: recusado');
+  const pedido = await chamar('POST', '/vault/abandon/request', { password: senha }, tokenSite);
+  esperar(pedido, 200, `Código para abandonar gerado (${pedido.json.data?.enviado ? 'enviado por e-mail' : 'aparece no terminal do servidor'})`);
+  esperar(await chamar('POST', '/vault/abandon/confirm', { codigo: '000000' }, tokenSite), 401, 'Código errado: o cofre NÃO foi abandonado');
+  info('O abandono de verdade (com o código) você testa pelo site: Cofre → Recursos de emergência → Perdi minha CCP.');
+
+  console.log('\n  Acesso especial OK! 🎉\n');
+}
+
+// ============================================================
 // TUDO EM SEQUÊNCIA
 // ============================================================
 /** Cria uma conta de teste nova (Free, sem dispositivo) */
@@ -837,6 +892,7 @@ async function testarTudo(emailArg?: string, senhaArg?: string) {
   await killSwitch(email, senha); // o dono retoma a conta depois do resgate
   await conta(email, senha);
   await mobile(email, senha);
+  await acesso(email, senha);
   await esp32();
   console.log(falhas === 0 ? '\n🏁 COFRE, PLANOS E COMPRAS — TODOS OS TESTES PASSARAM! 🎉\n' : `\n⚠️  ${falhas} falha(s)\n`);
   if (!emailArg) {
@@ -885,6 +941,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
   conta: () => conta(args[0], args[1]),
   esp32,
   mobile: () => mobile(args[0], args[1]),
+  acesso: () => acesso(args[0], args[1]),
   status,
   esquecer,
   limpar,
@@ -892,7 +949,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
 
 if (!comando || !comandos[comando]) {
   console.log(
-    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | mobile email senha | esp32 | testar-tudo [email senha] | limpar | status | esquecer>'
+    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | mobile email senha | acesso email senha | esp32 | testar-tudo [email senha] | limpar | status | esquecer>'
   );
   process.exit(1);
 }

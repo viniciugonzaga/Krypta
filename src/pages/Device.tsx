@@ -45,6 +45,8 @@ import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { SITE_URL } from '../config/desktop';
+import { IconeServico } from '../mobile/icones';
+import { resumo as resumoCredencial } from '../mobile/credenciais';
 import { DevicesAPI, VaultAPI, type ContaCofre, type DispositivoComprado, type EstadoCofre, type EventoCofre } from '../services/api';
 import { VirtualDevice, type EstadoDispositivo } from '../services/virtualDevice';
 import * as Flows from '../services/vaultFlows';
@@ -726,6 +728,11 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                 </label>
               </div>
             )}
+            {Flows.lerChavesParaImportar().length > 0 && (
+              <p className="mb-4 text-xs rounded-lg p-3" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.4)' }}>
+                {Flows.lerChavesParaImportar().length} chave(s) do cofre antigo, que estavam neste aparelho, vão entrar no cofre novo.
+              </p>
+            )}
             <p className="text-xs font-bold tracking-[0.15em] uppercase mb-2" style={{ color: c.bright }}>2. Gere sua chave de contingência</p>
             {!segredoNovo ? (
               <Botao c={c} onClick={() => setSegredoNovo(gerarSegredo())}>
@@ -751,7 +758,10 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                       () =>
                         usarHardwareReal && hardwareSelecionado?.chaveAnunciada
                           ? Flows.parearHardwareReal(contaId, segredoNovo, hardwareSelecionado.serial, hardwareSelecionado.chaveAnunciada)
-                          : Flows.parearDispositivo(contaId, segredoNovo, serialValido),
+                          : Flows.parearDispositivo(contaId, segredoNovo, serialValido, Flows.lerChavesParaImportar()).then((r) => {
+                              Flows.limparChavesParaImportar(); // chaves do cofre abandonado já entraram no novo
+                              return r;
+                            }),
                       usarHardwareReal
                         ? `Hardware ${serialValido} pareado! Toque o cartão no dispositivo para entrar.`
                         : serialValido
@@ -811,8 +821,9 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                   </div>
                 ) : (
                 <p className="text-sm rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: c.isDark ? '#fcd34d' : '#92400e' }}>
-                  O dispositivo desta conta não está neste navegador. Use o navegador onde você pareou (ou, no futuro, o app Krypta com o ESP32).
-                  As ações de emergência abaixo continuam disponíveis.
+                  O dispositivo desta conta não está neste navegador. Use o navegador onde você pareou, ou{' '}
+                  <Link to="/cofre/ver" className="underline font-semibold">veja o cofre aqui com a sua CCP</Link> (Pro, só leitura).
+                  Perdeu a CCP? <Link to="/perdi-ccp" className="underline font-semibold">Veja as opções</Link>. As ações de emergência abaixo continuam disponíveis.
                 </p>
                 )
               ) : (
@@ -823,10 +834,10 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                     )}
                     {dispositivo!.credenciais.map((cr) => (
                       <motion.div key={cr.id} layout className="flex items-center gap-3 rounded-lg p-3" style={{ background: c.isDark ? 'rgba(141,81,255,0.06)' : 'rgba(81,0,189,0.04)', border: `1px solid ${c.border}` }}>
-                        <KeyRound className="w-4 h-4 shrink-0" style={{ color: c.bright }} />
+                        <IconeServico nome={cr.servico} icone={cr.icone} tipo={cr.tipo} tamanho={32} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold truncate">{cr.servico}</p>
-                          <p className="text-xs truncate" style={{ color: c.muted }}>{cr.usuario || '—'}</p>
+                          <p className="text-xs truncate" style={{ color: c.muted }}>{resumoCredencial(cr)}</p>
                         </div>
                         <span className="font-mono text-xs hidden sm:block" style={{ color: c.muted }}>
                           {mostrarSenhas ? cr.senha : '••••••••••'}
@@ -1031,6 +1042,8 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
           <Link to="/compras" className="underline inline-flex items-center gap-1" style={{ color: c.bright }}><Package className="w-3 h-3" /> Minhas compras</Link>
           {' · '}
           <Link to="/como-funciona" className="underline" style={{ color: c.bright }}>Como funciona o cofre</Link>
+          {' · '}
+          <Link to="/perdi-ccp" className="underline" style={{ color: c.bright }}>Perdi minha CCP</Link>
         </p>
       </main>
 

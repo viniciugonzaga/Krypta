@@ -12,6 +12,7 @@ import { VaultController } from '../controllers/VaultController.js';
 import { BackupController } from '../controllers/BackupController.js';
 import { ContingencyController } from '../controllers/ContingencyController.js';
 import { InheritanceController } from '../controllers/InheritanceController.js';
+import { VaultAcessoController } from '../controllers/VaultAcessoController.js';
 import { exigirEscopo } from '../middlewares/vaultAuth.js';
 import {
   limitarContingencia,
@@ -44,6 +45,12 @@ router.post('/kill-switch', site, limitarContingencia, ContingencyController.kil
 router.post('/recovery/hardware', site, limitarContingencia, ContingencyController.recoveryHardware);
 // Trocar a CCP: dispositivo + prova atual
 router.post('/rotate-ccp', hardware, limitarRotacao, ContingencyController.rotateCcp);
+
+// Cofre em outro aparelho (Pro, só leitura), CCP esquecida e abandonar cofre
+router.post('/backup/ccp', site, limitarContingencia, VaultAcessoController.abrirComCcp);
+router.post('/ccp/reset', hardware, limitarRotacao, VaultAcessoController.resetCcp);
+router.post('/abandon/request', site, limitarContingencia, VaultAcessoController.pedirAbandono);
+router.post('/abandon/confirm', site, limitarContingencia, VaultAcessoController.confirmarAbandono);
 
 // ============ HERANÇA (Parte 6) ============
 router.post('/inheritance/enable', hardware, limitarHeranca, InheritanceController.enable);

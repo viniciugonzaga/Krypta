@@ -161,6 +161,12 @@ export const DeviceAPI = {
     body: { prova_cont_dono_atual: string; prova_cont_dono_nova: string; version_counter: number; payload_cifrado: string }
   ) => deviceFetch<BackupInfo>('/vault/rotate-ccp', { method: 'POST', token, body }),
 
+  /** "Esqueci a CCP": o dispositivo + a senha do site criam uma CCP nova */
+  resetCcp: (
+    token: string,
+    body: { password: string; prova_cont_dono_nova: string; version_counter: number; payload_cifrado: string }
+  ) => deviceFetch<BackupInfo>('/vault/ccp/reset', { method: 'POST', token, body }),
+
   inheritanceEnable: (
     token: string,
     body: { prova_cont_dono_atual: string; prova_cont_herdeiro: string; version_counter: number; payload_cifrado: string }

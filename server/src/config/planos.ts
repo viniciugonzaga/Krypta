@@ -13,6 +13,8 @@
 //  Kill Switch (bloqueio remoto)          —           ✓
 //  Herança digital                        —           ✓
 //  Alertas de acesso (histórico)          —           ✓
+//  Abrir o cofre em outros aparelhos      —           ✓   (só leitura, com a CCP)
+//  CCP nova pelo dispositivo / abandonar  ✓           ✓
 //
 // Para mudar uma regra (ex.: liberar o Kill Switch no Free), troque aqui.
 // ============================================================
@@ -24,6 +26,8 @@ export interface RegrasPlano {
   killSwitch: boolean;
   heranca: boolean;
   alertasAcesso: boolean;
+  /** Ver o cofre em outro aparelho da mesma conta, com a CCP */
+  multiAparelho: boolean;
 }
 
 export const REGRAS_PLANO: Record<UserPlan, RegrasPlano> = {
@@ -33,6 +37,7 @@ export const REGRAS_PLANO: Record<UserPlan, RegrasPlano> = {
     killSwitch: false,
     heranca: false,
     alertasAcesso: false,
+    multiAparelho: false,
   },
   pro: {
     armazenamentoBytes: 1024 * 1024,
@@ -40,6 +45,7 @@ export const REGRAS_PLANO: Record<UserPlan, RegrasPlano> = {
     killSwitch: true,
     heranca: true,
     alertasAcesso: true,
+    multiAparelho: true,
   },
 };
 

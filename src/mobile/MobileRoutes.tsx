@@ -18,7 +18,9 @@ import type { DestinoLogin } from '../routes/destino';
 import { MIntro, MLogin, MRegister } from './pages/MEntrada';
 import { MOnboarding } from './pages/MOnboarding';
 import { MHome, MNotificacoes } from './pages/MInicio';
-import { MBloqueio, MChaves, MCofre, MCofreCompleto, MEmergencia, MHerancaApp, MNovaChave } from './pages/MCofre';
+import { MBloqueio, MCofre, MCofreCompleto, MEmergencia, MHerancaApp } from './pages/MCofre';
+import { MChaves, MNovaChave } from './pages/MChaves';
+import { MPerdiCcp, MVerCofre } from './pages/MAcesso';
 import { MConfig, MPerfil, MPlanos } from './pages/MConta';
 
 // Páginas do site usadas também no modo Mobile
@@ -101,6 +103,8 @@ export function MobileRoutes() {
         <Route path="/cofre/chaves" element={<Privada><Tela><MChaves /></Tela></Privada>} />
         <Route path="/cofre/nova-chave" element={<Privada><Tela><MNovaChave /></Tela></Privada>} />
         <Route path="/cofre/completo" element={<Privada><MCofreCompleto /></Privada>} />
+        <Route path="/cofre/ver" element={<Privada><Tela><MVerCofre /></Tela></Privada>} />
+        <Route path="/perdi-ccp" element={<Privada><Tela><MPerdiCcp /></Tela></Privada>} />
         <Route path="/heranca-digital" element={<Privada><Tela><MHerancaApp /></Tela></Privada>} />
         <Route path="/bloqueio" element={<Privada><Tela><MBloqueio /></Tela></Privada>} />
         <Route path="/emergencia" element={<Privada><Tela><MEmergencia /></Tela></Privada>} />

@@ -187,6 +187,20 @@ export interface Credencial {
   categoria?: string;
   /** Informação adicional (também vai cifrada no cofre) */
   nota?: string;
+  /** login | cartao | endereco | wifi | documento | nota | personalizado (sem = login) */
+  tipo?: string;
+  /** Ícone escolhido: "marca:netflix", "padrao:banco" ou vazio (automático) */
+  icone?: string;
+  /** Campos extras (cartão, endereço, acessos com mais dados...). Tudo cifrado. */
+  campos?: CampoCredencial[];
+}
+
+export interface CampoCredencial {
+  id: string;
+  rotulo: string;
+  valor: string;
+  /** Escondido com ••• até tocar no olho */
+  secreto?: boolean;
 }
 
 export interface VaultEnc {

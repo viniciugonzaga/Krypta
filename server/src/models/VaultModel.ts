@@ -419,6 +419,78 @@ export const VaultModel = {
     }).catch(tratarVersaoRecusada);
   },
 
+  /**
+   * "Esqueci a CCP, mas estou com o dispositivo": grava a CCP nova SEM a prova
+   * da antiga. Quem chama já provou ter o dispositivo (token hardware) E a senha
+   * do site. O dispositivo tem a chave do cofre, então ele mesmo refaz o envelope.
+   */
+  async redefinirCcpPeloDispositivo(params: {
+    userId: string;
+    publicKey: string;
+    novoHash: string;
+    payload: Buffer;
+    versionCounter: number;
+  }): Promise<ResultadoGravacao> {
+    return withTransaction(async (tx): Promise<ResultadoGravacao> => {
+      const conta = await travarConta(tx, params.userId);
+      if (!conta) return { resultado: 'SEM_CONTA' };
+      if (conta.estado_cofre !== 'ATIVA') return { resultado: 'ESTADO', status: conta.estado_cofre };
+      if (conta.public_key_ed25519 !== params.publicKey) return { resultado: 'HASH_MUDOU' };
+
+      const gravado = await gravarBackupTx(tx, params.userId, params.payload, params.versionCounter);
+      if (!gravado) throw new VersaoRecusada();
+
+      await tx.execute('UPDATE users SET hash_cont_dono = ? WHERE id = ?', [params.novoHash, params.userId]);
+      return { resultado: 'OK', ...gravado };
+    }).catch(tratarVersaoRecusada);
+  },
+
+  /**
+   * ABANDONAR O COFRE ("perdi a CCP e o dispositivo").
+   * O backup cifrado é apagado (sem a CCP ninguém o abriria), a chave do
+   * dispositivo é banida e a conta volta a PENDENTE_PAREAMENTO, pronta para
+   * um cofre novo. Herança, prova da CCP e dispositivo vinculado são limpos.
+   * Um dispositivo FÍSICO comprado volta a DISPONIVEL (pode ser pareado de novo
+   * depois do comando "reset" no firmware).
+   */
+  async abandonarCofre(userId: string): Promise<ContaCofre | null> {
+    await withTransaction(async (tx) => {
+      const conta = await travarConta(tx, userId);
+      if (!conta) return;
+      if (conta.public_key_ed25519) {
+        await tx.execute(
+          'INSERT IGNORE INTO chaves_revogadas (id, public_key, user_id, motivo, revogada_em) VALUES (?, ?, ?, ?, ?)',
+          [crypto.randomUUID(), conta.public_key_ed25519, userId, 'ABANDONO', new Date()]
+        );
+      }
+      if (conta.dispositivo_id) {
+        await tx.execute(
+          "UPDATE dispositivos SET status = 'DISPONIVEL', public_key = NULL, chave_anunciada = NULL, pareado_em = NULL WHERE id = ?",
+          [conta.dispositivo_id]
+        );
+      }
+      await tx.execute('DELETE FROM backups WHERE user_id = ?', [userId]);
+      await tx.execute(
+        `UPDATE users SET estado_cofre = 'PENDENTE_PAREAMENTO', public_key_ed25519 = NULL, hardware_uuid = NULL,
+                          tipo_dispositivo = NULL, dispositivo_id = NULL, hash_cont_dono = NULL, hash_cont_herdeiro = NULL,
+                          abandono_codigo = NULL, abandono_expira = NULL, abandono_tentativas = 0
+          WHERE id = ?`,
+        [userId]
+      );
+    });
+    return this.obterPorId(userId);
+  },
+
+  /** Backup cifrado para quem provou a CCP (abrir o cofre em outro aparelho, só leitura) */
+  async obterBackupCifrado(userId: string): Promise<{ payload: Buffer; version_counter: number; atualizado_em: Date } | null> {
+    const rows = await query<{ payload_cifrado: Buffer; version_counter: number; atualizado_em: Date }>(
+      'SELECT payload_cifrado, version_counter, atualizado_em FROM backups WHERE user_id = ? LIMIT 1',
+      [userId]
+    );
+    const r = rows[0];
+    return r ? { payload: r.payload_cifrado, version_counter: r.version_counter, atualizado_em: r.atualizado_em } : null;
+  },
+
   // ============================================================
   // HERANÇA  (Parte 6)
   // ============================================================

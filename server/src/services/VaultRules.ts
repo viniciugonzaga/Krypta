@@ -16,6 +16,7 @@ const NOME_RECURSO: Record<RecursoPro, string> = {
   killSwitch: 'O Kill Switch (bloqueio remoto)',
   heranca: 'A herança digital',
   alertasAcesso: 'Os alertas de acesso',
+  multiAparelho: 'Abrir o cofre em outros aparelhos',
 };
 
 /**

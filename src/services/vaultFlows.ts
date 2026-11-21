@@ -181,6 +181,79 @@ export async function trocarCcp(contaId: string, ccpAtual: string, ccpNova: stri
 }
 
 // ============================================================
+// "ESQUECI A CCP, MAS ESTOU COM O DISPOSITIVO"
+// O dispositivo tem a chave do cofre: ele cria um envelope com a CCP nova.
+// O servidor exige também a senha do site (dispositivo roubado sozinho não basta).
+// ============================================================
+export async function redefinirCcpComDispositivo(contaId: string, senhaSite: string, ccpNova: string) {
+  const d = exigirDispositivo(contaId);
+  const { chaveCofre } = exigirCofre(d);
+  const nova = await derivar(ccpNova, contaId, 'ccp');
+
+  const envelopeCcp = await criarEnvelope(nova.chaveEnvelope, chaveCofre);
+  if (!(await envelopeAbre(nova.chaveEnvelope, envelopeCcp, chaveCofre))) {
+    throw new Error('A nova CCP não abriu o novo envelope. Nada foi enviado.');
+  }
+
+  const token = await loginDispositivo(d);
+  const versao = await proximaVersao(token, d);
+  const novo: EstadoDispositivo = { ...d, envelopeCcp, versionCounter: versao };
+
+  await DeviceAPI.resetCcp(token, {
+    password: senhaSite,
+    prova_cont_dono_nova: nova.prova,
+    version_counter: versao,
+    payload_cifrado: await payloadDoDispositivo(novo),
+  });
+  VirtualDevice.salvar(novo);
+  return novo;
+}
+
+// ============================================================
+// VER O COFRE EM OUTRO APARELHO (Krypta Pro, só leitura)
+// O servidor entrega o backup CIFRADO depois de conferir a prova da CCP;
+// quem abre é este navegador. Nada é guardado aqui: fica só na memória.
+// ============================================================
+export async function abrirCofreComCcp(contaId: string, ccp: string) {
+  const { prova, chaveEnvelope } = await derivar(ccp, contaId, 'ccp');
+  const backup = await VaultAPI.abrirComCcp(prova);
+  const aberto = await abrirCofre(backup.payload_cifrado, chaveEnvelope, 'ccp');
+  return { credenciais: aberto.credenciais, versao: backup.version_counter, atualizadoEm: backup.atualizado_em };
+}
+
+// ============================================================
+// ABANDONAR O COFRE (perdi a CCP e o dispositivo)
+// Se este navegador ainda tiver as chaves do cofre antigo, elas são guardadas
+// para entrar no cofre NOVO no próximo pareamento (nada sai deste aparelho).
+// ============================================================
+export const CHAVE_IMPORTAR = 'krypta:importar-no-cofre-novo';
+
+export async function abandonarCofre(contaId: string, codigo: string, levarChavesDesteAparelho: boolean) {
+  const local = VirtualDevice.carregar(contaId);
+  if (levarChavesDesteAparelho && local?.credenciais.length) {
+    sessionStorage.setItem(CHAVE_IMPORTAR, JSON.stringify(local.credenciais));
+  }
+  const conta = await VaultAPI.confirmarAbandono(codigo);
+  VirtualDevice.apagar(contaId); // a chave antiga foi banida
+  esquecerToken(contaId);
+  return conta;
+}
+
+/** Chaves guardadas para entrar no cofre novo (só leitura; apague depois do pareamento) */
+export function lerChavesParaImportar(): Credencial[] {
+  try {
+    const raw = sessionStorage.getItem(CHAVE_IMPORTAR);
+    return raw ? (JSON.parse(raw) as Credencial[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function limparChavesParaImportar(): void {
+  sessionStorage.removeItem(CHAVE_IMPORTAR);
+}
+
+// ============================================================
 // HERANÇA
 // ============================================================
 export async function ativarHeranca(contaId: string, ccp: string, cch: string) {

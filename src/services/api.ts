@@ -312,6 +312,7 @@ export interface ContaCofre {
     killSwitch: boolean;
     heranca: boolean;
     alertasAcesso: boolean;
+    multiAparelho?: boolean;
   };
 }
 
@@ -325,6 +326,20 @@ export interface EventoCofre {
 }
 
 export const VaultAPI = {
+  /** Pro: baixa o backup CIFRADO provando a CCP (abrir o cofre em outro aparelho, só leitura) */
+  abrirComCcp: (prova: string) =>
+    apiRequest<{ payload_cifrado: string; version_counter: number; atualizado_em: string }>('/vault/backup/ccp', {
+      method: 'POST',
+      body: { prova_cont_dono: prova },
+    }),
+
+  /** Perdi a CCP e o dispositivo: pede o código por e-mail (confirma com a senha do site) */
+  pedirAbandono: (password: string) =>
+    apiRequest<{ enviado: boolean; expiraEmMinutos: number }>('/vault/abandon/request', { method: 'POST', body: { password } }),
+
+  /** Confirma com o código: o cofre antigo é descartado e a conta fica pronta para um cofre novo */
+  confirmarAbandono: (codigo: string) => apiRequest<ContaCofre>('/vault/abandon/confirm', { method: 'POST', body: { codigo } }),
+
   /** Estado do cofre da conta logada */
   account: () => apiRequest<ContaCofre>('/vault/account'),
 

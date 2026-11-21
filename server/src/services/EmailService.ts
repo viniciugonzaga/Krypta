@@ -165,6 +165,48 @@ export const EmailService = {
     );
   },
 
+  /** Código para confirmar o abandono do cofre (perdeu a CCP e o dispositivo) */
+  async sendAbandonCode(to: string, code: string, name: string): Promise<boolean> {
+    if (!smtpConfigurado()) {
+      console.warn(`⚠️  SMTP não configurado — código para ABANDONAR O COFRE de ${to}: ${code}`);
+      return false;
+    }
+    return enviar(
+      to,
+      'Krypta — Código para abandonar o cofre',
+      layout(
+        'Abandonar o cofre',
+        `
+        <p>Olá, <strong>${name}</strong>.</p>
+        <p>Recebemos um pedido para <strong>abandonar o cofre</strong> da sua conta Krypta. Use o código abaixo (vale 15 minutos):</p>
+        <div style="background:#1a0533;border:1px solid #6131C9;border-radius:8px;padding:16px;text-align:center;margin:24px 0;">
+          <span style="font-size:28px;letter-spacing:6px;font-weight:bold;color:#C6AEF8;">${code}</span>
+        </div>
+        <p style="color:#f87171;"><strong>Se NÃO foi você</strong>, troque sua senha agora: alguém está usando o seu login.
+        Sem este código, nada acontece com o seu cofre.</p>
+        `,
+        true
+      )
+    );
+  },
+
+  /** Avisos de segurança do cofre (CCP nova, abandono, cofre aberto em outro aparelho) */
+  notifyVaultEvent(to: string, name: string, titulo: string, texto: string): void {
+    silencioso(
+      to,
+      `Krypta — ${titulo}`,
+      layout(
+        titulo,
+        `
+        <p>Olá, <strong>${name}</strong>.</p>
+        <p>${texto}</p>
+        <p style="color:#f87171;"><strong>Se NÃO foi você</strong>, entre no Krypta, troque sua senha e use o bloqueio remoto.</p>
+        `,
+        true
+      )
+    );
+  },
+
   /** Herdeiro usou a chave de herança (Parte 6) */
   notifyInheritanceClaim(to: string, name: string): void {
     silencioso(

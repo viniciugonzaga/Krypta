@@ -1,0 +1,40 @@
+// src/mobile/pages/CofreNaoPronto.tsx
+// Aviso quando o cofre não pode ser usado neste aparelho (não pareado,
+// bloqueado, em recuperação ou com a chave em outro aparelho).
+import { useNavigate } from 'react-router-dom';
+import { Lock } from 'lucide-react';
+import { GRAD, MBotao, MCard, type MCores } from '../ui';
+
+/** Quando o cofre ainda não está pronto neste aparelho */
+export function CofreNaoPronto({ c, estado, aqui }: { c: MCores; estado?: string; aqui: boolean }) {
+  const navigate = useNavigate();
+  const textos: Record<string, [string, string]> = {
+    PENDENTE_PAREAMENTO: ['Seu cofre ainda não foi ativado', 'Pareie este aparelho (ou um dispositivo Krypta) e gere sua chave de contingência.'],
+    REVOGADA: ['Dispositivo bloqueado', 'O Kill Switch foi acionado. Vincule este aparelho para recuperar o cofre.'],
+    RECUPERACAO_LOCAL: ['Recuperação em andamento', 'Termine a recuperação para voltar a usar o cofre.'],
+    RECUPERACAO_HARDWARE: ['Novo dispositivo em recuperação', 'Termine a recuperação para voltar a usar o cofre.'],
+  };
+  const [titulo, texto] =
+    estado === 'ATIVA' && !aqui
+      ? ['O cofre está em outro aparelho', 'A chave do cofre fica no dispositivo onde você pareou (outro navegador, o app ou o Krypta físico). As ações de emergência continuam aqui.']
+      : textos[estado ?? 'PENDENTE_PAREAMENTO'] ?? textos.PENDENTE_PAREAMENTO;
+  return (
+    <MCard c={c} destaque className="mb-4">
+      <div className="flex gap-3">
+        <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-white" style={{ background: GRAD }}>
+          <Lock className="w-5 h-5" />
+        </span>
+        <div>
+          <p className="font-semibold">{titulo}</p>
+          <p className="text-[12.5px] mt-1" style={{ color: c.suave }}>{texto}</p>
+        </div>
+      </div>
+      {estado !== 'ATIVA' && (
+        <MBotao className="mt-4" onClick={() => navigate(estado === 'REVOGADA' ? '/bloqueio' : '/cofre/completo')}>
+          {estado === 'PENDENTE_PAREAMENTO' ? 'Ativar meu cofre' : estado === 'REVOGADA' ? 'Vincular este aparelho' : 'Continuar'}
+        </MBotao>
+      )}
+    </MCard>
+  );
+}
+
