@@ -183,6 +183,10 @@ export interface Credencial {
   usuario: string;
   senha: string;
   criadaEm: string;
+  /** Categoria escolhida no app (Pessoal, Bancos...). Opcional: credenciais antigas não têm */
+  categoria?: string;
+  /** Informação adicional (também vai cifrada no cofre) */
+  nota?: string;
 }
 
 export interface VaultEnc {

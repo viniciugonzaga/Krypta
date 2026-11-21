@@ -422,7 +422,11 @@ function gerarSenhaForte(): string {
   return Array.from(aleatorio(16), (b) => chars[b % chars.length]).join('');
 }
 
-export function Device() {
+/**
+ * embutido = dentro do modo Mobile (sem a Navbar/rodapé do site).
+ * #heranca, #recuperar, #ccp ou #kill no endereço já abrem a ação certa.
+ */
+export function Device({ embutido = false }: { embutido?: boolean } = {}) {
   const { user, refreshUser } = useAuth();
   const c = useCores();
   const contaId = user?.id ?? '';
@@ -432,7 +436,10 @@ export function Device() {
   const [carregando, setCarregando] = useState(true);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState<Mensagem>(null);
-  const [aberta, setAberta] = useState<string | null>(null);
+  const [aberta, setAberta] = useState<string | null>(() => {
+    const h = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+    return (['heranca', 'recuperar', 'ccp', 'kill', 'login'].includes(h) ? h : null) as string | null;
+  });
 
   // campos
   const [ccp, setCcp] = useState('');
@@ -586,8 +593,8 @@ export function Device() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ backgroundColor: 'rgb(var(--krypta-bg))', color: 'rgb(var(--krypta-fg))' }}>
-      <Navbar />
+    <div className={`${embutido ? '' : 'min-h-screen'} flex flex-col relative overflow-hidden`} style={{ backgroundColor: embutido ? 'transparent' : 'rgb(var(--krypta-bg))', color: 'rgb(var(--krypta-fg))' }}>
+      {!embutido && <Navbar />}
 
       {/* Fundo */}
       <div className="absolute inset-0 pointer-events-none">
@@ -596,7 +603,7 @@ export function Device() {
         <div className="absolute bottom-[-18%] right-[-10%] w-[600px] h-[500px] rounded-full blur-[200px]" style={{ background: `${c.purple}2e` }} />
       </div>
 
-      <main className="relative z-10 flex-1 w-full max-w-5xl mx-auto px-4 md:px-8 pt-32 pb-16 space-y-6">
+      <main className={`relative z-10 flex-1 w-full max-w-5xl mx-auto px-4 md:px-8 ${embutido ? 'pt-2 pb-6' : 'pt-32 pb-16'} space-y-6`}>
         {/* ============ CABEÇALHO ============ */}
         <motion.header initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-4xl md:text-5xl" style={{ fontFamily: ROUNDED_FONT, fontWeight: 600, color: c.fg }}>
@@ -1027,7 +1034,7 @@ export function Device() {
         </p>
       </main>
 
-      <Footer />
+      {!embutido && <Footer />}
     </div>
   );
 }

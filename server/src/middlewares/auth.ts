@@ -8,6 +8,8 @@ import { SessionModel } from '../models/SessionModel.js';
 
 export interface AuthedRequest extends Request {
   user?: UserRow;
+  /** id do token de acesso (identifica a sessão atual) */
+  jti?: string;
 }
 
 // IMPORTANTE: as mensagens de 401 abaixo contêm a palavra "Token".
@@ -40,6 +42,7 @@ export async function authMiddleware(
 
     // Token de sessão encerrada (logout, troca de senha, renovação) não vale mais
     if ('jti' in payload && payload.jti) {
+      (req as AuthedRequest).jti = payload.jti;
       const session = await SessionModel.findByJti(payload.jti);
       if (session && session.status !== 'active') {
         throw new ApiError(401, 'Token revogado. Entre novamente.');

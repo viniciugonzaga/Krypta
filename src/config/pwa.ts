@@ -76,3 +76,15 @@ export function iniciarPwa(): void {
     });
   }
 }
+
+/**
+ * "Verificar atualizações" (Ajustes): pergunta ao servidor se há versão nova do site.
+ * O app de celular se atualiza sozinho a cada publicação do site; isto só força a conferência.
+ */
+export async function verificarAtualizacao(): Promise<'nova' | 'atualizado' | 'indisponivel'> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return 'indisponivel';
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return 'indisponivel';
+  await reg.update();
+  return reg.installing || reg.waiting ? 'nova' : 'atualizado';
+}

@@ -399,7 +399,7 @@ export function RegisterForm() {
       const fullName = `${firstName} ${lastName}`.trim();
       await signUp(fullName, email, password);
       if (from) navigate(`${from.pathname}${from.search ?? ''}${from.hash ?? ''}`, { replace: true, state: from.state });
-      else navigate('/profile', { replace: true });
+      else navigate('/boas-vindas', { replace: true }); // questionário de boas-vindas → plano recomendado
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar conta.');
     } finally {

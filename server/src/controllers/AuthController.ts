@@ -1,3 +1,4 @@
+import { descreverCliente } from '../middlewares/cliente.js';
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -41,6 +42,9 @@ function serializeUser(u: any) {
     hardwareUuid: u.public_key_ed25519 ? u.hardware_uuid : null,
     herancaAtiva: !!u.hash_cont_herdeiro,
     ultimoSincronismo: u.ultimo_sincronismo ?? null,
+    // Questionário de boas-vindas (primeiro acesso)
+    onboardingConcluido: !!u.onboarding_concluido_em,
+    recomendacao: u.onboarding_recomendacao ?? null,
   };
 }
 
@@ -63,6 +67,7 @@ async function createSession(userId: string, req: Request) {
     refreshToken,
     jti,
     userAgent: req.headers['user-agent'],
+    cliente: req.cliente ?? null,
     ip: req.ip,
     expiresAt: accessExpires,
     refreshExpiresAt: refreshExpires,
@@ -184,7 +189,7 @@ export const AuthController = {
       await AuditModel.log({
         userId: user.id,
         action: 'LOGIN',
-        detail: 'Login realizado com sucesso',
+        detail: `Login realizado ${descreverCliente(req.cliente)}`,
       });
 
       res.json({

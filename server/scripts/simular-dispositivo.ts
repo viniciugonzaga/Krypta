@@ -22,6 +22,7 @@
 //   PLANOS E COMPRAS
 //   npm run sim -- planos <email> <senha>     confere as travas do Free e assina o Pro
 //   npm run sim -- conta <email> <senha>      cancelar o Pro, contato e "sair de tudo"
+//   npm run sim -- mobile <email> <senha>    modo Mobile: servidor identifica o cliente + plano recomendado
 //   npm run sim -- esp32                      faz o papel do ESP32 real (apresentação, pareamento, login, Kill Switch)
 //
 //   npm run sim -- testar-tudo                 CRIA UMA CONTA NOVA e roda TODOS os testes
@@ -83,13 +84,15 @@ async function chamar(
   metodo: string,
   rota: string,
   body?: unknown,
-  token?: string
+  token?: string,
+  extras: Record<string, string> = {}
 ): Promise<{ status: number; json: any }> {
   const res = await fetch(`${API}${rota}`, {
     method: metodo,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...extras,
     },
     body: body ? JSON.stringify(body) : undefined,
   }).catch(() => falha(`Não consegui falar com ${API}. O servidor está rodando (npm run dev)?`));
@@ -745,6 +748,56 @@ async function esp32() {
 }
 
 // ============================================================
+// MODO MOBILE — o servidor identifica o cliente + questionário de boas-vindas
+// ============================================================
+async function mobile(email?: string, senha?: string) {
+  if (!email || !senha) falha('Uso: npm run sim -- mobile <email> <senha>');
+  titulo('📱 Modo Mobile — identificação do cliente e plano recomendado');
+
+  const pwa = await chamar('GET', '/client/context', undefined, undefined, { 'X-Krypta-Cliente': 'pwa' });
+  esperar(pwa, 200, `Cabeçalho X-Krypta-Cliente: pwa → servidor vê "${pwa.json.data?.cliente}" · modo ${pwa.json.data?.modoRecomendado}`);
+  if (pwa.json.data?.modoRecomendado !== 'mobile') falha('Esperava modo mobile para o app instalado');
+
+  const iphone = await chamar('GET', '/client/context', undefined, undefined, {
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
+  });
+  esperar(iphone, 200, `Sem cabeçalho, só pelo navegador do iPhone → ${iphone.json.data?.aparelho} · modo ${iphone.json.data?.modoRecomendado}`);
+
+  // Login "pelo app do celular": a sessão fica marcada como pwa
+  const login = await chamar('POST', '/auth/login', { email, password: senha }, undefined, { 'X-Krypta-Cliente': 'pwa' });
+  esperar(login, 200, 'Login pelo app do celular');
+  const token = login.json.data.token as string;
+  const sessoes = await chamar('GET', '/users/me/sessions', undefined, token);
+  const atual = (sessoes.json.data as Array<{ cliente: string; atual: boolean }>).find((x) => x.atual);
+  if (atual?.cliente !== 'pwa') falha(`Esperava a sessão atual marcada como pwa e veio ${atual?.cliente}`);
+  ok('A sessão aparece como "App do celular" em "Onde sua conta está aberta"');
+
+  esperar(await chamar('POST', '/onboarding', {}, token), 400, 'Questionário vazio recusado (precisa responder ou pular)');
+  const respostas = {
+    usos: ['pessoal', 'heranca', 'inventado'],
+    nivel: 'maximo',
+    proteger: ['bancos', 'senhas'],
+    dispositivos: ['celular', 'notebook'],
+    origem: 'escola',
+    outros: {},
+    pulou: false,
+  };
+  const rec = await chamar('POST', '/onboarding', respostas, token);
+  esperar(rec, 200, `Questionário salvo → recomendado ${rec.json.data?.recomendacao?.plano} (${rec.json.data?.recomendacao?.motivos?.length} motivos)`);
+  if (rec.json.data?.recomendacao?.plano !== 'pro') falha('Esperava recomendação Pro para herança + nível máximo');
+
+  const me = await chamar('GET', '/users/me', undefined, token);
+  if (!me.json.data?.onboardingConcluido || me.json.data?.recomendacao !== 'pro') falha('O perfil não marcou o questionário como concluído');
+  ok('Perfil: onboardingConcluido = true, recomendacao = pro');
+
+  const simples = await chamar('POST', '/onboarding', { usos: ['pessoal'], nivel: 'basico', proteger: ['senhas'], dispositivos: ['celular'], origem: 'redes' }, token);
+  esperar(simples, 200, `Perfil simples → recomendado ${simples.json.data?.recomendacao?.plano}`);
+  if (simples.json.data?.recomendacao?.plano !== 'free') falha('Esperava recomendação Free para uso básico');
+
+  console.log('\n  Modo Mobile OK! 🎉\n');
+}
+
+// ============================================================
 // TUDO EM SEQUÊNCIA
 // ============================================================
 /** Cria uma conta de teste nova (Free, sem dispositivo) */
@@ -783,6 +836,7 @@ async function testarTudo(emailArg?: string, senhaArg?: string) {
   await resgatar();
   await killSwitch(email, senha); // o dono retoma a conta depois do resgate
   await conta(email, senha);
+  await mobile(email, senha);
   await esp32();
   console.log(falhas === 0 ? '\n🏁 COFRE, PLANOS E COMPRAS — TODOS OS TESTES PASSARAM! 🎉\n' : `\n⚠️  ${falhas} falha(s)\n`);
   if (!emailArg) {
@@ -830,6 +884,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
   'testar-tudo': () => testarTudo(args[0], args[1]),
   conta: () => conta(args[0], args[1]),
   esp32,
+  mobile: () => mobile(args[0], args[1]),
   status,
   esquecer,
   limpar,
@@ -837,7 +892,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
 
 if (!comando || !comandos[comando]) {
   console.log(
-    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | esp32 | testar-tudo [email senha] | limpar | status | esquecer>'
+    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | mobile email senha | esp32 | testar-tudo [email senha] | limpar | status | esquecer>'
   );
   process.exit(1);
 }

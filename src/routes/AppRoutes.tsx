@@ -30,6 +30,7 @@ import { Device } from '../pages/Device';
 import { InheritanceClaim } from '../pages/InheritanceClaim';
 import { HowItWorks } from '../pages/HowItWorks';
 import { Aplicacoes } from '../pages/Aplicacoes';
+import { MOnboarding } from '../mobile/pages/MOnboarding';
 import { Orders } from '../pages/Orders';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -140,6 +141,8 @@ export function AppRoutes() {
           <Route path="/profile" element={<PageTransition><PrivateRoute><Profile /></PrivateRoute></PageTransition>} />
           <Route path="/plans" element={<PageTransition><PrivateRoute><Plans /></PrivateRoute></PageTransition>} />
           <Route path="/device" element={<PageTransition><PrivateRoute><Device /></PrivateRoute></PageTransition>} />
+          {/* Questionário do primeiro acesso → plano recomendado (mesma tela do modo Mobile) */}
+          <Route path="/boas-vindas" element={<PrivateRoute><MOnboarding /></PrivateRoute>} />
           <Route path="/compras" element={<PageTransition><PrivateRoute><Orders /></PrivateRoute></PageTransition>} />
           {/* O cofre de verdade fica no Meu Krypta */}
           <Route path="/vault" element={<Navigate to="/device" replace />} />

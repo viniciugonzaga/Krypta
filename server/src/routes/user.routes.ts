@@ -10,6 +10,7 @@ router.put('/me', UserController.updateMe);
 router.post('/me/change-password', UserController.changePassword);
 router.delete('/me', UserController.deleteMe);
 router.get('/me/audit', UserController.getAuditLogs);
+router.get('/me/sessions', UserController.listSessions);
 router.post('/me/sessions/revoke', UserController.revokeSessions);
 
 export default router;

@@ -1,6 +1,8 @@
 // src/services/api.ts
 // Endereço da API. Em desenvolvimento usa o localhost; em produção vem do
 // .env do front:  VITE_API_URL=https://api.seudominio.com.br/api
+import { clienteAtual } from '../mobile/modo';
+
 export const API_URL: string = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3333/api';
 
 // Chaves do localStorage (as mesmas do AuthContext)
@@ -74,7 +76,7 @@ export function refreshAccessToken(): Promise<string | null> {
 
     const res = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Krypta-Cliente': clienteAtual() },
       body: JSON.stringify({ refreshToken }),
     });
     const data = await res.json().catch(() => ({}));
@@ -104,7 +106,8 @@ function isTokenError(status: number, data: any): boolean {
 }
 
 async function doFetch(path: string, method: string, body: any, auth: boolean) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // X-Krypta-Cliente: o servidor sabe se veio do site, do celular, do app instalado ou do app Windows
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Krypta-Cliente': clienteAtual() };
 
   if (auth) {
     const token = localStorage.getItem(STORAGE_KEYS.token);
@@ -435,4 +438,49 @@ export const DevicesAPI = {
   list: () => apiRequest<DispositivoComprado[]>('/devices'),
   receive: (serial: string) =>
     apiRequest<DispositivoComprado>(`/devices/${encodeURIComponent(serial)}/receive`, { method: 'POST' }),
+};
+
+// ============================================================
+// QUESTIONÁRIO DE BOAS-VINDAS (primeiro acesso) → plano recomendado
+// ============================================================
+export type RecursoSugerido = 'heranca' | 'killSwitch' | 'dispositivoFisico' | 'alertasAcesso' | 'armazenamento' | 'cofre';
+
+export interface Recomendacao {
+  plano: 'free' | 'pro';
+  titulo: string;
+  resumo: string;
+  motivos: Array<{ recurso: RecursoSugerido; texto: string }>;
+  dispositivoFisico: boolean;
+}
+
+export interface RespostasOnboarding {
+  usos: string[];
+  nivel: string | null;
+  proteger: string[];
+  dispositivos: string[];
+  origem: string | null;
+  outros: { usos?: string; proteger?: string; origem?: string };
+  pulou: boolean;
+}
+
+export const OnboardingAPI = {
+  obter: () => apiRequest<{ concluido: boolean; respostas: RespostasOnboarding | null; recomendacao: Recomendacao | null }>('/onboarding'),
+  salvar: (respostas: RespostasOnboarding) =>
+    apiRequest<{ recomendacao: Recomendacao | null }>('/onboarding', { method: 'POST', body: respostas }),
+};
+
+// ============================================================
+// SESSÕES — onde a conta está aberta (site, celular, app...)
+// ============================================================
+export interface SessaoAtiva {
+  id: string;
+  cliente: 'web' | 'mobile' | 'pwa' | 'desktop';
+  navegador: string;
+  ip: string | null;
+  desde: string;
+  atual: boolean;
+}
+
+export const SessionsAPI = {
+  listar: () => apiRequest<SessaoAtiva[]>('/users/me/sessions'),
 };

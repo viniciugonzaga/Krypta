@@ -2,6 +2,7 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { identificarCliente } from './middlewares/cliente.js';
 import { env, corsOrigins } from './config/env.js';
 import { testConnection } from './config/database.js';
 import routes from './routes/index.js';
@@ -37,7 +38,7 @@ app.use(
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Krypta-Cliente'],
     maxAge: 600,
   })
 );
@@ -53,6 +54,8 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // ============ ROTAS ============
+// Descobre se a requisição vem do site, do celular, do app instalado (PWA) ou do app Windows
+app.use('/api', identificarCliente);
 app.use('/api', routes);
 
 // ============ 404 + ERRO (sempre por último) ============

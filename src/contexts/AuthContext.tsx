@@ -31,6 +31,10 @@ export interface User {
   herancaAtiva?: boolean;
   ultimoSincronismo?: string | null;
   tipoDispositivo?: 'SOFTWARE' | 'FISICO' | null;
+  /** Já respondeu (ou pulou) o questionário de boas-vindas */
+  onboardingConcluido?: boolean;
+  /** Plano que o servidor recomendou no questionário */
+  recomendacao?: 'free' | 'pro' | null;
 }
 
 interface AuthContextValue {

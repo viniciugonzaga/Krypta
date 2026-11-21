@@ -5,6 +5,14 @@ import { AuditModel } from '../models/AuditModel.js';
 import { hashPassword, comparePassword } from '../utils/hash.js';
 import { ApiError } from '../utils/ApiError.js';
 import type { AuthedRequest } from '../middlewares/auth.js';
+
+/** "Chrome no Android", "Edge no Windows"... a partir do User-Agent */
+function resumirNavegador(ua: string): string {
+  const s = ua.toLowerCase();
+  const nav = s.includes('edg/') ? 'Edge' : s.includes('samsungbrowser') ? 'Samsung Internet' : s.includes('firefox') ? 'Firefox' : s.includes('chrome') ? 'Chrome' : s.includes('safari') ? 'Safari' : 'Navegador';
+  const so = /iphone|ipad/.test(s) ? 'iPhone' : s.includes('android') ? 'Android' : s.includes('windows') ? 'Windows' : s.includes('mac os') ? 'Mac' : s.includes('linux') ? 'Linux' : '';
+  return so ? `${nav} no ${so}` : nav;
+}
 import { serializeUser } from './AuthController.js';
 
 export const UserController = {
@@ -90,6 +98,26 @@ export const UserController = {
 
       res.json({ success: true });
     } catch (err) { next(err); }
+  },
+
+  // GET /api/users/me/sessions — onde a conta está aberta (site, celular, app...)
+  async listSessions(req: AuthedRequest, res: Response, next: NextFunction) {
+    try {
+      const sessoes = await SessionModel.listarAtivas(req.user!.id);
+      res.json({
+        success: true,
+        data: sessoes.map((s) => ({
+          id: s.id,
+          cliente: s.cliente ?? 'web',
+          navegador: resumirNavegador(s.user_agent ?? ''),
+          ip: s.ip_address,
+          desde: s.created_at,
+          atual: !!req.jti && s.access_token_jti === req.jti,
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
   },
 
   // POST /api/users/me/sessions/revoke — sai de TODOS os navegadores

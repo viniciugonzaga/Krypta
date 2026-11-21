@@ -18,6 +18,7 @@ import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useModo } from '../mobile/ModoContext';
 import { getPlanFullName, recursosDoPlano } from '../utils/plan';
 
 import spriteRoboConfig from '../assets/sprites/sprite_robo_configuracao.png';
@@ -151,6 +152,7 @@ function RobotMascot({ isDark }: { isDark: boolean }) {
 export function Settings() {
   const { isDark, toggleTheme } = useTheme();
   const { user } = useAuth();
+  const { preferencia, mudarPreferencia } = useModo();
 
   const recursos = recursosDoPlano(user?.plan);
   const accent = isDark ? '#8d51ff' : '#5100BD';
@@ -255,6 +257,17 @@ export function Settings() {
                     {isDark ? <Moon size={13} /> : <Sun size={13} />}
                   </PillButton>
                   <MutedText isDark={isDark}>Salvo neste navegador</MutedText>
+                </SettingRow>
+
+                <SettingRow label="Modo de exibição" isDark={isDark} delay={0.24}>
+                  {(['auto', 'mobile', 'web'] as const).map((p) => (
+                    <PillButton key={p} isDark={isDark} onClick={() => mudarPreferencia(p)} ariaLabel={`Modo ${p}`}>
+                      <span className="text-[13px]" style={{ fontWeight: preferencia === p ? 700 : 400, textDecoration: preferencia === p ? 'underline' : 'none' }}>
+                        {p === 'auto' ? 'Automático' : p === 'mobile' ? 'Mobile' : 'Web'}
+                      </span>
+                    </PillButton>
+                  ))}
+                  <MutedText isDark={isDark}>Mobile = telas de app; Web = site completo</MutedText>
                 </SettingRow>
 
                 <SettingRow label="Idioma" isDark={isDark} delay={0.26}>

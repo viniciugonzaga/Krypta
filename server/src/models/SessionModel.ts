@@ -6,6 +6,7 @@ export interface SessionRow {
   refresh_token: string;
   access_token_jti: string | null;
   user_agent: string | null;
+  cliente: string | null;
   ip_address: string | null;
   status: 'active' | 'expired' | 'revoked';
   created_at: Date;
@@ -20,17 +21,18 @@ export const SessionModel = {
     refreshToken: string;
     jti: string | null;
     userAgent?: string;
+    cliente?: string | null;
     ip?: string;
     expiresAt: Date;
     refreshExpiresAt: Date;
   }): Promise<void> {
     await query(
       `INSERT INTO sessions
-        (id, user_id, refresh_token, access_token_jti, user_agent, ip_address, expires_at, refresh_expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, user_id, refresh_token, access_token_jti, user_agent, cliente, ip_address, expires_at, refresh_expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id, data.userId, data.refreshToken, data.jti,
-        data.userAgent ?? null, data.ip ?? null,
+        data.userAgent ?? null, data.cliente ?? null, data.ip ?? null,
         data.expiresAt, data.refreshExpiresAt,
       ]
     );
@@ -57,6 +59,14 @@ export const SessionModel = {
     await query(
       "UPDATE sessions SET status = 'revoked' WHERE refresh_token = ?",
       [refreshToken]
+    );
+  },
+
+  /** Sessões ativas da conta (para "onde minha conta está aberta") */
+  async listarAtivas(userId: string): Promise<SessionRow[]> {
+    return query<SessionRow>(
+      "SELECT * FROM sessions WHERE user_id = ? AND status = 'active' AND refresh_expires_at > ? ORDER BY created_at DESC LIMIT 20",
+      [userId, new Date()]
     );
   },
 

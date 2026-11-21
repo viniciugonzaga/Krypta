@@ -5,16 +5,20 @@ import { AuthProvider } from './contexts/AuthContext';
 import { AppRoutes } from './routes/AppRoutes';
 import { LoadingScreen } from './components/ui/LoadingScreen';
 import { usePageLoading } from './hooks/usePageLoading';
+import { ModoProvider, useModo } from './mobile/ModoContext';
+import { MobileRoutes } from './mobile/MobileRoutes';
 
 function AppContent() {
   const isLoading = usePageLoading({ minDuration: 1100, maxDuration: 4500 });
+  // Celular, app instalado (PWA) ou tela pequena → telas do modo Mobile
+  const { modo } = useModo();
 
   return (
     <>
       <AnimatePresence>
         {isLoading && <LoadingScreen key="global-loader" />}
       </AnimatePresence>
-      <AppRoutes />
+      {modo === 'mobile' ? <MobileRoutes /> : <AppRoutes />}
     </>
   );
 }
@@ -24,7 +28,9 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <AppContent />
+          <ModoProvider>
+            <AppContent />
+          </ModoProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
