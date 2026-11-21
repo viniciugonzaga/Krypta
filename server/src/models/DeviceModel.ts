@@ -22,10 +22,25 @@ export interface Dispositivo {
   modelo: string;
   status: StatusDispositivo;
   public_key: string | null;
+  chave_anunciada: string | null;
+  anunciado_em: Date | null;
+  ultimo_contato: Date | null;
   entregue_em: Date | null;
   pareado_em: Date | null;
   revogado_em: Date | null;
   criado_em: Date;
+}
+
+/**
+ * Código de confirmação de 6 dígitos de uma chave pública.
+ * O ESP32 calcula o MESMO código e mostra na tela: SHA-256(32 bytes da chave),
+ * primeiros 4 bytes como inteiro big-endian, módulo 1.000.000.
+ */
+export function codigoConfirmacao(publicKeyB64: string): string {
+  const h = crypto.createHash('sha256').update(Buffer.from(publicKeyB64, 'base64')).digest();
+  const n = h.readUInt32BE(0) % 1_000_000;
+  const s = String(n).padStart(6, '0');
+  return `${s.slice(0, 3)} ${s.slice(3)}`;
 }
 
 /** Ex.: KRY-7F3A-9C1B-04D2 */
@@ -62,6 +77,19 @@ export const DeviceModel = {
       seriais.push(serial);
     }
     return seriais;
+  },
+
+  /** O ESP32 se apresentou com esta chave (a última apresentação vale) */
+  async registrarAnuncio(id: string, publicKey: string): Promise<void> {
+    const agora = new Date();
+    await execute(
+      'UPDATE dispositivos SET chave_anunciada = ?, anunciado_em = ?, ultimo_contato = ? WHERE id = ?',
+      [publicKey, agora, agora, id]
+    );
+  },
+
+  async registrarContato(id: string): Promise<void> {
+    await execute('UPDATE dispositivos SET ultimo_contato = ? WHERE id = ?', [new Date(), id]);
   },
 
   /** Simula a entrega: EM_TRANSPORTE → DISPONIVEL */

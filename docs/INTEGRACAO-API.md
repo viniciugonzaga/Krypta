@@ -246,3 +246,18 @@ O Pro só é ativado por compra: `POST /api/plans/change` com `pro` responde `40
 alertas, pareamento com `dispositivo_serial`; `exigirEspaco` em todo envio de backup.
 O Pro só entra por `POST /api/orders` (preço calculado no servidor). Pagamento ainda é simulado:
 com um gateway real, o pedido só deve ser aprovado depois da confirmação do provedor (webhook).
+
+## 13. Hardware real (ESP32) — fase 1 (migração 004)
+
+| Método | Rota | Quem chama | O que faz |
+|---|---|---|---|
+| POST | `/api/hardware/announce` | ESP32 (público) | `{ serial, public_key, assinatura }` → `{ estado, codigo }` |
+
+- `assinatura` = Ed25519 dos bytes de `krypta-announce-v1:<serial>`.
+- `estado`: `AGUARDANDO_PAREAMENTO` · `PAREADO` · `REVOGADO`.
+- `codigo` = SHA-256(chave pública) → 4 primeiros bytes (big-endian) % 1.000.000 → `"123 456"`.
+- A rota só **registra** a chave em `dispositivos.chave_anunciada`; quem pareia é o dono no site,
+  depois de conferir o código (protege contra alguém que saiba o número de série).
+- `POST /api/hardware/pair` aceita `backup_inicial` (cofre vazio cifrado no navegador com o envelope da CCP).
+- `GET /api/devices` agora traz `conectado`, `chaveAnunciada`, `codigoConfirmacao`, `hardwareReal`, `ultimoContato`.
+- Firmware: `hardware/krypta-esp32/krypta-esp32.ino`. Teste sem a placa: `npm run sim -- esp32`.

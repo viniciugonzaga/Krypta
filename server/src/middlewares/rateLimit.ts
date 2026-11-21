@@ -31,6 +31,9 @@ export const limitarContato = criar(60 * MIN, 5, 'Você já enviou várias mensa
 
 // ---- Dispositivo ----
 export const limitarAuthHardware = criar(1 * MIN, 30, 'Muitas requisições. Aguarde um instante.');
+// Apresentação do ESP32 ao ligar (a cada 10 s enquanto espera o pareamento): limite próprio,
+// para não gastar o limite do login do dispositivo
+export const limitarAnuncio = criar(1 * MIN, 20, 'Muitas apresentações seguidas. Aguarde um instante.');
 // Pareamento e conclusão de recuperação dividem o contador
 export const limitarOperacaoConta = criar(15 * MIN, 30);
 

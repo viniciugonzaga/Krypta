@@ -245,6 +245,12 @@ export const VaultModel = {
     hashContDono: string;
     /** Unidade física comprada (null = dispositivo de software) */
     dispositivoId?: string | null;
+    /**
+     * Backup inicial cifrado NO NAVEGADOR (envelope da CCP). Usado quando o
+     * cofre é pareado com o hardware real: o ESP32 ainda não envia backup,
+     * então a CCP já consegue recuperar o cofre desde o primeiro minuto.
+     */
+    backupInicial?: Buffer | null;
   }): Promise<ResultadoPareamento> {
     try {
       return await withTransaction(async (tx): Promise<ResultadoPareamento> => {
@@ -258,6 +264,10 @@ export const VaultModel = {
           hashContDono: params.hashContDono,
         });
         if (r !== 'OK') throw new DispositivoIndisponivel();
+        if (params.backupInicial) {
+          const atual = await tx.query<{ version_counter: number }>('SELECT version_counter FROM backups WHERE user_id = ?', [params.userId]);
+          await gravarBackupTx(tx, params.userId, params.backupInicial, (atual[0]?.version_counter ?? 0) + 1);
+        }
         return 'OK';
       });
     } catch (err) {

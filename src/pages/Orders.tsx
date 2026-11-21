@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertCircle, Check, Cpu, Crown, Loader2, Package, ShoppingCart, Truck } from 'lucide-react';
+import { AlertCircle, Check, Copy, Cpu, Crown, Loader2, Package, ShoppingCart, Truck } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
@@ -43,6 +43,18 @@ export function Orders() {
   const [dispositivos, setDispositivos] = useState<DispositivoComprado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState<string | null>(null);
+
+  // O número de série vai no firmware do ESP32 (comando "serial ...")
+  const copiarSerial = async (serial: string) => {
+    try {
+      await navigator.clipboard.writeText(serial);
+      setCopiado(serial);
+      setTimeout(() => setCopiado(null), 1500);
+    } catch {
+      /* sem permissão para a área de transferência */
+    }
+  };
   const [erro, setErro] = useState<string | null>(null);
 
   const bright = isDark ? '#a97aff' : '#6131C9';
@@ -141,13 +153,29 @@ export function Orders() {
                       <motion.div key={d.serial} layout className="rounded-xl p-4" style={{ border: `1px solid ${d.emUsoNoCofre ? bright : border}`, background: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.6)' }}>
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="font-mono font-bold text-sm">{d.serial}</p>
+                            <p className="font-mono font-bold text-sm flex items-center gap-1.5">
+                              {d.serial}
+                              <button type="button" onClick={() => copiarSerial(d.serial)} title="Copiar número de série" aria-label="Copiar número de série" style={{ color: bright }}>
+                                {copiado === d.serial ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
+                            </p>
                             <p className="text-xs" style={{ color: muted }}>{d.modelo} · comprado em {data(d.compradoEm)}</p>
                           </div>
                           <span className="px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap" style={{ background: `${st.cor}22`, border: `1px solid ${st.cor}66`, color: st.cor }}>
                             {st.rotulo}
                           </span>
                         </div>
+
+                        {/* Hardware real: o ESP32 já ligou e falou com o servidor */}
+                        {d.conectado && (
+                          <p className="mt-2 text-[11px] flex flex-wrap items-center gap-1.5" style={{ color: muted }}>
+                            <span className="inline-flex items-center gap-1 font-semibold" style={{ color: '#22c55e' }}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> {d.hardwareReal ? 'Hardware real no cofre' : 'Hardware ligado'}
+                            </span>
+                            {d.codigoConfirmacao && <>· código <span className="font-mono font-bold" style={{ color: bright }}>{d.codigoConfirmacao}</span></>}
+                            {d.ultimoContato && <>· último contato {data(d.ultimoContato)}</>}
+                          </p>
+                        )}
 
                         {/* Linha do tempo */}
                         <div className="flex items-center gap-1.5 my-3">

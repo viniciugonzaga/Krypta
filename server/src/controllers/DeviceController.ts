@@ -10,7 +10,7 @@
 import type { Response } from 'express';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { DeviceModel, type Dispositivo } from '../models/DeviceModel.js';
+import { DeviceModel, codigoConfirmacao, type Dispositivo } from '../models/DeviceModel.js';
 import { AuditModel } from '../models/AuditModel.js';
 import type { AuthedRequest } from '../middlewares/auth.js';
 
@@ -24,6 +24,12 @@ function serializar(d: Dispositivo, pareadoNaConta: string | null) {
     pareadoEm: d.pareado_em,
     revogadoEm: d.revogado_em,
     compradoEm: d.criado_em,
+    // Hardware real: o ESP32 já ligou e se apresentou com a chave dele
+    conectado: !!d.chave_anunciada,
+    chaveAnunciada: d.chave_anunciada,
+    codigoConfirmacao: d.chave_anunciada ? codigoConfirmacao(d.chave_anunciada) : null,
+    hardwareReal: !!d.chave_anunciada && d.public_key === d.chave_anunciada,
+    ultimoContato: d.ultimo_contato,
   };
 }
 

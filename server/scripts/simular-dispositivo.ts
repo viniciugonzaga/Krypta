@@ -22,6 +22,7 @@
 //   PLANOS E COMPRAS
 //   npm run sim -- planos <email> <senha>     confere as travas do Free e assina o Pro
 //   npm run sim -- conta <email> <senha>      cancelar o Pro, contato e "sair de tudo"
+//   npm run sim -- esp32                      faz o papel do ESP32 real (apresentação, pareamento, login, Kill Switch)
 //
 //   npm run sim -- testar-tudo                 CRIA UMA CONTA NOVA e roda TODOS os testes
 //   npm run sim -- testar-tudo <email> <senha> roda tudo numa conta que você já pareou
@@ -674,6 +675,76 @@ async function conta(email?: string, senha?: string) {
 }
 
 // ============================================================
+// ESP32 DE VERDADE — o que o firmware faz, passo a passo
+// (usa uma conta nova só para isso e apaga no fim)
+// ============================================================
+function codigoDe(publicKeyB64: string): string {
+  const h = crypto.createHash('sha256').update(Buffer.from(publicKeyB64, 'base64')).digest();
+  const n = String(h.readUInt32BE(0) % 1_000_000).padStart(6, '0');
+  return `${n.slice(0, 3)} ${n.slice(3)}`;
+}
+
+async function esp32() {
+  titulo('📟 Hardware real — o ESP32 se apresenta, é pareado e faz login');
+  const { email, senha } = await criarContaTeste();
+  const tokenSite = await loginSite(email, senha);
+  await assinarPro(tokenSite);
+  const serial = await comprarDispositivo(tokenSite);
+  esperar(await chamar('POST', `/devices/${serial}/receive`, undefined, tokenSite), 200, `Recebimento confirmado (${serial})`);
+
+  // 1. Primeiro boot: o ESP32 gera as chaves e se apresenta
+  const par = nacl.sign.keyPair();
+  const pk = b64(par.publicKey);
+  const assinar = (texto: string) => b64(nacl.sign.detached(new TextEncoder().encode(texto), par.secretKey));
+
+  esperar(
+    await chamar('POST', '/hardware/announce', { serial, public_key: pk, assinatura: b64(nacl.sign.detached(new TextEncoder().encode('outra coisa'), par.secretKey)) }),
+    401,
+    'Apresentação com assinatura errada recusada'
+  );
+  esperar(
+    await chamar('POST', '/hardware/announce', { serial: 'KRY-0000-0000-0000', public_key: pk, assinatura: assinar('krypta-announce-v1:KRY-0000-0000-0000') }),
+    404,
+    'Número de série que não existe recusado'
+  );
+  const anuncio = await chamar('POST', '/hardware/announce', { serial, public_key: pk, assinatura: assinar(`krypta-announce-v1:${serial}`) });
+  esperar(anuncio, 200, `ESP32 apresentado → ${anuncio.json.data?.estado} · código ${anuncio.json.data?.codigo}`);
+  if (anuncio.json.data?.codigo !== codigoDe(pk)) falha('O código do servidor é diferente do calculado pelo dispositivo');
+  ok('Código da tela do ESP32 = código do site');
+
+  // 2. O site enxerga o hardware ligado
+  const lista = await chamar('GET', '/devices', undefined, tokenSite);
+  const unidade = (lista.json.data as Array<{ serial: string; conectado: boolean; chaveAnunciada: string }>).find((d) => d.serial === serial);
+  if (!unidade?.conectado || unidade.chaveAnunciada !== pk) falha('O site não mostrou o hardware como ligado');
+  ok('Minhas compras mostra o hardware ligado');
+
+  // 3. O dono pareia pelo site com a chave do ESP32 (+ backup inicial cifrado no navegador)
+  const prova = aleatorio32();
+  const pareio = await chamar('POST', '/hardware/pair', { public_key: pk, prova_cont_dono: prova, dispositivo_serial: serial, backup_inicial: payloadFalso() }, tokenSite);
+  esperar(pareio, 200, `Cofre pareado com o hardware real → ${pareio.json.data?.status} · ${pareio.json.data?.tipo_dispositivo}`);
+
+  const deNovo = await chamar('POST', '/hardware/announce', { serial, public_key: pk, assinatura: assinar(`krypta-announce-v1:${serial}`) });
+  esperar(deNovo, 200, `Ao religar, o ESP32 vê → ${deNovo.json.data?.estado}`);
+  if (deNovo.json.data?.estado !== 'PAREADO') falha('Esperava PAREADO');
+
+  // 4. Login do ESP32 (challenge-response) e backup inicial
+  const tokenHw = await loginDispositivo(pk, b64(par.secretKey));
+  ok('ESP32 fez login com a própria chave');
+  esperar(await chamar('GET', '/vault/backup/metadata', undefined, tokenHw), 200, 'O backup inicial (envelope da CCP) já está no servidor');
+
+  // 5. Kill Switch: o ESP32 descobre que foi bloqueado
+  esperar(await chamar('POST', '/vault/kill-switch', { prova_cont_dono: prova }, tokenSite), 200, 'Kill Switch acionado pelo site');
+  const bloqueado = await chamar('POST', '/hardware/announce', { serial, public_key: pk, assinatura: assinar(`krypta-announce-v1:${serial}`) });
+  esperar(bloqueado, 200, `Ao religar, o ESP32 vê → ${bloqueado.json.data?.estado}`);
+  if (bloqueado.json.data?.estado !== 'REVOGADO') falha('Esperava REVOGADO');
+  esperar(await chamar('POST', '/auth/challenge', { public_key: pk }), 404, 'O ESP32 bloqueado não consegue mais logar');
+
+  // 6. Limpa a conta de teste
+  esperar(await chamar('DELETE', '/users/me', { password: senha }, await loginSite(email, senha)), 200, 'Conta de teste do hardware excluída');
+  console.log('\n  Hardware real OK! 🎉\n');
+}
+
+// ============================================================
 // TUDO EM SEQUÊNCIA
 // ============================================================
 /** Cria uma conta de teste nova (Free, sem dispositivo) */
@@ -712,6 +783,7 @@ async function testarTudo(emailArg?: string, senhaArg?: string) {
   await resgatar();
   await killSwitch(email, senha); // o dono retoma a conta depois do resgate
   await conta(email, senha);
+  await esp32();
   console.log(falhas === 0 ? '\n🏁 COFRE, PLANOS E COMPRAS — TODOS OS TESTES PASSARAM! 🎉\n' : `\n⚠️  ${falhas} falha(s)\n`);
   if (!emailArg) {
     console.log(`  Conta usada: ${email}  (senha: ${senha})`);
@@ -757,6 +829,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
   planos: () => planos(args[0], args[1]),
   'testar-tudo': () => testarTudo(args[0], args[1]),
   conta: () => conta(args[0], args[1]),
+  esp32,
   status,
   esquecer,
   limpar,
@@ -764,7 +837,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
 
 if (!comando || !comandos[comando]) {
   console.log(
-    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | testar-tudo [email senha] | limpar | status | esquecer>'
+    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | esp32 | testar-tudo [email senha] | limpar | status | esquecer>'
   );
   process.exit(1);
 }

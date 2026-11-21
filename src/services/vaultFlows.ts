@@ -272,6 +272,35 @@ export async function vincularNovoDispositivo(contaId: string, ccp: string, disp
   return concluirComBackup(contaId, chaveEnvelope);
 }
 
+// ============================================================
+// HARDWARE REAL (ESP32): pareia o cofre com a chave que o dispositivo gerou
+// ============================================================
+/**
+ * O ESP32 gera o par de chaves e se apresenta ao servidor (POST /hardware/announce).
+ * Aqui o navegador só deriva a prova da CCP e pareia com a chave PÚBLICA do
+ * dispositivo. A chave privada nunca sai do ESP32, então este navegador não
+ * vira dispositivo: o login do cofre passa a ser feito pelo hardware.
+ * (Guardar senhas pelo hardware e o primeiro backup vêm na próxima etapa do firmware.)
+ */
+export async function parearHardwareReal(contaId: string, ccp: string, serial: string, publicKey: string) {
+  const { prova, chaveEnvelope } = await derivar(ccp, contaId, 'ccp');
+
+  // Cofre vazio cifrado AQUI, com o envelope da CCP: já dá para recuperar com a CCP.
+  // O objeto "d" é só um molde para montar o vault.enc; ele NÃO é salvo neste navegador.
+  const molde = VirtualDevice.criar(contaId);
+  const chaveCofre = aleatorio(32);
+  const envelopeCcp = await criarEnvelope(chaveEnvelope, chaveCofre);
+  if (!(await envelopeAbre(chaveEnvelope, envelopeCcp, chaveCofre))) {
+    throw new Error('Falha ao conferir o envelope da CCP. Nada foi enviado.');
+  }
+  molde.chaveCofre = bytesParaB64(chaveCofre);
+  molde.envelopeCcp = envelopeCcp;
+  molde.credenciais = [];
+  const backupInicial = await payloadDoDispositivo(molde);
+
+  await VaultAPI.pair(publicKey, prova, serial, backupInicial);
+}
+
 /** Retoma uma recuperação aberta (ex.: a página foi fechada no meio) */
 export async function retomarRecuperacao(contaId: string, ccp: string) {
   const { chaveEnvelope } = await derivar(ccp, contaId, 'ccp');

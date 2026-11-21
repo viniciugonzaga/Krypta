@@ -326,13 +326,14 @@ export const VaultAPI = {
   account: () => apiRequest<ContaCofre>('/vault/account'),
 
   /** Primeiro pareamento. Com dispositivoSerial = unidade física comprada (Pro) */
-  pair: (publicKey: string, provaContDono: string, dispositivoSerial?: string | null) =>
+  pair: (publicKey: string, provaContDono: string, dispositivoSerial?: string | null, backupInicial?: string | null) =>
     apiRequest<ContaCofre>('/hardware/pair', {
       method: 'POST',
       body: {
         public_key: publicKey,
         prova_cont_dono: provaContDono,
         ...(dispositivoSerial ? { dispositivo_serial: dispositivoSerial } : {}),
+        ...(backupInicial ? { backup_inicial: backupInicial } : {}),
       },
     }),
 
@@ -372,6 +373,15 @@ export interface DispositivoComprado {
   pareadoEm: string | null;
   revogadoEm: string | null;
   compradoEm: string;
+  /** O ESP32 já ligou e se apresentou ao servidor */
+  conectado: boolean;
+  /** Chave pública que o ESP32 gerou (não é segredo) */
+  chaveAnunciada: string | null;
+  /** 6 dígitos para conferir com a tela do dispositivo */
+  codigoConfirmacao: string | null;
+  /** O cofre está pareado com a chave do hardware real */
+  hardwareReal: boolean;
+  ultimoContato: string | null;
 }
 
 export interface Pedido {

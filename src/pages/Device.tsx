@@ -396,10 +396,15 @@ function SeletorDispositivo({
               <label key={d.serial} className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: c.fg }}>
                 <input type="radio" name="serial" checked={serial === d.serial} onChange={() => onChange(d.serial)} className="accent-purple-600" />
                 <span className="font-mono">{d.serial}</span>
+                {d.conectado && (
+                  <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold" style={{ color: '#22c55e' }}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> ligado
+                  </span>
+                )}
               </label>
             ))}
             <p className="text-[10.5px]" style={{ color: c.muted }}>
-              Demonstração: o dispositivo virtual faz o papel do ESP32 com este número de série.
+              Ligue o ESP32 com este número de série para usar o hardware real. Sem ele, o dispositivo virtual faz o papel do ESP32.
             </p>
           </div>
         )}
@@ -439,6 +444,7 @@ export function Device() {
   const [serialEscolhido, setSerialEscolhido] = useState<string | null>(() => searchParams.get('serial'));
   const [atividade, setAtividade] = useState<EventoCofre[] | null>(null);
   const [idCopiado, setIdCopiado] = useState(false);
+  const [usarReal, setUsarHardwareReal] = useState(true);
 
   const recarregar = useCallback(async () => {
     if (!contaId) return;
@@ -458,6 +464,19 @@ export function Device() {
   useEffect(() => {
     recarregar();
   }, [recarregar]);
+
+  // Esperando o ESP32 ligar? Confere os dispositivos a cada 5 s (só na tela de pareamento)
+  const esperandoHardware =
+    (conta?.status === 'PENDENTE_PAREAMENTO' || conta?.status === 'REVOGADA') &&
+    !!conta?.recursos?.dispositivoFisico &&
+    compras.some((d) => d.status === 'DISPONIVEL' && !d.conectado);
+  useEffect(() => {
+    if (!esperandoHardware) return;
+    const t = setInterval(() => {
+      DevicesAPI.list().then(setCompras).catch(() => undefined);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [esperandoHardware]);
 
   const limparCampos = () => {
     setCcp('');
@@ -499,6 +518,10 @@ export function Device() {
   const disponiveis = compras.filter((d) => d.status === 'DISPONIVEL');
   const emTransporte = compras.filter((d) => d.status === 'EM_TRANSPORTE').length;
   const serialValido = serialEscolhido && disponiveis.some((d) => d.serial === serialEscolhido) ? serialEscolhido : null;
+  const hardwareSelecionado = serialValido ? disponiveis.find((d) => d.serial === serialValido) ?? null : null;
+  const usarHardwareReal = usarReal && !!hardwareSelecionado?.conectado;
+  // O cofre desta conta está no ESP32 real?
+  const hardwareDaConta = compras.find((d) => d.emUsoNoCofre && d.hardwareReal) ?? null;
 
   // Uso estimado do backup cifrado (o servidor confere o tamanho real)
   const usoBytes = dispositivo ? Math.round(JSON.stringify(dispositivo.credenciais).length * 1.6 + 900) : 0;
@@ -671,6 +694,25 @@ export function Device() {
             <div className="mb-5">
               <SeletorDispositivo c={c} podeFisico={!!recursos?.dispositivoFisico} disponiveis={disponiveis} emTransporte={emTransporte} serial={serialValido} onChange={setSerialEscolhido} />
             </div>
+            {hardwareSelecionado?.conectado && hardwareSelecionado.codigoConfirmacao && (
+              <div className="mb-5 rounded-xl p-4" style={{ border: `1.5px solid ${usarHardwareReal ? '#22c55e' : c.border}`, background: usarHardwareReal ? 'rgba(34,197,94,0.07)' : 'transparent' }}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={usarHardwareReal} onChange={(e) => setUsarHardwareReal(e.target.checked)} className="mt-1 accent-green-600" />
+                  <span className="text-sm">
+                    <strong>Usar o hardware real ({hardwareSelecionado.serial})</strong>
+                    <span className="block text-xs mt-0.5" style={{ color: c.muted }}>
+                      Confira se a tela do dispositivo mostra este código. Se for diferente, não pareie.
+                    </span>
+                    <span className="inline-block mt-2 px-3 py-1 rounded-lg font-mono text-xl tracking-[0.2em] font-bold" style={{ background: c.fieldBg, border: `1px solid ${c.border}`, color: c.bright }}>
+                      {hardwareSelecionado.codigoConfirmacao}
+                    </span>
+                    <span className="block text-[11px] mt-2" style={{ color: c.muted }}>
+                      A chave privada fica no ESP32 e ele passa a fazer o login do cofre. Seu cofre começa vazio e já pode ser recuperado com a CCP.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
             <p className="text-xs font-bold tracking-[0.15em] uppercase mb-2" style={{ color: c.bright }}>2. Gere sua chave de contingência</p>
             {!segredoNovo ? (
               <Botao c={c} onClick={() => setSegredoNovo(gerarSegredo())}>
@@ -693,8 +735,15 @@ export function Device() {
                   onClick={() =>
                     executar(
                       'Derivando a prova da CCP (Argon2id), pareando e enviando o primeiro backup...',
-                      () => Flows.parearDispositivo(contaId, segredoNovo, serialValido),
-                      serialValido ? `Dispositivo ${serialValido} pareado! Seu cofre está ativo.` : 'Dispositivo de software pareado! Seu cofre está ativo.'
+                      () =>
+                        usarHardwareReal && hardwareSelecionado?.chaveAnunciada
+                          ? Flows.parearHardwareReal(contaId, segredoNovo, hardwareSelecionado.serial, hardwareSelecionado.chaveAnunciada)
+                          : Flows.parearDispositivo(contaId, segredoNovo, serialValido),
+                      usarHardwareReal
+                        ? `Hardware ${serialValido} pareado! Toque o cartão no dispositivo para entrar.`
+                        : serialValido
+                          ? `Dispositivo ${serialValido} pareado! Seu cofre está ativo.`
+                          : 'Dispositivo de software pareado! Seu cofre está ativo.'
                     )
                   }
                 >
@@ -738,10 +787,21 @@ export function Device() {
               </div>
 
               {!temDispositivoAqui ? (
+                hardwareDaConta ? (
+                  <div className="text-sm rounded-lg p-3" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.35)' }}>
+                    <p className="font-semibold flex items-center gap-2"><Cpu className="w-4 h-4" style={{ color: '#22c55e' }} /> Cofre no hardware real ({hardwareDaConta.serial})</p>
+                    <p className="text-xs mt-1" style={{ color: c.muted }}>
+                      A chave fica no ESP32: ele faz o login do cofre quando você aproxima o cartão.
+                      {hardwareDaConta.ultimoContato && <> Último contato: {new Date(hardwareDaConta.ultimoContato).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.</>}
+                      {' '}Guardar senhas direto pelo hardware chega na próxima etapa do firmware. As ações de emergência abaixo continuam disponíveis.
+                    </p>
+                  </div>
+                ) : (
                 <p className="text-sm rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: c.isDark ? '#fcd34d' : '#92400e' }}>
                   O dispositivo desta conta não está neste navegador. Use o navegador onde você pareou (ou, no futuro, o app Krypta com o ESP32).
                   As ações de emergência abaixo continuam disponíveis.
                 </p>
+                )
               ) : (
                 <>
                   <div className="space-y-2 mb-4">
