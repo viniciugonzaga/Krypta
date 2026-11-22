@@ -52,6 +52,8 @@ const envSchema = z
     SMTP_ONLY_TO: z.string().default(''),
     // Quem recebe as mensagens do formulário de Contato (vazio = o endereço do MAIL_FROM)
     SUPPORT_EMAIL: z.string().default(''),
+    // E-mail pela API HTTP da Brevo (obrigatório no Render grátis, que bloqueia SMTP). Vazio = usa SMTP.
+    BREVO_API_KEY: z.string().default(''),
 
     // ============ LOGIN SOCIAL (opcional) ============
     GOOGLE_CLIENT_ID: z.string().default(''),

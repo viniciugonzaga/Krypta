@@ -1,5 +1,8 @@
 # Hospedagem do Krypta
 
+> Guia passo a passo detalhado (com cada clique na Hostinger, no Render e na Brevo): veja o documento
+> "Krypta — Hospedagem passo a passo". Este arquivo é o resumo técnico.
+
 ## 1. O que precisa ir para a internet
 
 | Parte | O que é | Precisa de | Onde roda |
@@ -77,14 +80,16 @@ Use um subdomínio de um domínio que você já tem (ou compre um domínio só p
    PASSWORD_PEPPER=<o seu; guarde cópia fora do projeto>
    CORS_ORIGIN=https://krypta.seudominio.com.br
    TRUST_PROXY=1
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=587
-   SMTP_USER=<seu e-mail>
-   SMTP_PASS=<senha de app do Gmail>
-   MAIL_FROM=Krypta <seu e-mail>
+   NODE_VERSION=22
+   BREVO_API_KEY=<chave da Brevo, xkeysib-...>
+   MAIL_FROM=Krypta <no-reply@seudominio.com.br>
    SUPPORT_EMAIL=<e-mail do suporte>
    ```
    Não crie `PORT`: o Render define sozinho.
+
+   **E-mails:** o plano grátis do Render bloqueia as portas de SMTP (25, 465 e 587), então o Gmail/SMTP não
+   funciona lá. A API usa a **API HTTP da Brevo** (300 e-mails/dia grátis) quando `BREVO_API_KEY` está preenchida.
+   O remetente (`MAIL_FROM`) precisa ser de um domínio seu, autenticado na Brevo (registros DNS na Hostinger).
 4. **Create Web Service**. Quando ficar "Live", teste: `https://krypta-api.onrender.com/health` deve responder OK.
 
 ### 4.3 Front + PWA na Hostinger Premium

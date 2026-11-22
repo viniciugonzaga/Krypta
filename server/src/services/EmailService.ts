@@ -1,4 +1,14 @@
 // server/src/services/EmailService.ts
+// ============================================================
+// Envio de e-mails do Krypta. Dois jeitos (escolhidos pelo .env):
+//
+//  • BREVO_API_KEY preenchida → API HTTP da Brevo (porta 443).
+//    Use na HOSPEDAGEM NO RENDER: o plano gratuito do Render bloqueia as
+//    portas de SMTP (25, 465 e 587), então o SMTP do Gmail não sai de lá.
+//  • Senão → SMTP (SMTP_HOST/PORT/USER/PASS), ex.: Gmail no seu PC.
+//
+// Sem nenhum dos dois, os e-mails aparecem só no terminal (desenvolvimento).
+// ============================================================
 import nodemailer from 'nodemailer';
 import { env, isProduction, smtpOnlyTo } from '../config/env.js';
 
@@ -12,7 +22,46 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const smtpConfigurado = () => !!env.SMTP_USER && !!env.SMTP_PASS;
+const usaBrevo = () => !!env.BREVO_API_KEY;
+const smtpConfigurado = () => usaBrevo() || (!!env.SMTP_USER && !!env.SMTP_PASS);
+
+/** "Krypta <no-reply@x.com>" → { name, email } */
+function remetente(): { name: string; email: string } {
+  const m = env.MAIL_FROM.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  return m ? { name: m[1] || 'Krypta', email: m[2] } : { name: 'Krypta', email: env.MAIL_FROM.trim() };
+}
+
+interface Mensagem {
+  from?: string;
+  to: string;
+  subject: string;
+  html: string;
+  replyTo?: string;
+}
+
+/** Envia por Brevo (HTTP) ou SMTP. Lança erro se o provedor recusar. */
+async function mandar(m: Mensagem): Promise<void> {
+  if (!usaBrevo()) {
+    await transporter.sendMail({ from: m.from ?? env.MAIL_FROM, to: m.to, subject: m.subject, html: m.html, replyTo: m.replyTo });
+    return;
+  }
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({
+      sender: remetente(),
+      to: [{ email: m.to }],
+      subject: m.subject,
+      htmlContent: m.html,
+      ...(m.replyTo ? { replyTo: { email: m.replyTo } } : {}),
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) {
+    const corpo = await res.text().catch(() => '');
+    throw new Error(`Brevo recusou o e-mail (${res.status}): ${corpo.slice(0, 300)}`);
+  }
+}
 
 /** Fora de produção, com SMTP_ONLY_TO preenchido, só esses endereços recebem */
 const destinatarioLiberado = (para: string) =>
@@ -46,7 +95,7 @@ async function enviar(para: string, assunto: string, html: string): Promise<bool
     console.warn(`⚠️  ${para} fora do SMTP_ONLY_TO — e-mail NÃO enviado: "${assunto}"`);
     return false;
   }
-  await transporter.sendMail({ from: env.MAIL_FROM, to: para, subject: assunto, html });
+  await mandar({ to: para, subject: assunto, html });
   return true;
 }
 
@@ -82,7 +131,7 @@ export const EmailService = {
       return false;
     }
     try {
-      await transporter.sendMail({ from: env.MAIL_FROM, to: para, replyTo: m.email, subject: `Krypta — Contato: ${m.assunto}`, html });
+      await mandar({ to: para, replyTo: m.email, subject: `Krypta — Contato: ${m.assunto}`, html });
       return true;
     } catch (err: any) {
       console.error('❌ Falha ao enviar mensagem de contato:', err?.message ?? err);
@@ -98,7 +147,7 @@ export const EmailService = {
       return;
     }
 
-    await transporter.sendMail({
+    await mandar({
       from: env.MAIL_FROM,
       to,
       subject: 'Krypta — Recuperação de senha',
