@@ -24,6 +24,8 @@
 //   npm run sim -- conta <email> <senha>      cancelar o Pro, contato e "sair de tudo"
 //   npm run sim -- mobile <email> <senha>    modo Mobile: servidor identifica o cliente + plano recomendado
 //   npm run sim -- acesso <email> <senha>    cofre em outro aparelho (CCP), CCP esquecida, abandonar
+//   npm run sim -- remoto <email> <senha>    v1.2.0: senha de acesso (PIN), edição remota, sincronia,
+//                                            relatório de edições e pontos de restauração
 //   npm run sim -- esp32                      faz o papel do ESP32 real (apresentação, pareamento, login, Kill Switch)
 //
 //   npm run sim -- testar-tudo                 CRIA UMA CONTA NOVA e roda TODOS os testes
@@ -753,7 +755,6 @@ async function esp32() {
 // ============================================================
 async function mobile(email?: string, senha?: string) {
   if (!email || !senha) falha('Uso: npm run sim -- mobile <email> <senha>');
-//   npm run sim -- acesso <email> <senha>    cofre em outro aparelho (CCP), CCP esquecida, abandonar
   titulo('📱 Modo Mobile — identificação do cliente e plano recomendado');
 
   const pwa = await chamar('GET', '/client/context', undefined, undefined, { 'X-Krypta-Cliente': 'pwa' });
@@ -853,6 +854,157 @@ async function acesso(email?: string, senha?: string) {
 }
 
 // ============================================================
+// v1.2.0 — SENHA DE ACESSO, EDIÇÃO REMOTA, SINCRONIA E PONTOS
+// ============================================================
+/** vault.enc "de mentira" no formato que o servidor reconhece (o conteúdo continua opaco) */
+function vaultEncFalso(envelopeCcp = { iv: aleatorio32(), ct: aleatorio32() }) {
+  const vault = { formato: 'krypta-vault-demo-v1', dados: { iv: aleatorio32(), ct: payloadFalso(512) }, envelope_ccp: envelopeCcp };
+  return { vault, b64: Buffer.from(JSON.stringify(vault)).toString('base64') };
+}
+const lerVault = (b64payload: string) => JSON.parse(Buffer.from(b64payload, 'base64').toString('utf8'));
+
+async function remoto(email?: string, senha?: string) {
+  if (!email || !senha) falha('Uso: npm run sim -- remoto <email> <senha>');
+  const k = lerChaves();
+  titulo('📱 v1.2.0 — Senha de acesso ao cofre, edição em outro aparelho e pontos de restauração');
+
+  const tokenSite = await loginSite(email, senha);
+  await assinarPro(tokenSite);
+  const tokenHw = await loginDispositivo(k.publicKey, k.secretKey);
+
+  // 0) O dispositivo grava um cofre no formato real + RELATÓRIO de edição
+  const envelopeCcp = { iv: aleatorio32(), ct: aleatorio32() };
+  const v0 = await versaoAtual(tokenHw);
+  const inicial = vaultEncFalso(envelopeCcp);
+  esperar(
+    await chamar('PUT', '/vault/backup', { version_counter: v0 + 1, payload_cifrado: inicial.b64, resumo: { adicionadas: 2, editadas: 0, removidas: 0 } }, tokenHw),
+    200,
+    'Dispositivo gravou o cofre com o resumo "2 adicionadas"'
+  );
+  const atividade = await chamar('GET', '/vault/activity', undefined, tokenSite);
+  if (!atividade.json.data?.some((e: { acao: string }) => e.acao === 'VAULT_EDITED')) falha('O relatório não mostrou a edição do cofre');
+  ok('Relatório da conta: "Cofre editado no dispositivo pareado: 2 adicionadas"');
+
+  // 1) Criar a senha de acesso (exige a CCP)
+  const est0 = await chamar('GET', '/vault/remoto', undefined, tokenSite);
+  esperar(est0, 200, `Estado da senha de acesso: ${est0.json.data?.configurado ? 'configurada' : 'ainda não criada'}`);
+  esperar(await chamar('POST', '/vault/remoto/preparar', { prova_cont_dono: aleatorio32() }, tokenSite), 401, 'Criar a senha de acesso com a CCP errada: recusado');
+  const prep = await chamar('POST', '/vault/remoto/preparar', { prova_cont_dono: k.provaContDono }, tokenSite);
+  esperar(prep, 200, 'CCP certa: o servidor entregou salt + segredo + backup CIFRADO');
+  const provaPin = aleatorio32(); // no app: Argon2id(PIN) + HKDF
+  const envelopePin = JSON.stringify({ iv: aleatorio32(), ct: aleatorio32() });
+  esperar(
+    await chamar('POST', '/vault/remoto/ativar', { prova_cont_dono: k.provaContDono, prova_pin: provaPin, envelope: envelopePin, tipo: 'PIN' }, tokenSite),
+    200,
+    'PIN de 6 dígitos ativado'
+  );
+
+  // 2) Abrir em outro aparelho com o PIN
+  const errado = await chamar('POST', '/vault/remoto/abrir', { prova_pin: aleatorio32() }, tokenSite);
+  esperar(errado, 401, `PIN errado: recusado (${errado.json.details?.restantes} tentativas restantes)`);
+  const aberto = await chamar('POST', '/vault/remoto/abrir', { prova_pin: provaPin }, tokenSite);
+  esperar(aberto, 200, 'PIN certo: cofre liberado (token do cofre de 15 min)');
+  if (aberto.json.data.segredo !== prep.json.data.segredo) falha('O segredo do servidor não bateu com o da configuração');
+  ok('Segredo do servidor conferido (guardado cifrado com o pepper)');
+  if (aberto.json.data.envelope !== envelopePin) falha('O envelope do PIN voltou diferente');
+  const cofre = { 'X-Krypta-Cofre': aberto.json.data.token_cofre as string };
+
+  // 3) Ler e EDITAR pelo outro aparelho
+  esperar(await chamar('GET', '/vault/remoto/backup', undefined, tokenSite), 401, 'Sem o token do cofre: recusado');
+  esperar(await chamar('GET', '/vault/remoto/backup', undefined, tokenHw, cofre), 403, 'Token do dispositivo no lugar do site: recusado');
+  const lido = await chamar('GET', '/vault/remoto/backup', undefined, tokenSite, cofre);
+  esperar(lido, 200, `Outro aparelho leu o cofre cifrado (versão ${lido.json.data?.version_counter})`);
+  const vRemota = lido.json.data.version_counter as number;
+
+  const trocaEnvelope = vaultEncFalso(); // envelope da CCP diferente
+  esperar(
+    await chamar('PUT', '/vault/remoto/backup', { version_counter: vRemota + 1, payload_cifrado: trocaEnvelope.b64 }, tokenSite, cofre),
+    400,
+    'Aparelho remoto tentando trocar o envelope da CCP: recusado'
+  );
+  const editado = vaultEncFalso(envelopeCcp);
+  esperar(
+    await chamar('PUT', '/vault/remoto/backup', { version_counter: vRemota + 1, payload_cifrado: editado.b64, resumo: { adicionadas: 1, editadas: 1, removidas: 0 } }, tokenSite, cofre),
+    200,
+    'Outro aparelho EDITOU o cofre (1 adicionada, 1 editada)'
+  );
+  esperar(
+    await chamar('PUT', '/vault/remoto/backup', { version_counter: vRemota + 1, payload_cifrado: editado.b64 }, tokenSite, cofre),
+    409,
+    'Gravação com versão repetida: recusada (anti-rollback / conflito)'
+  );
+
+  // 4) O dispositivo pareado SINCRONIZA
+  esperar(
+    await chamar('PUT', '/vault/backup', { version_counter: vRemota + 1, payload_cifrado: inicial.b64 }, tokenHw),
+    409,
+    'Dispositivo desatualizado não sobrescreve a edição remota'
+  );
+  const sync = await chamar('GET', `/vault/backup/sync?desde=${vRemota}`, undefined, tokenHw);
+  esperar(sync, 200, 'Dispositivo perguntou se há versão nova');
+  if (!sync.json.data.atualizado || sync.json.data.version_counter !== vRemota + 1) falha('A sincronia não trouxe a versão editada');
+  if (lerVault(sync.json.data.payload_cifrado).dados.ct !== editado.vault.dados.ct) falha('A sincronia trouxe dados diferentes');
+  ok(`Dispositivo puxou a versão ${vRemota + 1} editada no outro aparelho`);
+  const nada = await chamar('GET', `/vault/backup/sync?desde=${vRemota + 1}`, undefined, tokenHw);
+  if (nada.json.data?.atualizado !== false) falha('Sincronia sem novidade deveria responder atualizado=false');
+  ok('Sem novidade: o dispositivo não baixa nada');
+
+  // 5) Free não usa
+  esperar(await chamar('POST', '/plans/change', { tier: 'free' }, tokenSite), 200, 'Conta volta ao Free');
+  esperar(await chamar('POST', '/vault/remoto/abrir', { prova_pin: provaPin }, tokenSite), 403, 'Free: senha de acesso é do Pro');
+  esperar(await chamar('GET', '/vault/remoto/backup', undefined, tokenSite, cofre), 403, 'Free: o token do cofre aberto antes também para de valer');
+  await assinarPro(tokenSite);
+
+  // 6) Bloqueio após 5 erros
+  for (let i = 0; i < 4; i++) await chamar('POST', '/vault/remoto/abrir', { prova_pin: aleatorio32() }, tokenSite);
+  esperar(await chamar('POST', '/vault/remoto/abrir', { prova_pin: aleatorio32() }, tokenSite), 423, '5º erro seguido: senha de acesso BLOQUEADA (e-mail enviado)');
+  esperar(await chamar('POST', '/vault/remoto/abrir', { prova_pin: provaPin }, tokenSite), 423, 'Bloqueada: nem o PIN certo abre');
+  esperar(await chamar('GET', '/vault/remoto/backup', undefined, tokenSite, cofre), 401, 'Bloqueada: sessões abertas antes também caem');
+  const prep2 = await chamar('POST', '/vault/remoto/preparar', { prova_cont_dono: k.provaContDono }, tokenSite);
+  esperar(prep2, 200, 'Desbloquear = criar outra com a CCP');
+  const provaPin2 = aleatorio32();
+  esperar(
+    await chamar('POST', '/vault/remoto/ativar', { prova_cont_dono: k.provaContDono, prova_pin: provaPin2, envelope: envelopePin, tipo: 'SENHA' }, tokenSite),
+    200,
+    'Nova senha de acesso ativada'
+  );
+  esperar(await chamar('POST', '/vault/remoto/abrir', { prova_pin: provaPin }, tokenSite), 401, 'O PIN antigo não vale mais');
+  esperar(await chamar('POST', '/vault/remoto/abrir', { prova_pin: provaPin2 }, tokenSite), 200, 'A nova abre');
+
+  // 7) Pontos de restauração (exigem a CCP)
+  esperar(await chamar('POST', '/vault/pontos', { prova_cont_dono: aleatorio32(), nome: 'Teste' }, tokenSite), 401, 'Salvar ponto com a CCP errada: recusado');
+  const ponto = await chamar('POST', '/vault/pontos', { prova_cont_dono: k.provaContDono, nome: 'Antes das mudanças' }, tokenSite);
+  esperar(ponto, 201, `Ponto "Antes das mudanças" salvo (versão ${ponto.json.data?.versao_origem})`);
+  const pontoId = ponto.json.data.id as string;
+
+  const vAntes = await versaoAtual(tokenHw);
+  const depois = vaultEncFalso(envelopeCcp);
+  esperar(await chamar('PUT', '/vault/backup', { version_counter: vAntes + 1, payload_cifrado: depois.b64, resumo: { adicionadas: 0, editadas: 0, removidas: 3 } }, tokenHw), 200, 'Dispositivo removeu 3 chaves (por engano)');
+
+  esperar(await chamar('POST', `/vault/pontos/${pontoId}/restaurar`, { prova_cont_dono: aleatorio32() }, tokenSite), 401, 'Restaurar com a CCP errada: recusado');
+  const rest = await chamar('POST', `/vault/pontos/${pontoId}/restaurar`, { prova_cont_dono: k.provaContDono }, tokenSite);
+  esperar(rest, 200, `Cofre restaurado (nova versão ${rest.json.data?.version_counter})`);
+  const syncRest = await chamar('GET', `/vault/backup/sync?desde=${vAntes + 1}`, undefined, tokenHw);
+  const restaurado = lerVault(syncRest.json.data.payload_cifrado);
+  if (restaurado.dados.ct !== editado.vault.dados.ct) falha('A restauração não trouxe os dados do ponto');
+  if (JSON.stringify(restaurado.envelope_ccp) !== JSON.stringify(envelopeCcp)) falha('A restauração mexeu no envelope da CCP');
+  ok('Dados do ponto de volta e envelope da CCP atual preservado');
+  const lista = await chamar('GET', '/vault/pontos', undefined, tokenSite);
+  const auto = lista.json.data.pontos.find((p: { automatico: boolean }) => p.automatico);
+  if (!auto) falha('Não criou o ponto automático "Antes de restaurar"');
+  ok(`Ponto automático criado: "${auto.nome}" (dá para desfazer)`);
+  esperar(await chamar('POST', `/vault/pontos/${auto.id}/apagar`, { prova_cont_dono: k.provaContDono }, tokenSite), 200, 'Ponto automático apagado (com a CCP)');
+  esperar(await chamar('POST', `/vault/pontos/${pontoId}/apagar`, { prova_cont_dono: k.provaContDono }, tokenSite), 200, 'Ponto manual apagado');
+
+  // 8) Remover a senha de acesso
+  esperar(await chamar('POST', '/vault/remoto/remover', { password: 'senha-errada-123' }, tokenSite), 401, 'Remover com a senha errada: recusado');
+  esperar(await chamar('POST', '/vault/remoto/remover', { password: senha }, tokenSite), 200, 'Senha de acesso removida');
+  esperar(await chamar('POST', '/vault/remoto/abrir', { prova_pin: provaPin2 }, tokenSite), 404, 'Depois de remover: nenhum aparelho abre com PIN');
+
+  console.log('\n  Senha de acesso, edição remota, sincronia e pontos OK! 🎉\n');
+}
+
+// ============================================================
 // TUDO EM SEQUÊNCIA
 // ============================================================
 /** Cria uma conta de teste nova (Free, sem dispositivo) */
@@ -893,6 +1045,7 @@ async function testarTudo(emailArg?: string, senhaArg?: string) {
   await conta(email, senha);
   await mobile(email, senha);
   await acesso(email, senha);
+  await remoto(email, senha);
   await esp32();
   console.log(falhas === 0 ? '\n🏁 COFRE, PLANOS E COMPRAS — TODOS OS TESTES PASSARAM! 🎉\n' : `\n⚠️  ${falhas} falha(s)\n`);
   if (!emailArg) {
@@ -942,6 +1095,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
   esp32,
   mobile: () => mobile(args[0], args[1]),
   acesso: () => acesso(args[0], args[1]),
+  remoto: () => remoto(args[0], args[1]),
   status,
   esquecer,
   limpar,
@@ -949,7 +1103,7 @@ const comandos: Record<string, () => Promise<void> | void> = {
 
 if (!comando || !comandos[comando]) {
   console.log(
-    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | mobile email senha | acesso email senha | esp32 | testar-tudo [email senha] | limpar | status | esquecer>'
+    'Uso: npm run sim -- <parear email senha | login | backup | recuperar | trocar-ccp | heranca | resgatar | kill-switch email senha | planos email senha | conta email senha | mobile email senha | acesso email senha | remoto email senha | esp32 | testar-tudo [email senha] | limpar | status | esquecer>'
   );
   process.exit(1);
 }

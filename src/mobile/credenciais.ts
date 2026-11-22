@@ -35,6 +35,9 @@ export const TIPOS: Record<TipoCredencial, { rotulo: string; desc: string; campo
   personalizado: { rotulo: 'Personalizado', desc: 'Monte com os campos que quiser', campos: [{ rotulo: 'Campo 1' }] },
 };
 
+/** Tipos do plano Free (até 3 campos cada). Os outros e os campos extras são do Pro. */
+export const TIPOS_FREE: TipoCredencial[] = ['login', 'wifi', 'nota'];
+
 export const novoCampo = (rotulo = '', secreto = false): CampoCredencial => ({ id: crypto.randomUUID(), rotulo, valor: '', secreto });
 
 export const camposDoTipo = (tipo: TipoCredencial): CampoCredencial[] => TIPOS[tipo].campos.map((m) => novoCampo(m.rotulo, !!m.secreto));

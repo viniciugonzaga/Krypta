@@ -28,6 +28,12 @@ export interface RegrasPlano {
   alertasAcesso: boolean;
   /** Ver o cofre em outro aparelho da mesma conta, com a CCP */
   multiAparelho: boolean;
+  /** Senha de acesso (PIN) para abrir E EDITAR o cofre em qualquer aparelho */
+  acessoRemoto: boolean;
+  /** Quantos pontos de restauração (cópias do cofre) podem existir */
+  pontosRestauracao: number;
+  /** Chaves com mais de 3 campos (cartão, endereço, campos extras) */
+  camposExtras: boolean;
 }
 
 export const REGRAS_PLANO: Record<UserPlan, RegrasPlano> = {
@@ -38,6 +44,9 @@ export const REGRAS_PLANO: Record<UserPlan, RegrasPlano> = {
     heranca: false,
     alertasAcesso: false,
     multiAparelho: false,
+    acessoRemoto: false,
+    pontosRestauracao: 2,
+    camposExtras: false,
   },
   pro: {
     armazenamentoBytes: 1024 * 1024,
@@ -46,6 +55,9 @@ export const REGRAS_PLANO: Record<UserPlan, RegrasPlano> = {
     heranca: true,
     alertasAcesso: true,
     multiAparelho: true,
+    acessoRemoto: true,
+    pontosRestauracao: 20,
+    camposExtras: true,
   },
 };
 

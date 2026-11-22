@@ -21,6 +21,7 @@ import { MHome, MNotificacoes } from './pages/MInicio';
 import { MBloqueio, MCofre, MCofreCompleto, MEmergencia, MHerancaApp } from './pages/MCofre';
 import { MChaves, MNovaChave } from './pages/MChaves';
 import { MPerdiCcp, MVerCofre } from './pages/MAcesso';
+import { MAcessoCofre, MPontos } from './pages/MRemoto';
 import { MConfig, MPerfil, MPlanos } from './pages/MConta';
 
 // Páginas do site usadas também no modo Mobile
@@ -104,6 +105,8 @@ export function MobileRoutes() {
         <Route path="/cofre/nova-chave" element={<Privada><Tela><MNovaChave /></Tela></Privada>} />
         <Route path="/cofre/completo" element={<Privada><MCofreCompleto /></Privada>} />
         <Route path="/cofre/ver" element={<Privada><Tela><MVerCofre /></Tela></Privada>} />
+        <Route path="/cofre/acesso" element={<Privada><Tela><MAcessoCofre /></Tela></Privada>} />
+        <Route path="/cofre/pontos" element={<Privada><Tela><MPontos /></Tela></Privada>} />
         <Route path="/perdi-ccp" element={<Privada><Tela><MPerdiCcp /></Tela></Privada>} />
         <Route path="/heranca-digital" element={<Privada><Tela><MHerancaApp /></Tela></Privada>} />
         <Route path="/bloqueio" element={<Privada><Tela><MBloqueio /></Tela></Privada>} />

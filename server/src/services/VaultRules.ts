@@ -9,7 +9,7 @@ import { VaultModel, type ContaCofre, type ResultadoGravacao } from '../models/V
 import { regrasDe, type RegrasPlano } from '../config/planos.js';
 import { DeviceModel } from '../models/DeviceModel.js';
 
-type RecursoPro = Exclude<keyof RegrasPlano, 'armazenamentoBytes'>;
+type RecursoPro = Exclude<keyof RegrasPlano, 'armazenamentoBytes' | 'pontosRestauracao'>;
 
 const NOME_RECURSO: Record<RecursoPro, string> = {
   dispositivoFisico: 'O dispositivo físico Krypta',
@@ -17,6 +17,8 @@ const NOME_RECURSO: Record<RecursoPro, string> = {
   heranca: 'A herança digital',
   alertasAcesso: 'Os alertas de acesso',
   multiAparelho: 'Abrir o cofre em outros aparelhos',
+  acessoRemoto: 'A senha de acesso ao cofre em outros aparelhos',
+  camposExtras: 'Chaves com mais campos',
 };
 
 /**

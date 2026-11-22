@@ -102,7 +102,7 @@ interface LinhaTravada {
 }
 
 /** Trava a linha da conta até o fim da transação */
-async function travarConta(tx: Tx, userId: string): Promise<LinhaTravada | null> {
+export async function travarConta(tx: Tx, userId: string): Promise<LinhaTravada | null> {
   const rows = await tx.query<LinhaTravada>(
     `SELECT estado_cofre, dispositivo_id, public_key_ed25519, hash_cont_dono, hash_cont_herdeiro
        FROM users WHERE id = ? FOR UPDATE`,
@@ -117,7 +117,7 @@ async function travarConta(tx: Tx, userId: string): Promise<LinhaTravada | null>
  * inatividade (RN11) na mesma transação.
  * Precisa ser chamada com a conta já travada (travarConta).
  */
-async function gravarBackupTx(
+export async function gravarBackupTx(
   tx: Tx,
   userId: string,
   payload: Buffer,
@@ -363,6 +363,8 @@ export const VaultModel = {
           WHERE id = ?`,
         [params.userId]
       );
+      // A senha de acesso dos outros aparelhos deixa de valer (v1.2.0)
+      await tx.execute('DELETE FROM cofre_acesso_remoto WHERE user_id = ?', [params.userId]);
       return true;
     });
     return ok ? this.obterPorId(params.userId) : null;
@@ -470,6 +472,9 @@ export const VaultModel = {
         );
       }
       await tx.execute('DELETE FROM backups WHERE user_id = ?', [userId]);
+      // Cofre novo = começa do zero: sem senha de acesso e sem pontos do cofre antigo
+      await tx.execute('DELETE FROM cofre_acesso_remoto WHERE user_id = ?', [userId]);
+      await tx.execute('DELETE FROM cofre_pontos WHERE user_id = ?', [userId]);
       await tx.execute(
         `UPDATE users SET estado_cofre = 'PENDENTE_PAREAMENTO', public_key_ed25519 = NULL, hardware_uuid = NULL,
                           tipo_dispositivo = NULL, dispositivo_id = NULL, hash_cont_dono = NULL, hash_cont_herdeiro = NULL,
@@ -568,6 +573,8 @@ export const VaultModel = {
            WHERE id = ?`,
           [params.publicKey, hardwareUuidDe(params.publicKey), params.userId]
         );
+        // A senha de acesso do titular não vale para o herdeiro
+        await tx.execute('DELETE FROM cofre_acesso_remoto WHERE user_id = ?', [params.userId]);
         return {
           resultado: 'OK',
           conta: { id: params.userId, status: 'RECUPERACAO_HARDWARE', public_key: params.publicKey },
@@ -593,14 +600,14 @@ class DispositivoIndisponivel extends Error {
   }
 }
 
-class VersaoRecusada extends Error {
+export class VersaoRecusada extends Error {
   constructor() {
     super('version_counter recusado');
     this.name = 'VersaoRecusada';
   }
 }
 
-function tratarVersaoRecusada(err: unknown): ResultadoGravacao {
+export function tratarVersaoRecusada(err: unknown): ResultadoGravacao {
   if (err instanceof VersaoRecusada) return { resultado: 'VERSAO' };
   throw err;
 }

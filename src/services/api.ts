@@ -22,6 +22,8 @@ interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: any;
   auth?: boolean;
+  /** Headers extras (ex.: X-Krypta-Cofre da sessão do cofre) */
+  headers?: Record<string, string>;
 }
 
 type ApiError = Error & { details?: any; code?: number };
@@ -105,9 +107,9 @@ function isTokenError(status: number, data: any): boolean {
   return /token/i.test(msg);
 }
 
-async function doFetch(path: string, method: string, body: any, auth: boolean) {
+async function doFetch(path: string, method: string, body: any, auth: boolean, extras: Record<string, string> = {}) {
   // X-Krypta-Cliente: o servidor sabe se veio do site, do celular, do app instalado ou do app Windows
-  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Krypta-Cliente': clienteAtual() };
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Krypta-Cliente': clienteAtual(), ...extras };
 
   if (auth) {
     const token = localStorage.getItem(STORAGE_KEYS.token);
@@ -125,7 +127,7 @@ async function doFetch(path: string, method: string, body: any, auth: boolean) {
 
 export async function apiRequest<T = any>(
   path: string,
-  { method = 'GET', body, auth = true }: ApiOptions = {}
+  { method = 'GET', body, auth = true, headers }: ApiOptions = {}
 ): Promise<T> {
   // 1) Renovação preventiva: se o token já venceu (ou vence em 30s), renova antes
   if (auth) {
@@ -145,13 +147,13 @@ export async function apiRequest<T = any>(
     }
   }
 
-  let { res, data } = await doFetch(path, method, body, auth);
+  let { res, data } = await doFetch(path, method, body, auth, headers);
 
   // 2) Renovação reativa: o servidor recusou o token → renova e repete 1x
   if (auth && isTokenError(res.status, data) && localStorage.getItem(STORAGE_KEYS.refresh)) {
     const renewed = await refreshAccessToken();
     if (renewed) {
-      ({ res, data } = await doFetch(path, method, body, auth));
+      ({ res, data } = await doFetch(path, method, body, auth, headers));
     } else {
       expireSession();
       throw sessionExpiredError();
@@ -313,6 +315,9 @@ export interface ContaCofre {
     heranca: boolean;
     alertasAcesso: boolean;
     multiAparelho?: boolean;
+    acessoRemoto?: boolean;
+    pontosRestauracao?: number;
+    camposExtras?: boolean;
   };
 }
 
@@ -325,7 +330,73 @@ export interface EventoCofre {
   quando: string;
 }
 
+export interface EstadoAcessoRemoto {
+  disponivel: boolean;
+  configurado: boolean;
+  bloqueado: boolean;
+  tipo: 'PIN' | 'SENHA' | null;
+  salt: string | null;
+  tentativasRestantes: number;
+  criadoEm: string | null;
+  ultimoUso: string | null;
+}
+
+export interface BackupCifrado {
+  payload_cifrado: string;
+  version_counter: number;
+  atualizado_em: string;
+}
+
+export interface PontoRestauracao {
+  id: string;
+  nome: string;
+  versao_origem: number;
+  automatico: boolean;
+  criado_em: string;
+  tamanho: number;
+}
+
+export interface ResumoMudancas {
+  adicionadas: number;
+  editadas: number;
+  removidas: number;
+}
+
+const cofreHeader = (token: string) => ({ 'X-Krypta-Cofre': token });
+
 export const VaultAPI = {
+  // ---------- v1.2.0: senha de acesso ao cofre (Pro) ----------
+  remotoEstado: () => apiRequest<EstadoAcessoRemoto>('/vault/remoto'),
+  remotoPreparar: (provaCcp: string) =>
+    apiRequest<BackupCifrado & { salt: string; segredo: string }>('/vault/remoto/preparar', {
+      method: 'POST',
+      body: { prova_cont_dono: provaCcp },
+    }),
+  remotoAtivar: (body: { prova_cont_dono: string; prova_pin: string; envelope: string; tipo: 'PIN' | 'SENHA' }) =>
+    apiRequest<{ configurado: boolean }>('/vault/remoto/ativar', { method: 'POST', body }),
+  remotoAbrir: (provaPin: string) =>
+    apiRequest<BackupCifrado & { token_cofre: string; expira_em: string; minutos: number; envelope: string; segredo: string; salt: string; tipo: 'PIN' | 'SENHA' }>(
+      '/vault/remoto/abrir',
+      { method: 'POST', body: { prova_pin: provaPin } }
+    ),
+  remotoRemover: (password: string) => apiRequest('/vault/remoto/remover', { method: 'POST', body: { password } }),
+  remotoBaixar: (tokenCofre: string) => apiRequest<BackupCifrado>('/vault/remoto/backup', { headers: cofreHeader(tokenCofre) }),
+  remotoGravar: (tokenCofre: string, versionCounter: number, payload: string, resumo: ResumoMudancas) =>
+    apiRequest<{ version_counter: number; atualizado_em: string }>('/vault/remoto/backup', {
+      method: 'PUT',
+      headers: cofreHeader(tokenCofre),
+      body: { version_counter: versionCounter, payload_cifrado: payload, resumo },
+    }),
+
+  // ---------- v1.2.0: pontos de restauração (exigem a CCP) ----------
+  pontos: () => apiRequest<{ pontos: PontoRestauracao[]; limite: number; manuais: number }>('/vault/pontos'),
+  criarPonto: (provaCcp: string, nome: string) =>
+    apiRequest<PontoRestauracao>('/vault/pontos', { method: 'POST', body: { prova_cont_dono: provaCcp, nome } }),
+  restaurarPonto: (id: string, provaCcp: string) =>
+    apiRequest<{ version_counter: number }>(`/vault/pontos/${id}/restaurar`, { method: 'POST', body: { prova_cont_dono: provaCcp } }),
+  apagarPonto: (id: string, provaCcp: string) =>
+    apiRequest(`/vault/pontos/${id}/apagar`, { method: 'POST', body: { prova_cont_dono: provaCcp } }),
+
   /** Pro: baixa o backup CIFRADO provando a CCP (abrir o cofre em outro aparelho, só leitura) */
   abrirComCcp: (prova: string) =>
     apiRequest<{ payload_cifrado: string; version_counter: number; atualizado_em: string }>('/vault/backup/ccp', {

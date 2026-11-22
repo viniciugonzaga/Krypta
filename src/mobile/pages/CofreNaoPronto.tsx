@@ -2,7 +2,7 @@
 // Aviso quando o cofre não pode ser usado neste aparelho (não pareado,
 // bloqueado, em recuperação ou com a chave em outro aparelho).
 import { useNavigate } from 'react-router-dom';
-import { Lock } from 'lucide-react';
+import { Lock, Unlock } from 'lucide-react';
 import { GRAD, MBotao, MCard, type MCores } from '../ui';
 
 /** Quando o cofre ainda não está pronto neste aparelho */
@@ -16,7 +16,7 @@ export function CofreNaoPronto({ c, estado, aqui }: { c: MCores; estado?: string
   };
   const [titulo, texto] =
     estado === 'ATIVA' && !aqui
-      ? ['O cofre está em outro aparelho', 'A chave do cofre fica no dispositivo onde você pareou (outro navegador, o app ou o Krypta físico). As ações de emergência continuam aqui.']
+      ? ['O cofre está em outro aparelho', 'A chave do cofre fica no dispositivo onde você pareou. No Krypta Pro, abra e edite aqui com a sua senha de acesso (PIN).']
       : textos[estado ?? 'PENDENTE_PAREAMENTO'] ?? textos.PENDENTE_PAREAMENTO;
   return (
     <MCard c={c} destaque className="mb-4">
@@ -29,6 +29,11 @@ export function CofreNaoPronto({ c, estado, aqui }: { c: MCores; estado?: string
           <p className="text-[12.5px] mt-1" style={{ color: c.suave }}>{texto}</p>
         </div>
       </div>
+      {estado === 'ATIVA' && !aqui && (
+        <MBotao className="mt-4" onClick={() => navigate('/cofre/acesso')}>
+          <Unlock className="w-4 h-4" /> Abrir com a senha de acesso
+        </MBotao>
+      )}
       {estado !== 'ATIVA' && (
         <MBotao className="mt-4" onClick={() => navigate(estado === 'REVOGADA' ? '/bloqueio' : '/cofre/completo')}>
           {estado === 'PENDENTE_PAREAMENTO' ? 'Ativar meu cofre' : estado === 'REVOGADA' ? 'Vincular este aparelho' : 'Continuar'}

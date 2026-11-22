@@ -22,6 +22,8 @@ import {
   derivar,
   envelopeAbre,
   montarVaultEnc,
+  lerCredenciais,
+  resumirMudancas,
   type Credencial,
 } from '../crypto/kryptaCrypto';
 
@@ -104,8 +106,26 @@ export async function parearDispositivo(
 // ============================================================
 // USO DIÁRIO: salvar o cofre (grava no dispositivo e depois envia o backup)
 // ============================================================
-export async function salvarCofre(contaId: string, credenciais: Credencial[]) {
-  const d = exigirDispositivo(contaId);
+/**
+ * Uma alteração no cofre:
+ *  • função (recomendado): recebe a lista MAIS NOVA (já sincronizada) e devolve a nova lista
+ *  • lista pronta: se outro aparelho mudou o cofre nesse meio tempo, recusa (evita apagar a edição dele)
+ */
+export type MudancaCofre = Credencial[] | ((atuais: Credencial[]) => Credencial[]);
+
+export class CofreMudouError extends Error {
+  constructor() {
+    super('O cofre foi alterado em outro aparelho. Atualizamos a lista: confira e salve de novo.');
+    this.name = 'CofreMudouError';
+  }
+}
+
+export async function salvarCofre(contaId: string, mudanca: MudancaCofre) {
+  // v1.2.0: antes de gravar, puxa o que outro aparelho (senha de acesso) ou uma restauração mudou
+  const { dispositivo: d, mudou } = await sincronizarDispositivo(contaId);
+  if (mudou && Array.isArray(mudanca)) throw new CofreMudouError();
+  const credenciais = typeof mudanca === 'function' ? mudanca(d.credenciais) : mudanca;
+
   const token = await loginDispositivo(d);
   const versao = await proximaVersao(token, d);
 
@@ -113,8 +133,33 @@ export async function salvarCofre(contaId: string, credenciais: Credencial[]) {
   const novo: EstadoDispositivo = { ...d, credenciais, versionCounter: versao };
   VirtualDevice.salvar(novo);
 
-  const r = await DeviceAPI.enviarBackup(token, versao, await payloadDoDispositivo(novo));
+  const resumo = resumirMudancas(d.credenciais, credenciais);
+  const r = await DeviceAPI.enviarBackup(token, versao, await payloadDoDispositivo(novo), resumo);
   return { ...novo, versionCounter: r.version_counter };
+}
+
+/**
+ * v1.2.0 — SINCRONIA: outro aparelho editou o cofre com a senha de acesso, ou um
+ * ponto de restauração foi aplicado? O dispositivo pareado puxa a versão nova
+ * (cifrada) e abre com a chave do cofre que ele já tem. Só funciona com o cofre ATIVO.
+ */
+export async function sincronizarDispositivo(contaId: string): Promise<{ dispositivo: EstadoDispositivo; mudou: boolean }> {
+  const d = exigirDispositivo(contaId);
+  const { chaveCofre } = exigirCofre(d);
+  const token = await loginDispositivo(d);
+  let r;
+  try {
+    r = await DeviceAPI.sincronizar(token, d.versionCounter);
+  } catch (e) {
+    // Estado que não é ATIVA (recuperação etc.): segue com o que está no aparelho
+    if ((e as { code?: number }).code === 403) return { dispositivo: d, mudou: false };
+    throw e;
+  }
+  if (!r.atualizado || !r.payload_cifrado) return { dispositivo: d, mudou: false };
+  const credenciais = await lerCredenciais(chaveCofre, r.payload_cifrado);
+  const novo: EstadoDispositivo = { ...d, credenciais, versionCounter: r.version_counter };
+  VirtualDevice.salvar(novo);
+  return { dispositivo: novo, mudou: true };
 }
 
 export async function testarLogin(contaId: string) {
@@ -155,7 +200,8 @@ export async function recuperacaoLocal(contaId: string, ccp: string) {
 // TROCAR A CCP
 // ============================================================
 export async function trocarCcp(contaId: string, ccpAtual: string, ccpNova: string) {
-  const d = exigirDispositivo(contaId);
+  // v1.2.0: puxa antes o que outro aparelho editou (senão a gravação abaixo apagaria a edição dele)
+  const { dispositivo: d } = await sincronizarDispositivo(contaId);
   const { chaveCofre } = exigirCofre(d);
   const atual = await derivar(ccpAtual, contaId, 'ccp');
   const nova = await derivar(ccpNova, contaId, 'ccp');
@@ -186,7 +232,8 @@ export async function trocarCcp(contaId: string, ccpAtual: string, ccpNova: stri
 // O servidor exige também a senha do site (dispositivo roubado sozinho não basta).
 // ============================================================
 export async function redefinirCcpComDispositivo(contaId: string, senhaSite: string, ccpNova: string) {
-  const d = exigirDispositivo(contaId);
+  // v1.2.0: puxa antes o que outro aparelho editou (senão a gravação abaixo apagaria a edição dele)
+  const { dispositivo: d } = await sincronizarDispositivo(contaId);
   const { chaveCofre } = exigirCofre(d);
   const nova = await derivar(ccpNova, contaId, 'ccp');
 
@@ -223,41 +270,24 @@ export async function abrirCofreComCcp(contaId: string, ccp: string) {
 
 // ============================================================
 // ABANDONAR O COFRE (perdi a CCP e o dispositivo)
-// Se este navegador ainda tiver as chaves do cofre antigo, elas são guardadas
-// para entrar no cofre NOVO no próximo pareamento (nada sai deste aparelho).
+// v1.2.0: cada cofre tem as SUAS chaves. Nada do cofre antigo passa para o
+// novo: este aparelho apaga o dispositivo antigo e o servidor apaga o backup,
+// a senha de acesso e os pontos de restauração do cofre abandonado.
 // ============================================================
-export const CHAVE_IMPORTAR = 'krypta:importar-no-cofre-novo';
-
-export async function abandonarCofre(contaId: string, codigo: string, levarChavesDesteAparelho: boolean) {
-  const local = VirtualDevice.carregar(contaId);
-  if (levarChavesDesteAparelho && local?.credenciais.length) {
-    sessionStorage.setItem(CHAVE_IMPORTAR, JSON.stringify(local.credenciais));
-  }
+export async function abandonarCofre(contaId: string, codigo: string) {
   const conta = await VaultAPI.confirmarAbandono(codigo);
   VirtualDevice.apagar(contaId); // a chave antiga foi banida
   esquecerToken(contaId);
+  sessionStorage.removeItem('krypta:importar-no-cofre-novo'); // restos da v1.1.0
   return conta;
-}
-
-/** Chaves guardadas para entrar no cofre novo (só leitura; apague depois do pareamento) */
-export function lerChavesParaImportar(): Credencial[] {
-  try {
-    const raw = sessionStorage.getItem(CHAVE_IMPORTAR);
-    return raw ? (JSON.parse(raw) as Credencial[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function limparChavesParaImportar(): void {
-  sessionStorage.removeItem(CHAVE_IMPORTAR);
 }
 
 // ============================================================
 // HERANÇA
 // ============================================================
 export async function ativarHeranca(contaId: string, ccp: string, cch: string) {
-  const d = exigirDispositivo(contaId);
+  // v1.2.0: puxa antes o que outro aparelho editou (senão a gravação abaixo apagaria a edição dele)
+  const { dispositivo: d } = await sincronizarDispositivo(contaId);
   const { chaveCofre } = exigirCofre(d);
   const dono = await derivar(ccp, contaId, 'ccp');
   const herdeiro = await derivar(cch, contaId, 'cch');
@@ -282,7 +312,8 @@ export async function ativarHeranca(contaId: string, ccp: string, cch: string) {
 }
 
 export async function desativarHeranca(contaId: string, ccp: string) {
-  const d = exigirDispositivo(contaId);
+  // v1.2.0: puxa antes o que outro aparelho editou (senão a gravação abaixo apagaria a edição dele)
+  const { dispositivo: d } = await sincronizarDispositivo(contaId);
   const dono = await derivar(ccp, contaId, 'ccp');
   const token = await loginDispositivo(d);
   const versao = await proximaVersao(token, d);

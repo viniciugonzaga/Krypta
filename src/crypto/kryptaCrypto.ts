@@ -275,3 +275,87 @@ export async function abrirCofre(
   const credenciais = JSON.parse(dec.decode(await decifrar(chave, vault.dados))) as Credencial[];
   return { chaveCofre, credenciais, vault };
 }
+
+// ============================================================
+// v1.2.0 — SENHA DE ACESSO AO COFRE (PIN de 6 dígitos ou senha)
+//
+//  master   = Argon2id(PIN, salt aleatório da conta, 64 MiB, t=3)
+//  prova    = HKDF(master, "krypta-prova-pin-v1")          → vai ao servidor
+//  envelope = HKDF(master ‖ segredoDoServidor, "krypta-envelope-pin-v1")
+//
+//  O "segredoDoServidor" só é entregue DEPOIS que o servidor confere a prova
+//  (5 erros → bloqueio). Por isso, quem copiar só o banco não consegue testar
+//  os 1.000.000 de PINs offline, e o servidor sozinho não tem o PIN.
+// ============================================================
+export interface DerivacaoPin {
+  /** vai ao servidor */
+  prova: string;
+  /** Monta a chave do envelope quando o servidor libera o segredo (o master é apagado depois) */
+  chaveCom(segredoB64: string): Promise<CryptoKey>;
+  /** Apaga o master da memória sem montar a chave */
+  descartar(): void;
+}
+
+/** Argon2id roda UMA vez por digitação do PIN (1-3 s de propósito) */
+export async function derivarPin(pin: string, saltB64: string): Promise<DerivacaoPin> {
+  const master = (await argon2id({
+    password: pin.normalize('NFKC'),
+    salt: b64ParaBytes(saltB64),
+    ...ARGON2,
+    outputType: 'binary',
+  })) as Uint8Array;
+  const prova = bytesParaB64(await hkdf(master, 'krypta-prova-pin-v1'));
+  return {
+    prova,
+    async chaveCom(segredoB64: string) {
+      const segredo = b64ParaBytes(segredoB64);
+      const junto = new Uint8Array(master.length + segredo.length);
+      junto.set(master, 0);
+      junto.set(segredo, master.length);
+      const bytes = await hkdf(junto, 'krypta-envelope-pin-v1');
+      junto.fill(0);
+      master.fill(0);
+      return crypto.subtle.importKey('raw', bytes as BufferSource, 'AES-GCM', false, ['encrypt', 'decrypt']);
+    },
+    descartar: () => master.fill(0),
+  };
+}
+
+/** Abre um envelope qualquer e devolve a chave do cofre (null se a chave estiver errada) */
+export async function abrirEnvelope(chaveEnvelope: CryptoKey, envelope: Cifrado): Promise<Uint8Array | null> {
+  try {
+    return await decifrar(chaveEnvelope, envelope);
+  } catch {
+    return null;
+  }
+}
+
+/** Lê as credenciais de um vault.enc com a chave do cofre */
+export async function lerCredenciais(chaveCofre: Uint8Array, payloadB64: string): Promise<Credencial[]> {
+  const vault = lerVaultEnc(payloadB64);
+  const chave = await importarChaveCofre(chaveCofre);
+  return JSON.parse(dec.decode(await decifrar(chave, vault.dados))) as Credencial[];
+}
+
+/** Troca só os DADOS de um vault.enc, mantendo os envelopes como estão */
+export async function trocarDados(chaveCofre: Uint8Array, payloadB64: string, credenciais: Credencial[]): Promise<string> {
+  const vault = lerVaultEnc(payloadB64);
+  const chave = await importarChaveCofre(chaveCofre);
+  const novo: VaultEnc = { ...vault, dados: await cifrar(chave, enc.encode(JSON.stringify(credenciais))) };
+  return bytesParaB64(enc.encode(JSON.stringify(novo)));
+}
+
+/** O que mudou entre duas listas (só contagens vão para o relatório do servidor) */
+export function resumirMudancas(antes: Credencial[], depois: Credencial[]): { adicionadas: number; editadas: number; removidas: number } {
+  const mapa = new Map(antes.map((c) => [c.id, JSON.stringify(c)]));
+  const ids = new Set(depois.map((c) => c.id));
+  let adicionadas = 0;
+  let editadas = 0;
+  for (const c of depois) {
+    const velho = mapa.get(c.id);
+    if (velho === undefined) adicionadas++;
+    else if (velho !== JSON.stringify(c)) editadas++;
+  }
+  const removidas = antes.filter((c) => !ids.has(c.id)).length;
+  return { adicionadas, editadas, removidas };
+}

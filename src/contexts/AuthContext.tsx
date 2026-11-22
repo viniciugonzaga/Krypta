@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { apiRequest, AUTH_EVENTS, STORAGE_KEYS } from '../services/api';
 import { normalizePlan } from '../utils/plan';
+import { SessaoCofre } from '../services/cofreRemoto';
 
 // Agora só existem dois planos
 export type UserPlan = 'free' | 'pro';
@@ -161,6 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     localStorage.removeItem(STORAGE_KEYS.refresh);
     localStorage.removeItem(STORAGE_KEYS.user);
+    // v1.2.0: sair da conta fecha o cofre aberto com a senha de acesso (apaga a chave da memória)
+    SessaoCofre.fechar();
   }, []);
 
   const refreshUser = useCallback(async () => {

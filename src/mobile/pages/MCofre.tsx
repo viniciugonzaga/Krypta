@@ -19,6 +19,7 @@ import {
   Cpu,
   Eye,
   HelpCircle,
+  History,
   KeyRound,
   Lightbulb,
   Loader2,
@@ -27,6 +28,7 @@ import {
   Plus,
   Search,
   ShieldAlert,
+  Smartphone,
   Users,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -37,6 +39,7 @@ import { normalizarSegredo, segredoValido } from '../../crypto/kryptaCrypto';
 import { useCofre } from '../useCofre';
 import { LinhaChave } from './MChaves';
 import { CofreNaoPronto } from './CofreNaoPronto';
+import { FaixaRemota } from './MRemoto';
 import { FONTE, GRAD, MAviso, MBotao, MCampo, MCard, MFolha, MInterruptor, MLinhaAcao, MTitulo, MobileShell, useMCores } from '../ui';
 
 // ============================================================
@@ -45,8 +48,8 @@ import { FONTE, GRAD, MAviso, MBotao, MCampo, MCard, MFolha, MInterruptor, MLinh
 export function MCofre() {
   const c = useMCores();
   const navigate = useNavigate();
-  const { conta, dispositivo, carregando, erro, aqui, pronto } = useCofre();
-  const chaves = dispositivo?.credenciais ?? [];
+  const { conta, carregando, erro, aqui, pronto, remoto, credenciais, ativo } = useCofre();
+  const chaves = credenciais;
   const r = conta?.recursos;
 
   return (
@@ -57,9 +60,10 @@ export function MCofre() {
       ) : (
         <>
           {erro && <div className="mb-4"><MAviso tipo="erro">{erro}</MAviso></div>}
+          <FaixaRemota c={c} sessao={remoto} />
           {!pronto && <CofreNaoPronto c={c} estado={conta?.status} aqui={aqui} />}
-          {!aqui && conta && conta.status !== 'PENDENTE_PAREAMENTO' && (
-            <MLinhaAcao c={c} i={1} icone={<Eye className="w-5 h-5" />} titulo="Ver o cofre neste aparelho" texto="Só leitura, com a sua chave de contingência (CCP)." to="/cofre/ver" trava={!r?.multiAparelho} />
+          {!aqui && !remoto && conta && conta.status !== 'PENDENTE_PAREAMENTO' && (
+            <MLinhaAcao c={c} i={1} icone={<Eye className="w-5 h-5" />} titulo="Ver com a CCP (só leitura)" texto="Plano B, quando a senha de acesso não estiver disponível." to="/cofre/ver" trava={!r?.multiAparelho} />
           )}
 
           {pronto && (
@@ -109,6 +113,12 @@ export function MCofre() {
               <p className="text-[11px] mt-2 font-semibold" style={{ color: conta?.status === 'REVOGADA' ? '#f87171' : c.roxo }}>{conta?.status === 'REVOGADA' ? 'Bloqueado' : r?.killSwitch ? 'Abrir →' : 'Pro'}</p>
             </MCard>
           </div>
+          {ativo && (
+            <>
+              <MLinhaAcao c={c} i={4} icone={<Smartphone className="w-5 h-5" />} titulo="Senha de acesso ao cofre" texto={aqui ? 'Crie o PIN para abrir e editar nos seus outros aparelhos.' : 'Abra e edite o cofre aqui com o seu PIN.'} to="/cofre/acesso" trava={!r?.acessoRemoto} />
+              <MLinhaAcao c={c} i={4} icone={<History className="w-5 h-5" />} titulo="Pontos de restauração" texto="Salve o estado do cofre e volte a ele com a CCP." to="/cofre/pontos" />
+            </>
+          )}
           <MLinhaAcao c={c} i={4} icone={<AlertTriangle className="w-5 h-5" />} titulo="Recursos de Emergência" texto="Recuperação, acesso suspeito e suporte." to="/emergencia" />
           <button type="button" onClick={() => navigate('/cofre/completo')} className="w-full text-center text-[12px] mt-4 underline underline-offset-4" style={{ color: c.suave }}>
             Abrir a tela completa do cofre (CCP, dispositivo, kit de herança)
@@ -263,6 +273,7 @@ export function MEmergencia() {
       <div className="space-y-3">
         <MLinhaAcao c={c} i={0} icone={<KeyRound className="w-5 h-5" />} titulo="Recuperação de acesso" texto="Esqueceu a senha mestre? Recupere o cofre com a sua CCP." to="/cofre/completo" />
         <MLinhaAcao c={c} i={1} icone={<ShieldAlert className="w-5 h-5" />} titulo="Perdi minha CCP" texto="Crie uma CCP nova pelo dispositivo ou abandone o cofre antigo." to="/perdi-ccp" perigo />
+        <MLinhaAcao c={c} i={1} icone={<History className="w-5 h-5" />} titulo="Desfazer alterações no cofre" texto="Volte o cofre a um ponto de restauração (com a CCP)." to="/cofre/pontos" />
         <MLinhaAcao c={c} i={1} icone={<Search className="w-5 h-5" />} titulo="Acesso suspeito" texto="Veja as atividades recentes e onde sua conta está aberta." to="/profile#sessoes" />
         <MLinhaAcao c={c} i={2} icone={<Cpu className="w-5 h-5" />} titulo="Perdi meu dispositivo" texto="Bloqueio remoto e proteção do cofre." to="/bloqueio" perigo />
         <MLinhaAcao c={c} i={3} icone={<HelpCircle className="w-5 h-5" />} titulo="Preciso de ajuda" texto="Fale com a equipe do Krypta." to="/contact" />

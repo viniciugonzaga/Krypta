@@ -20,13 +20,17 @@ Por que é seguro:
 - CCP nova exige **o dispositivo (que já tem a chave do cofre) E a senha**: um ladrão só com o aparelho não consegue.
 - Abandonar exige **senha + código do e-mail** e **não revela nada**: o backup é apagado sem ser aberto.
   Quem tiver a senha da conta poderia, no máximo, apagar um cofre que já estava perdido, e o dono recebe e-mail.
-- Depois de abandonar, a conta, o plano e as compras continuam. Se o aparelho ainda tinha as chaves
-  (dispositivo de software), a pessoa pode levar essas chaves para o cofre novo no próximo pareamento.
+- Depois de abandonar, a conta, o plano e as compras continuam. **v1.2.0: cada cofre tem as suas chaves** —
+  o cofre novo começa vazio (nada do antigo é copiado, nem do aparelho; a senha de acesso e os pontos de
+  restauração do cofre antigo também são apagados).
 - Um Krypta físico comprado volta a "Pronto para parear" (comando `reset` no firmware gera chave nova).
 
 ## 3. Chaves com tipos, campos e ícones de marcas
 - **Tipos**: Login, Cartão, Endereço, Wi-Fi, Documento, Nota segura, Personalizado.
   Cada tipo começa com os campos dele; **"Adicionar campo"** cria quantos precisar; cada campo pode ser **secreto**.
+  **v1.2.0:** no Free ficam Login (nome, usuário e senha), Wi-Fi e Nota segura; Cartão, Endereço, Documento,
+  Personalizado e "Adicionar campo" (5+ campos) são do Pro. O editor agora também abre no modo Web
+  (`/cofre/chaves` e `/cofre/nova-chave`).
 - **Ícones**: o nome da chave é reconhecido ("Epic Games" → logo da Epic). A biblioteca vem do pacote livre
   **simple-icons** (CC0), gerada no `npm install` em `src/mobile/icones/marcas.gerado.json` (~300 marcas).
   Sem a marca, o Krypta escolhe um **ícone padrão** pelo sentido (banco, jogo, e-mail, Wi-Fi, escola...).

@@ -261,3 +261,28 @@ com um gateway real, o pedido só deve ser aprovado depois da confirmação do p
 - `POST /api/hardware/pair` aceita `backup_inicial` (cofre vazio cifrado no navegador com o envelope da CCP).
 - `GET /api/devices` agora traz `conectado`, `chaveAnunciada`, `codigoConfirmacao`, `hardwareReal`, `ultimoContato`.
 - Firmware: `hardware/krypta-esp32/krypta-esp32.ino`. Teste sem a placa: `npm run sim -- esp32`.
+
+## 14. v1.2.0 — Cofre em qualquer aparelho, relatórios e pontos de restauração (migração 007)
+
+Detalhes e análise de segurança: `docs/COFRE-REMOTO.md`.
+
+| Método | Rota | Token | Corpo / resposta |
+|---|---|---|---|
+| GET | `/api/vault/remoto` | site | estado: `disponivel, configurado, bloqueado, tipo, salt, tentativasRestantes` |
+| POST | `/api/vault/remoto/preparar` | site | `{ prova_cont_dono }` → `{ salt, segredo, payload_cifrado, version_counter }` |
+| POST | `/api/vault/remoto/ativar` | site | `{ prova_cont_dono, prova_pin, envelope, tipo: 'PIN'\|'SENHA' }` |
+| POST | `/api/vault/remoto/abrir` | site | `{ prova_pin }` → `{ token_cofre, envelope, segredo, salt, payload_cifrado, version_counter }` |
+| POST | `/api/vault/remoto/remover` | site | `{ password }` |
+| GET | `/api/vault/remoto/backup` | site + `X-Krypta-Cofre` | backup cifrado mais novo |
+| PUT | `/api/vault/remoto/backup` | site + `X-Krypta-Cofre` | `{ version_counter, payload_cifrado, resumo }` (409 = conflito) |
+| GET | `/api/vault/backup/sync?desde=N` | dispositivo | `{ atualizado, version_counter, payload_cifrado? }` |
+| PUT | `/api/vault/backup` | dispositivo | aceita também `resumo: { adicionadas, editadas, removidas }` |
+| GET | `/api/vault/pontos` | site | `{ pontos[], limite, manuais }` |
+| POST | `/api/vault/pontos` | site | `{ prova_cont_dono, nome }` |
+| POST | `/api/vault/pontos/:id/restaurar` | site | `{ prova_cont_dono }` |
+| POST | `/api/vault/pontos/:id/apagar` | site | `{ prova_cont_dono }` |
+
+- Senha de acesso: só Pro (`acessoRemoto`), só com o cofre ATIVA. 5 erros → bloqueio (423).
+- Pontos: Free 2, Pro 20 (+ até 3 automáticos "Antes de restaurar…").
+- Novas ações no relatório (`/api/vault/activity`): `VAULT_EDITED`, `VAULT_REMOTE_*`, `VAULT_SNAPSHOT_*`.
+- Abandonar o cofre agora apaga também `cofre_acesso_remoto` e `cofre_pontos`.

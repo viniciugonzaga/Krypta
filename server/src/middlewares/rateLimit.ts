@@ -41,6 +41,10 @@ export const limitarOperacaoConta = criar(15 * MIN, 30);
 // recovery/owner, kill-switch e recovery/hardware dividem o contador
 export const limitarContingencia = criar(15 * MIN, 20);
 export const limitarRotacao = criar(15 * MIN, 20);
+// Senha de acesso ao cofre: além do bloqueio após 5 erros na conta, limita por IP
+export const limitarPinCofre = criar(15 * MIN, 20, 'Muitas tentativas de abrir o cofre. Aguarde alguns minutos.');
+// Configurar a senha de acesso e mexer nos pontos de restauração (todos exigem a CCP)
+export const limitarCofreRemoto = criar(15 * MIN, 40);
 export const limitarHeranca = criar(15 * MIN, 20);
 // Resgate do herdeiro é público: limite mais apertado
 export const limitarResgate = criar(15 * MIN, 10);

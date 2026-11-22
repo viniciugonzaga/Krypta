@@ -2,51 +2,36 @@
 // ============================================================
 // ACESSO AO COFRE EM SITUAÇÕES ESPECIAIS (modo Mobile e site)
 //
-//   /cofre/ver   → VER O COFRE EM OUTRO APARELHO (Krypta Pro, só leitura)
-//                  Mesma conta + a CCP: o servidor entrega o backup cifrado e
-//                  este aparelho abre. Nada fica salvo aqui. No Free, a tela
-//                  explica por que não dá e quais são os caminhos.
+//   /cofre/ver   → VER O COFRE COM A CCP (Krypta Pro, só leitura)
+//                  Plano B para quando a senha de acesso (/cofre/acesso, v1.2.0)
+//                  não foi criada ou foi bloqueada. Mesma conta + a CCP: o
+//                  servidor entrega o backup cifrado e este aparelho abre.
 //
 //   /perdi-ccp   → PERDI MINHA CCP
 //                  A) Estou com o dispositivo: ele cria uma CCP nova (+ senha do site).
 //                     Nada se perde.
 //                  B) Perdi a CCP e o dispositivo: ABANDONAR O COFRE (senha + código
 //                     por e-mail). O backup antigo é descartado (ninguém conseguiria
-//                     abri-lo) e a conta fica pronta para um cofre novo. Se este
-//                     aparelho ainda tiver chaves, elas podem entrar no cofre novo.
+//                     abri-lo) e a conta fica pronta para um cofre novo.
+//                     v1.2.0: cada cofre tem as SUAS chaves: nada do antigo vai
+//                     para o novo (nem deste aparelho).
 // ============================================================
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Check, Copy, Cpu, Crown, Eye, Info, KeyRound, Loader2, Lock, ShieldOff, Timer, Trash2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { VaultAPI, handleApiError } from '../../services/api';
 import * as Flows from '../../services/vaultFlows';
 import { gerarSegredo, normalizarSegredo, segredoValido, type Credencial } from '../../crypto/kryptaCrypto';
-import { VirtualDevice } from '../../services/virtualDevice';
-import { Navbar } from '../../components/layout/Navbar';
-import { Footer } from '../../components/layout/Footer';
 import { useCofre } from '../useCofre';
 import { useModo } from '../ModoContext';
-import { MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MTitulo, MobileShell, useMCores, type MCores } from '../ui';
+import { MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MTitulo, useMCores, type MCores } from '../ui';
+import { Moldura } from '../Moldura';
 import { DetalheChave, LinhaChave } from './MChaves';
 
 const MINUTOS_ABERTO = 5;
 
-/** Moldura: app (modo Mobile) ou página do site (modo Web) */
-function Moldura({ children, voltar }: { children: ReactNode; voltar: string }) {
-  const { modo } = useModo();
-  const c = useMCores();
-  if (modo === 'mobile') return <MobileShell voltar={voltar}>{children}</MobileShell>;
-  return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'rgb(var(--krypta-bg))', color: c.texto }}>
-      <Navbar />
-      <main className="flex-1 w-full max-w-xl mx-auto px-4 pt-32 pb-16">{children}</main>
-      <Footer />
-    </div>
-  );
-}
-
-function CampoCcp({ c, valor, onChange, rotulo = 'Sua chave de contingência (CCP)' }: { c: MCores; valor: string; onChange: (v: string) => void; rotulo?: string }) {
+export function CampoCcp({ c, valor, onChange, rotulo = 'Sua chave de contingência (CCP)' }: { c: MCores; valor: string; onChange: (v: string) => void; rotulo?: string }) {
   return (
     <MCampo
       c={c}
@@ -111,8 +96,8 @@ export function MVerCofre() {
   };
 
   return (
-    <Moldura voltar="/device">
-      <MTitulo c={c} titulo="Ver o cofre neste aparelho" sub="Mesma conta, outro aparelho: abra suas chaves com a sua CCP." />
+    <Moldura voltar="/cofre/acesso">
+      <MTitulo c={c} titulo="Ver com a CCP (só leitura)" sub="Plano B: abra suas chaves com a CCP quando a senha de acesso não estiver disponível." />
 
       {carregando ? (
         <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
@@ -136,7 +121,9 @@ export function MVerCofre() {
             <ul className="text-[12.5px] space-y-2" style={{ color: c.suave }}>
               <li>• Abrir o cofre no aparelho onde ele foi pareado.</li>
               <li>• Ver sua conta, plano, compras e alertas em qualquer aparelho.</li>
+              <li>• Criar <strong style={{ color: c.texto }}>pontos de restauração</strong> do cofre (com a CCP).</li>
               <li>• Perdeu o aparelho pareado e não tem a CCP? Use <strong style={{ color: c.texto }}>Perdi minha CCP → Abandonar o cofre</strong> e comece um cofre novo aqui.</li>
+              <li>• No Pro: crie uma <strong style={{ color: c.texto }}>senha de acesso</strong> e abra e edite o cofre em qualquer aparelho.</li>
             </ul>
           </MCard>
         </div>
@@ -147,7 +134,7 @@ export function MVerCofre() {
           <ul className="text-[12.5px] space-y-1.5 mb-4" style={{ color: c.suave }}>
             <li>• A CCP é conferida neste aparelho: só uma prova dela vai ao servidor.</li>
             <li>• O servidor envia o cofre cifrado e é este aparelho que abre.</li>
-            <li>• Para criar ou editar chaves, use o aparelho pareado.</li>
+            <li>• Para editar em outro aparelho, use a <strong style={{ color: c.texto }}>senha de acesso ao cofre</strong>.</li>
             <li>• Você recebe um alerta por e-mail a cada abertura.</li>
           </ul>
           <CampoCcp c={c} valor={ccp} onChange={setCcp} />
@@ -202,13 +189,11 @@ export function MPerdiCcp() {
   const [codigoEnviado, setCodigoEnviado] = useState<boolean | null>(null);
   const [codigo, setCodigo] = useState('');
   const [confirmacao, setConfirmacao] = useState('');
-  const [levarChaves, setLevarChaves] = useState(true);
 
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [feito, setFeito] = useState<'ccp' | 'abandonado' | null>(null);
 
-  const chavesNesteAparelho = VirtualDevice.carregar(contaId)?.credenciais.length ?? 0;
   const podeDispositivo = aqui && ativo;
   const semCofre = conta?.status === 'PENDENTE_PAREAMENTO';
 
@@ -243,7 +228,7 @@ export function MPerdiCcp() {
 
   const abandonar = () =>
     executar(
-      () => Flows.abandonarCofre(contaId, codigo, levarChaves),
+      () => Flows.abandonarCofre(contaId, codigo),
       () => {
         setFeito('abandonado');
         recarregar();
@@ -278,7 +263,7 @@ export function MPerdiCcp() {
           <p className="font-semibold flex items-center gap-2" style={{ color: '#22c55e' }}><Check className="w-5 h-5" /> Cofre antigo abandonado</p>
           <p className="text-[13px] mt-2" style={{ color: c.suave }}>
             Sua conta, plano e compras continuam. Agora crie o cofre novo: você vai gerar uma CCP nova (guarde em papel!).
-            {Flows.lerChavesParaImportar().length > 0 && ` As ${Flows.lerChavesParaImportar().length} chave(s) deste aparelho entram no cofre novo.`}
+            O cofre novo começa vazio: as chaves, a senha de acesso e os pontos de restauração do cofre antigo foram apagados.
           </p>
           <MBotao className="mt-4" onClick={() => navigate(modo === 'mobile' ? '/cofre/completo' : '/device')}>Criar meu cofre novo</MBotao>
         </MCard>
@@ -340,7 +325,7 @@ export function MPerdiCcp() {
         <MCard c={c} style={{ borderColor: 'rgba(239,68,68,0.5)' }}>
           <MFaixa c={c} icone={<AlertTriangle className="w-5 h-5" />} titulo="Abandonar o cofre" sub="Não dá para desfazer" />
           <div className="text-[12.5px] space-y-1.5 mb-4" style={{ color: c.suave }}>
-            <p><strong style={{ color: '#f87171' }}>Some:</strong> o backup cifrado do cofre antigo, o kit de herança e o vínculo com o dispositivo perdido (ele não entra mais).</p>
+            <p><strong style={{ color: '#f87171' }}>Some:</strong> todas as chaves do cofre antigo (também as deste aparelho), o backup cifrado, a senha de acesso, os pontos de restauração, o kit de herança e o vínculo com o dispositivo perdido.</p>
             <p><strong style={{ color: '#22c55e' }}>Fica:</strong> sua conta, plano, compras e histórico. Um Krypta físico comprado pode ser pareado de novo.</p>
             <p>Por segurança, pedimos a senha e um código enviado ao seu e-mail.</p>
           </div>
@@ -362,12 +347,6 @@ export function MPerdiCcp() {
               </MAviso>
               <MCampo c={c} rotulo="Código do e-mail" inputMode="numeric" maxLength={6} value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))} />
               <MCampo c={c} rotulo='Digite "ABANDONAR" para confirmar' value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} autoCapitalize="characters" />
-              {chavesNesteAparelho > 0 && (
-                <label className="flex items-start gap-2 text-[12.5px]">
-                  <input type="checkbox" checked={levarChaves} onChange={(e) => setLevarChaves(e.target.checked)} className="accent-purple-600 w-4 h-4 mt-0.5" />
-                  Este aparelho ainda guarda {chavesNesteAparelho} chave(s) do cofre antigo. Levar para o cofre novo.
-                </label>
-              )}
               {erro && <MAviso tipo="erro">{erro}</MAviso>}
               <MBotao variante="perigo" carregando={ocupado} disabled={codigo.length !== 6 || confirmacao.trim().toUpperCase() !== 'ABANDONAR'} onClick={abandonar}>
                 <Trash2 className="w-4 h-4" /> Abandonar o cofre

@@ -32,6 +32,8 @@ import { HowItWorks } from '../pages/HowItWorks';
 import { Aplicacoes } from '../pages/Aplicacoes';
 import { MOnboarding } from '../mobile/pages/MOnboarding';
 import { MPerdiCcp, MVerCofre } from '../mobile/pages/MAcesso';
+import { MAcessoCofre, MPontos } from '../mobile/pages/MRemoto';
+import { MChaves, MNovaChave } from '../mobile/pages/MChaves';
 import { Orders } from '../pages/Orders';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -144,6 +146,11 @@ export function AppRoutes() {
           <Route path="/device" element={<PageTransition><PrivateRoute><Device /></PrivateRoute></PageTransition>} />
           {/* Cofre em outro aparelho (Pro, só leitura) e "Perdi minha CCP" — mesmas telas do app */}
           <Route path="/cofre/ver" element={<PrivateRoute><MVerCofre /></PrivateRoute>} />
+          {/* v1.2.0: mesmo editor e telas do app também no modo Web */}
+          <Route path="/cofre/acesso" element={<PrivateRoute><MAcessoCofre /></PrivateRoute>} />
+          <Route path="/cofre/pontos" element={<PrivateRoute><MPontos /></PrivateRoute>} />
+          <Route path="/cofre/chaves" element={<PrivateRoute><MChaves /></PrivateRoute>} />
+          <Route path="/cofre/nova-chave" element={<PrivateRoute><MNovaChave /></PrivateRoute>} />
           <Route path="/perdi-ccp" element={<PrivateRoute><MPerdiCcp /></PrivateRoute>} />
           {/* Questionário do primeiro acesso → plano recomendado (mesma tela do modo Mobile) */}
           <Route path="/boas-vindas" element={<PrivateRoute><MOnboarding /></PrivateRoute>} />

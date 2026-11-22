@@ -31,12 +31,14 @@ import {
   Download,
   Eye,
   EyeOff,
+  History,
   KeyRound,
   Loader2,
   Lock,
   Plus,
   RefreshCw,
   ShieldCheck,
+  Smartphone,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -50,7 +52,7 @@ import { resumo as resumoCredencial } from '../mobile/credenciais';
 import { DevicesAPI, VaultAPI, type ContaCofre, type DispositivoComprado, type EstadoCofre, type EventoCofre } from '../services/api';
 import { VirtualDevice, type EstadoDispositivo } from '../services/virtualDevice';
 import * as Flows from '../services/vaultFlows';
-import { aleatorio, bytesParaB64, gerarSegredo, normalizarSegredo, segredoValido, type Credencial } from '../crypto/kryptaCrypto';
+import { gerarSegredo, normalizarSegredo, segredoValido } from '../crypto/kryptaCrypto';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 
@@ -419,11 +421,6 @@ function SeletorDispositivo({
   );
 }
 
-function gerarSenhaForte(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
-  return Array.from(aleatorio(16), (b) => chars[b % chars.length]).join('');
-}
-
 /**
  * embutido = dentro do modo Mobile (sem a Navbar/rodapé do site).
  * #heranca, #recuperar, #ccp ou #kill no endereço já abrem a ação certa.
@@ -448,7 +445,6 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
   const [segredoNovo, setSegredoNovo] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
   const [textoConfirmacao, setTextoConfirmacao] = useState('');
-  const [novaCred, setNovaCred] = useState({ servico: '', usuario: '', senha: '' });
   const [mostrarSenhas, setMostrarSenhas] = useState(false);
 
   // dispositivos comprados, alertas e escolha do dispositivo
@@ -465,7 +461,12 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
       const [contaApi, lista] = await Promise.all([VaultAPI.account(), DevicesAPI.list().catch(() => [] as DispositivoComprado[])]);
       setConta(contaApi);
       setCompras(lista);
-      setDispositivo(VirtualDevice.carregar(contaId));
+      let local = VirtualDevice.carregar(contaId);
+      // v1.2.0: puxa o que outro aparelho editou com a senha de acesso (ou uma restauração)
+      if (local && contaApi.status === 'ATIVA' && local.publicKey === contaApi.public_key && local.chaveCofre) {
+        local = (await Flows.sincronizarDispositivo(contaId).catch(() => null))?.dispositivo ?? local;
+      }
+      setDispositivo(local);
       setAtividade(contaApi.recursos?.alertasAcesso ? await VaultAPI.activity().catch(() => null) : null);
     } catch (e) {
       setMensagem({ tipo: 'erro', texto: (e as Error).message });
@@ -564,30 +565,12 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
   // ------------------------------------------------------------
   // Cofre (credenciais de demonstração)
   // ------------------------------------------------------------
-  const adicionarCredencial = () => {
-    if (!dispositivo || !novaCred.servico.trim()) return;
-    const cred: Credencial = {
-      id: bytesParaB64(aleatorio(6)),
-      servico: novaCred.servico.trim(),
-      usuario: novaCred.usuario.trim(),
-      senha: novaCred.senha || gerarSenhaForte(),
-      criadaEm: new Date().toISOString(),
-    };
-    executar(
-      'Gravando no dispositivo e enviando o backup cifrado...',
-      async () => {
-        await Flows.salvarCofre(contaId, [...dispositivo.credenciais, cred]);
-        setNovaCred({ servico: '', usuario: '', senha: '' });
-      },
-      `"${cred.servico}" salvo no dispositivo e sincronizado (backup cifrado).`
-    );
-  };
-
+  // v1.2.0: criar/editar usa o MESMO editor do app (tipos, campos e ícones): /cofre/nova-chave
   const removerCredencial = (id: string) => {
     if (!dispositivo) return;
     executar(
       'Sincronizando...',
-      () => Flows.salvarCofre(contaId, dispositivo.credenciais.filter((x) => x.id !== id)),
+      () => Flows.salvarCofre(contaId, (lista) => lista.filter((x) => x.id !== id)),
       'Credencial removida e cofre sincronizado.'
     );
   };
@@ -728,11 +711,6 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                 </label>
               </div>
             )}
-            {Flows.lerChavesParaImportar().length > 0 && (
-              <p className="mb-4 text-xs rounded-lg p-3" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.4)' }}>
-                {Flows.lerChavesParaImportar().length} chave(s) do cofre antigo, que estavam neste aparelho, vão entrar no cofre novo.
-              </p>
-            )}
             <p className="text-xs font-bold tracking-[0.15em] uppercase mb-2" style={{ color: c.bright }}>2. Gere sua chave de contingência</p>
             {!segredoNovo ? (
               <Botao c={c} onClick={() => setSegredoNovo(gerarSegredo())}>
@@ -758,10 +736,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                       () =>
                         usarHardwareReal && hardwareSelecionado?.chaveAnunciada
                           ? Flows.parearHardwareReal(contaId, segredoNovo, hardwareSelecionado.serial, hardwareSelecionado.chaveAnunciada)
-                          : Flows.parearDispositivo(contaId, segredoNovo, serialValido, Flows.lerChavesParaImportar()).then((r) => {
-                              Flows.limparChavesParaImportar(); // chaves do cofre abandonado já entraram no novo
-                              return r;
-                            }),
+                          : Flows.parearDispositivo(contaId, segredoNovo, serialValido), // cofre novo começa vazio
                       usarHardwareReal
                         ? `Hardware ${serialValido} pareado! Toque o cartão no dispositivo para entrar.`
                         : serialValido
@@ -821,8 +796,9 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                   </div>
                 ) : (
                 <p className="text-sm rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: c.isDark ? '#fcd34d' : '#92400e' }}>
-                  O dispositivo desta conta não está neste navegador. Use o navegador onde você pareou, ou{' '}
-                  <Link to="/cofre/ver" className="underline font-semibold">veja o cofre aqui com a sua CCP</Link> (Pro, só leitura).
+                  O dispositivo desta conta não está neste navegador.{' '}
+                  <Link to="/cofre/acesso" className="underline font-semibold">Abra o cofre aqui com a sua senha de acesso</Link> (Pro: ver e editar)
+                  {' '}ou <Link to="/cofre/ver" className="underline font-semibold">veja com a CCP</Link> (só leitura).
                   Perdeu a CCP? <Link to="/perdi-ccp" className="underline font-semibold">Veja as opções</Link>. As ações de emergência abaixo continuam disponíveis.
                 </p>
                 )
@@ -835,10 +811,10 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                     {dispositivo!.credenciais.map((cr) => (
                       <motion.div key={cr.id} layout className="flex items-center gap-3 rounded-lg p-3" style={{ background: c.isDark ? 'rgba(141,81,255,0.06)' : 'rgba(81,0,189,0.04)', border: `1px solid ${c.border}` }}>
                         <IconeServico nome={cr.servico} icone={cr.icone} tipo={cr.tipo} tamanho={32} />
-                        <div className="flex-1 min-w-0">
+                        <Link to={`/cofre/nova-chave?id=${encodeURIComponent(cr.id)}`} className="flex-1 min-w-0" title="Editar">
                           <p className="text-sm font-semibold truncate">{cr.servico}</p>
                           <p className="text-xs truncate" style={{ color: c.muted }}>{resumoCredencial(cr)}</p>
-                        </div>
+                        </Link>
                         <span className="font-mono text-xs hidden sm:block" style={{ color: c.muted }}>
                           {mostrarSenhas ? cr.senha : '••••••••••'}
                         </span>
@@ -848,25 +824,38 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                       </motion.div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2">
-                    {(['servico', 'usuario', 'senha'] as const).map((campo) => (
-                      <input
-                        key={campo}
-                        value={novaCred[campo]}
-                        onChange={(e) => setNovaCred((s) => ({ ...s, [campo]: e.target.value }))}
-                        placeholder={campo === 'servico' ? 'Serviço (ex.: Gmail)' : campo === 'usuario' ? 'Usuário / e-mail' : 'Senha (vazio = gerar)'}
-                        type={campo === 'senha' && !mostrarSenhas ? 'password' : 'text'}
-                        className="py-2.5 px-3 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500/50"
-                        style={{ background: c.fieldBg, border: `1px solid ${c.border}`, color: c.fg }}
-                      />
-                    ))}
-                    <Botao c={c} onClick={adicionarCredencial} disabled={!novaCred.servico.trim() || !!ocupado}>
-                      <Plus className="w-4 h-4" /> Salvar
-                    </Botao>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Link to="/cofre/nova-chave" className="py-2.5 px-4 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-2" style={{ background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)' }}>
+                      <Plus className="w-4 h-4" /> Nova chave
+                    </Link>
+                    <Link to="/cofre/chaves" className="py-2.5 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2" style={{ border: `1px solid ${c.border}`, color: c.bright }}>
+                      <KeyRound className="w-4 h-4" /> Ver e editar todas
+                    </Link>
                   </div>
+                  <p className="text-[11px] mt-2" style={{ color: c.muted }}>
+                    Login, Wi-Fi e nota no Free · cartão, endereço, documento e campos extras no Pro.
+                  </p>
                 </>
               )}
             </Painel>
+
+            {/* v1.2.0: outros aparelhos e pontos de restauração */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Link to="/cofre/acesso" className="rounded-xl p-4 flex items-start gap-3" style={{ background: c.isDark ? 'rgba(141,81,255,0.06)' : 'rgba(81,0,189,0.04)', border: `1px solid ${c.border}` }}>
+                <Smartphone className="w-5 h-5 mt-0.5 shrink-0" style={{ color: c.bright }} />
+                <span>
+                  <span className="block text-sm font-semibold">Senha de acesso ao cofre {!recursos?.acessoRemoto && <span className="text-[10px] ml-1 px-1.5 py-0.5 rounded" style={{ background: 'rgba(141,81,255,0.15)', color: c.bright }}>Pro</span>}</span>
+                  <span className="block text-xs" style={{ color: c.muted }}>Abra e edite o cofre em qualquer aparelho, com um PIN.</span>
+                </span>
+              </Link>
+              <Link to="/cofre/pontos" className="rounded-xl p-4 flex items-start gap-3" style={{ background: c.isDark ? 'rgba(141,81,255,0.06)' : 'rgba(81,0,189,0.04)', border: `1px solid ${c.border}` }}>
+                <History className="w-5 h-5 mt-0.5 shrink-0" style={{ color: c.bright }} />
+                <span>
+                  <span className="block text-sm font-semibold">Pontos de restauração</span>
+                  <span className="block text-xs" style={{ color: c.muted }}>Salve o estado do cofre e volte a ele com a CCP.</span>
+                </span>
+              </Link>
+            </div>
 
             {/* Ações */}
             <Painel c={c}>

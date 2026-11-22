@@ -6,20 +6,27 @@
 //   MNovaChave      → "/cofre/nova-chave"    criar (botão "+") ou editar (?id=)
 //
 // Cada chave tem um TIPO (Login, Cartão, Endereço, Wi-Fi, Documento, Nota,
-// Personalizado) com os campos iniciais dele, e a pessoa pode adicionar ou
-// remover quantos campos quiser. O ícone é reconhecido pelo nome (logo da
-// marca) ou escolhido à mão. Tudo é cifrado junto no cofre.
+// Personalizado) com os campos iniciais dele. O ícone é reconhecido pelo nome
+// (logo da marca) ou escolhido à mão. Tudo é cifrado junto no cofre.
+//
+// v1.2.0
+//  • Free: Login (nome, usuário e senha), Wi-Fi e Nota segura — até 3 campos.
+//  • Pro : todos os tipos e quantos campos quiser ("Adicionar campo").
+//  • Funciona no aparelho pareado E nos aparelhos abertos com a senha de acesso.
+//  • As mesmas telas servem ao modo Mobile e ao site (Moldura).
 // ============================================================
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Copy, Eye, EyeOff, Lightbulb, Loader2, Lock, Pencil, Plus, Search, Sparkles, Trash2, Wand2, X } from 'lucide-react';
+import { Check, Copy, Crown, Eye, EyeOff, Lightbulb, Loader2, Lock, Pencil, Plus, Search, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import { handleApiError } from '../../services/api';
 import type { CampoCredencial, Credencial } from '../../crypto/kryptaCrypto';
 import { gerarSenhaForte, useCofre } from '../useCofre';
-import { TIPOS, camposDoTipo, camposParaMostrar, novoCampo, resumo, tipoDe, type TipoCredencial } from '../credenciais';
+import { TIPOS, TIPOS_FREE, camposDoTipo, camposParaMostrar, novoCampo, resumo, tipoDe, type TipoCredencial } from '../credenciais';
 import { IconeServico, PADRAO, normalizar, resolverIcone, useMarcas, type IconePadrao } from '../icones';
-import { GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MTitulo, MobileShell, useMCores, type MCores } from '../ui';
+import { GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MTitulo, useMCores, type MCores } from '../ui';
+import { Moldura } from '../Moldura';
+import { FaixaRemota } from './MRemoto';
 import { CofreNaoPronto } from './CofreNaoPronto';
 
 export const CATEGORIAS = ['Pessoal', 'Bancos', 'Redes sociais', 'Trabalho', 'Estudos', 'Compras', 'Jogos', 'Casa', 'Saúde', 'Outros'];
@@ -125,7 +132,7 @@ export function DetalheChave({ c, cred }: { c: MCores; cred: Credencial }) {
 export function MChaves() {
   const c = useMCores();
   const navigate = useNavigate();
-  const { dispositivo, pronto, carregando, conta, aqui, salvar } = useCofre();
+  const { credenciais, pronto, carregando, conta, aqui, remoto, salvar } = useCofre();
   const [busca, setBusca] = useState('');
   const [aberta, setAberta] = useState<Credencial | null>(null);
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
@@ -134,19 +141,20 @@ export function MChaves() {
 
   const lista = useMemo(() => {
     const t = normalizar(busca);
-    const todas = [...(dispositivo?.credenciais ?? [])].sort((a, b) => a.servico.localeCompare(b.servico));
+    const todas = [...credenciais].sort((a, b) => a.servico.localeCompare(b.servico));
     if (!t) return todas;
     return todas.filter((x) =>
       normalizar([x.servico, x.usuario, x.categoria ?? '', TIPOS[tipoDe(x)].rotulo, ...(x.campos ?? []).filter((f) => !f.secreto).map((f) => f.valor)].join(' ')).includes(t)
     );
-  }, [dispositivo, busca]);
+  }, [credenciais, busca]);
 
   const excluir = async () => {
-    if (!aberta || !dispositivo) return;
+    if (!aberta) return;
+    const id = aberta.id;
     setOcupado(true);
     setErro(null);
     try {
-      await salvar(dispositivo.credenciais.filter((x) => x.id !== aberta.id));
+      await salvar((lista) => lista.filter((x) => x.id !== id));
       setAberta(null);
       setConfirmarExclusao(false);
     } catch (err) {
@@ -157,8 +165,9 @@ export function MChaves() {
   };
 
   return (
-    <MobileShell voltar="/device">
+    <Moldura voltar="/device">
       <MTitulo c={c} titulo="Minhas chaves" sub="Toque numa chave para ver todos os campos." />
+      <FaixaRemota c={c} sessao={remoto} />
       {carregando ? (
         <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
       ) : !pronto ? (
@@ -203,7 +212,7 @@ export function MChaves() {
           </>
         )}
       </MFolha>
-    </MobileShell>
+    </Moldura>
   );
 }
 
@@ -300,7 +309,8 @@ export function MNovaChave() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const idEdicao = params.get('id');
-  const { dispositivo, pronto, carregando, conta, aqui, salvar } = useCofre();
+  const { credenciais, pronto, carregando, conta, aqui, remoto, salvar } = useCofre();
+  const extras = !!conta?.recursos?.camposExtras; // Pro: mais tipos e campos
 
   const [tipo, setTipo] = useState<TipoCredencial>('login');
   const [f, setF] = useState({ servico: '', usuario: '', senha: '', categoria: '', nota: '' });
@@ -313,7 +323,7 @@ export function MNovaChave() {
   const [carregouEdicao, setCarregouEdicao] = useState(false);
 
   // Editando: carrega a chave existente
-  const existente = idEdicao ? dispositivo?.credenciais.find((x) => x.id === idEdicao) ?? null : null;
+  const existente = idEdicao ? credenciais.find((x) => x.id === idEdicao) ?? null : null;
   useEffect(() => {
     if (!existente || carregouEdicao) return;
     setTipo(tipoDe(existente));
@@ -323,7 +333,11 @@ export function MNovaChave() {
     setCarregouEdicao(true);
   }, [existente, carregouEdicao]);
 
+  const tipoLiberado = (t: TipoCredencial) => extras || TIPOS_FREE.includes(t) || (existente ? tipoDe(existente) === t : false);
+
   const trocarTipo = (t: TipoCredencial) => {
+    if (!tipoLiberado(t)) return setErro(`${TIPOS[t].rotulo} é do Krypta Pro. No Free: Login, Wi-Fi e Nota segura.`);
+    setErro(null);
     setTipo(t);
     // Só troca os campos se a pessoa ainda não preencheu nenhum
     if (campos.every((x) => !x.valor)) setCampos(camposDoTipo(t));
@@ -337,7 +351,11 @@ export function MNovaChave() {
     if (tipo === 'login' && !f.senha) return setErro('Digite a senha ou toque em "Gerar senha forte".');
     const camposValidos = campos.filter((x) => x.rotulo.trim() || x.valor);
     if (tipo !== 'login' && !camposValidos.some((x) => x.valor)) return setErro('Preencha pelo menos um campo.');
-    if (!dispositivo) return;
+    if (!tipoLiberado(tipo)) return setErro(`${TIPOS[tipo].rotulo} é do Krypta Pro.`);
+    // Free: no máximo os campos do próprio tipo (sem campos extras)
+    if (!extras && camposValidos.length > Math.max(TIPOS[tipo].campos.length, existente?.campos?.length ?? 0)) {
+      return setErro('Campos extras são do Krypta Pro. Remova os campos a mais ou assine o Pro.');
+    }
     setOcupado(true);
     try {
       const dados: Credencial = {
@@ -352,8 +370,8 @@ export function MNovaChave() {
         nota: f.nota.trim() || undefined,
         campos: camposValidos.map((x) => ({ ...x, rotulo: x.rotulo.trim() || 'Campo' })),
       };
-      const lista = existente ? dispositivo.credenciais.map((x) => (x.id === existente.id ? dados : x)) : [...dispositivo.credenciais, dados];
-      await salvar(lista);
+      // Função = aplica sobre a lista MAIS NOVA (outro aparelho pode ter mudado algo)
+      await salvar((lista) => (existente ? lista.map((x) => (x.id === existente.id ? dados : x)) : [...lista, dados]));
       navigate('/cofre/chaves', { replace: true });
     } catch (err) {
       setErro(handleApiError(err).message);
@@ -363,8 +381,9 @@ export function MNovaChave() {
   };
 
   return (
-    <MobileShell voltar={true}>
+    <Moldura voltar={true}>
       <MTitulo c={c} titulo={existente ? 'Editar chave' : 'Criar nova chave'} sub="Tudo o que você digitar aqui é cifrado no seu aparelho." />
+      <FaixaRemota c={c} sessao={remoto} />
       {carregando ? (
         <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
       ) : !pronto ? (
@@ -374,7 +393,8 @@ export function MNovaChave() {
           {/* Tipo */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
             {(Object.keys(TIPOS) as TipoCredencial[]).map((t) => (
-              <button key={t} type="button" onClick={() => trocarTipo(t)} className="shrink-0 px-3.5 h-9 rounded-full text-[13px] font-semibold" style={tipo === t ? { background: GRAD, color: '#fff' } : { border: `1.5px solid ${c.borda}`, color: c.texto }}>
+              <button key={t} type="button" onClick={() => trocarTipo(t)} className="shrink-0 px-3.5 h-9 rounded-full text-[13px] font-semibold flex items-center gap-1" style={tipo === t ? { background: GRAD, color: '#fff' } : { border: `1.5px solid ${c.borda}`, color: c.texto, opacity: tipoLiberado(t) ? 1 : 0.55 }}>
+                {!tipoLiberado(t) && <Crown className="w-3.5 h-3.5" style={{ color: c.roxo }} />}
                 {TIPOS[t].rotulo}
               </button>
             ))}
@@ -441,9 +461,15 @@ export function MNovaChave() {
                   </motion.div>
                 ))}
               </AnimatePresence>
-              <button type="button" onClick={() => setCampos((l) => [...l, novoCampo(`Campo ${l.length + 1}`)])} className="w-full h-11 rounded-xl text-[13.5px] font-semibold flex items-center justify-center gap-2" style={{ border: `1.5px dashed ${c.roxo}`, color: c.roxo }}>
-                <Plus className="w-4 h-4" /> Adicionar campo
-              </button>
+              {extras ? (
+                <button type="button" onClick={() => setCampos((l) => [...l, novoCampo(`Campo ${l.length + 1}`)])} className="w-full h-11 rounded-xl text-[13.5px] font-semibold flex items-center justify-center gap-2" style={{ border: `1.5px dashed ${c.roxo}`, color: c.roxo }}>
+                  <Plus className="w-4 h-4" /> Adicionar campo
+                </button>
+              ) : (
+                <button type="button" onClick={() => navigate('/plans')} className="w-full h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-2" style={{ border: `1.5px dashed ${c.borda}`, color: c.suave }}>
+                  <Crown className="w-4 h-4" style={{ color: c.roxo }} /> Mais campos (cartão, endereço, 5+ campos) no Krypta Pro
+                </button>
+              )}
 
               <label className="block">
                 <span className="block text-[13px] font-medium mb-1">Categoria</span>
@@ -467,6 +493,6 @@ export function MNovaChave() {
         </div>
       )}
       <EscolherIcone c={c} aberta={folhaIcone} onFechar={() => setFolhaIcone(false)} nome={f.servico} tipo={tipo} valor={icone} onEscolher={setIcone} />
-    </MobileShell>
+    </Moldura>
   );
 }

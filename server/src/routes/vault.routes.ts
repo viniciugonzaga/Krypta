@@ -13,6 +13,7 @@ import { BackupController } from '../controllers/BackupController.js';
 import { ContingencyController } from '../controllers/ContingencyController.js';
 import { InheritanceController } from '../controllers/InheritanceController.js';
 import { VaultAcessoController } from '../controllers/VaultAcessoController.js';
+import { VaultRemotoController as Remoto, exigirSessaoCofre } from '../controllers/VaultRemotoController.js';
 import { exigirEscopo } from '../middlewares/vaultAuth.js';
 import {
   limitarContingencia,
@@ -20,6 +21,8 @@ import {
   limitarOperacaoConta,
   limitarResgate,
   limitarRotacao,
+  limitarPinCofre,
+  limitarCofreRemoto,
 } from '../middlewares/rateLimit.js';
 
 const router = Router();
@@ -35,6 +38,8 @@ router.get('/activity', site, VaultController.activity);
 router.put('/backup', hardware, BackupController.enviar);
 router.get('/backup', hardware, BackupController.baixar);
 router.get('/backup/metadata', hardware, BackupController.metadados);
+// v1.2.0: o dispositivo puxa o que outro aparelho editou
+router.get('/backup/sync', hardware, Remoto.sincronizar);
 
 // ============ CONTINGÊNCIA (Parte 5) ============
 // Esqueci a senha mestre: o dono PRECISA estar com o dispositivo
@@ -51,6 +56,21 @@ router.post('/backup/ccp', site, limitarContingencia, VaultAcessoController.abri
 router.post('/ccp/reset', hardware, limitarRotacao, VaultAcessoController.resetCcp);
 router.post('/abandon/request', site, limitarContingencia, VaultAcessoController.pedirAbandono);
 router.post('/abandon/confirm', site, limitarContingencia, VaultAcessoController.confirmarAbandono);
+
+// ============ v1.2.0: SENHA DE ACESSO AO COFRE (outros aparelhos, Pro) ============
+router.get('/remoto', site, Remoto.estado);
+router.post('/remoto/preparar', site, limitarCofreRemoto, Remoto.preparar);
+router.post('/remoto/ativar', site, limitarCofreRemoto, Remoto.ativar);
+router.post('/remoto/abrir', site, limitarPinCofre, Remoto.abrir);
+router.post('/remoto/remover', site, limitarCofreRemoto, Remoto.remover);
+router.get('/remoto/backup', site, exigirSessaoCofre, Remoto.baixarRemoto);
+router.put('/remoto/backup', site, exigirSessaoCofre, Remoto.gravarRemoto);
+
+// ============ v1.2.0: PONTOS DE RESTAURAÇÃO (exigem a CCP) ============
+router.get('/pontos', site, Remoto.listarPontos);
+router.post('/pontos', site, limitarCofreRemoto, Remoto.criarPonto);
+router.post('/pontos/:id/restaurar', site, limitarCofreRemoto, Remoto.restaurarPonto);
+router.post('/pontos/:id/apagar', site, limitarCofreRemoto, Remoto.apagarPonto);
 
 // ============ HERANÇA (Parte 6) ============
 router.post('/inheritance/enable', hardware, limitarHeranca, InheritanceController.enable);

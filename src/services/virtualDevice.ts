@@ -141,12 +141,17 @@ export interface BackupInfo {
 export const DeviceAPI = {
   metadata: (token: string) => deviceFetch<BackupInfo>('/vault/backup/metadata', { token }),
 
-  enviarBackup: (token: string, versionCounter: number, payload: string) =>
+  /** resumo = só contagens (adicionadas/editadas/removidas) para o relatório da conta */
+  enviarBackup: (token: string, versionCounter: number, payload: string, resumo?: { adicionadas: number; editadas: number; removidas: number }) =>
     deviceFetch<BackupInfo>('/vault/backup', {
       method: 'PUT',
       token,
-      body: { version_counter: versionCounter, payload_cifrado: payload },
+      body: { version_counter: versionCounter, payload_cifrado: payload, ...(resumo ? { resumo } : {}) },
     }),
+
+  /** v1.2.0: se outro aparelho editou o cofre (senha de acesso / restauração), puxa a versão nova */
+  sincronizar: (token: string, desde: number) =>
+    deviceFetch<{ atualizado: boolean; version_counter: number; payload_cifrado?: string }>(`/vault/backup/sync?desde=${desde}`, { token }),
 
   baixarBackup: (token: string) =>
     deviceFetch<BackupInfo & { payload_cifrado: string }>('/vault/backup', { token }),

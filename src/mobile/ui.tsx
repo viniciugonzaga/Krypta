@@ -319,7 +319,7 @@ export function MCampo({ c, rotulo, direita, ...props }: { c: MCores; rotulo: st
         <input
           {...props}
           className="w-full h-11 px-3 rounded-lg text-[14px] outline-none focus:ring-2 focus:ring-purple-500/40"
-          style={{ background: c.campo, border: `1.5px solid ${c.borda}`, color: c.texto, paddingRight: direita ? 44 : undefined }}
+          style={{ background: c.campo, border: `1.5px solid ${c.borda}`, color: c.texto, paddingRight: direita ? 44 : undefined, ...props.style }}
         />
         {direita && <span className="absolute right-2 top-1/2 -translate-y-1/2">{direita}</span>}
       </span>

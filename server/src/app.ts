@@ -38,7 +38,7 @@ app.use(
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Krypta-Cliente'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Krypta-Cliente', 'X-Krypta-Cofre'],
     maxAge: 600,
   })
 );

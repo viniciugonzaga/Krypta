@@ -28,6 +28,9 @@ import {
 import { VaultModel } from '../models/VaultModel.js';
 import { exigirConta, exigirEspaco, resultadoOuErro } from '../services/VaultRules.js';
 import type { VaultRequest } from '../middlewares/vaultAuth.js';
+import { AuditModel } from '../models/AuditModel.js';
+import { descreverCliente } from '../middlewares/cliente.js';
+import { lerResumo, textoResumo } from './VaultRemotoController.js';
 
 export const BackupController = {
   // ------------------------------------------------------------
@@ -51,6 +54,18 @@ export const BackupController = {
     }
 
     const data = resultadoOuErro(r, (s) => `Cofre no estado ${s}.`);
+
+    // v1.2.0: relatório do que mudou (só contagens; o conteúdo segue cifrado)
+    const resumo = lerResumo(req.body?.resumo);
+    if (resumo) {
+      await AuditModel.log({
+        userId: req.vault!.userId,
+        action: 'VAULT_EDITED',
+        detail: `Cofre editado no dispositivo pareado ${descreverCliente(req.cliente)}: ${textoResumo(resumo)} (versão ${data.version_counter})`,
+        ip: req.ip,
+        status: 'success',
+      });
+    }
     res.json({ success: true, data });
   }),
 

@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Activity, AlertTriangle, ChevronRight, Cpu, Crown, KeyRound, Lock, LogIn, ShieldCheck, Sparkles, Users } from 'lucide-react';
+import { Activity, AlertTriangle, ChevronRight, Cpu, Crown, History, KeyRound, Lock, LogIn, PencilLine, ShieldCheck, Smartphone, Sparkles, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserAPI, type EventoConta } from '../../services/api';
 import { isProPlan } from '../../utils/plan';
@@ -16,6 +16,9 @@ import { FONTE, GRAD, MCard, MFaixa, MTitulo, MobileShell, fmtQuando, useMCores 
 import roboAcenando from '../../assets/sprites/sprite_robo_acenando.png';
 
 function iconeEvento(acao: string) {
+  if (acao === 'VAULT_EDITED') return <PencilLine className="w-4 h-4" />;
+  if (acao.includes('SNAPSHOT')) return <History className="w-4 h-4" />;
+  if (acao.includes('REMOTE')) return <Smartphone className="w-4 h-4" />;
   if (acao.includes('LOGIN')) return <LogIn className="w-4 h-4" />;
   if (acao.includes('PASSWORD') || acao.includes('CCP')) return <KeyRound className="w-4 h-4" />;
   if (acao.includes('INHERITANCE')) return <Users className="w-4 h-4" />;

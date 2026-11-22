@@ -32,8 +32,8 @@ export function getPlanFullName(plan?: string | null): string {
  * Só para exibir na interface: quem bloqueia de verdade é o servidor.
  */
 export const RECURSOS_PLANO = {
-  free: { armazenamentoKB: 64, dispositivoFisico: false, killSwitch: false, heranca: false, alertasAcesso: false, multiAparelho: false },
-  pro: { armazenamentoKB: 1024, dispositivoFisico: true, killSwitch: true, heranca: true, alertasAcesso: true, multiAparelho: true },
+  free: { armazenamentoKB: 64, dispositivoFisico: false, killSwitch: false, heranca: false, alertasAcesso: false, multiAparelho: false, acessoRemoto: false, pontosRestauracao: 2, camposExtras: false },
+  pro: { armazenamentoKB: 1024, dispositivoFisico: true, killSwitch: true, heranca: true, alertasAcesso: true, multiAparelho: true, acessoRemoto: true, pontosRestauracao: 20, camposExtras: true },
 } as const;
 
 export function recursosDoPlano(plan?: string | null) {

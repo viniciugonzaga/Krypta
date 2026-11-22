@@ -28,6 +28,21 @@ const ACOES_COFRE = [
   'VAULT_INHERITANCE_ENABLED',
   'VAULT_INHERITANCE_DISABLED',
   'VAULT_INHERITANCE_CLAIMED',
+  // v1.1.0
+  'VAULT_OPENED_CCP',
+  'VAULT_CCP_RESET',
+  'VAULT_ABANDON_REQUEST',
+  'VAULT_ABANDONED',
+  // v1.2.0: quem mexeu no cofre, de onde e o que mudou
+  'VAULT_EDITED',
+  'VAULT_REMOTE_SETUP',
+  'VAULT_REMOTE_OPENED',
+  'VAULT_REMOTE_FAILED',
+  'VAULT_REMOTE_LOCKED',
+  'VAULT_REMOTE_REMOVED',
+  'VAULT_SNAPSHOT_CREATED',
+  'VAULT_SNAPSHOT_RESTORED',
+  'VAULT_SNAPSHOT_DELETED',
 ];
 
 export const VaultController = {
@@ -53,7 +68,7 @@ export const VaultController = {
          FROM audit_logs
         WHERE user_id = ? AND action IN (${marcadores})
         ORDER BY created_at DESC
-        LIMIT 25`,
+        LIMIT 40`,
       [req.vault!.userId, ...ACOES_COFRE]
     );
     res.json({
