@@ -1,5 +1,7 @@
 # Krypta — Hardware (ESP32)
 
+> Parte do projeto [Krypta](../README.md). Arquitetura geral: [docs/ARQUITETURA.md](../docs/ARQUITETURA.md).
+
 > **Vai ligar a placa?** Siga o passo a passo completo em [GUIA-CONEXAO.md](GUIA-CONEXAO.md).
 
 ## Fase 1 (este firmware)
@@ -26,7 +28,7 @@
 3. Grave na placa e abra o Monitor Serial (115200, "Nova linha"):
    ```
    wifi NomeDaRede SenhaDaRede
-   api http://IP-DO-SEU-PC:3333/api
+   api http://IP-DO-SEU-PC:3333/api      (online: api https://endereco-da-api/api)
    serial KRY-XXXX-XXXX-XXXX
    ```
    O IP do PC aparece no `ipconfig` (IPv4). Libere a porta 3333 no Firewall do Windows.

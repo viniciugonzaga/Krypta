@@ -29,3 +29,8 @@ public/downloads/
 *.njsproj
 *.sln
 *.sw?
+
+# Krypta: chaves do simulador e saídas do app desktop
+.sim-keys.json
+src-tauri/target/
+src-tauri/gen/

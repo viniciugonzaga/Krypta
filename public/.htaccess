@@ -1,0 +1,36 @@
+# ============================================================
+# KRYPTA — regras do servidor web (Hostinger / Apache / LiteSpeed)
+# Este arquivo vai junto no "npm run build" (pasta dist/).
+# Envie-o para a public_html junto com o resto do site.
+# ============================================================
+Options -MultiViews
+RewriteEngine On
+
+# 1) Sempre HTTPS (o PWA e a criptografia do navegador exigem)
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# 2) SPA: qualquer endereço que não seja um arquivo real abre o index.html
+#    (sem isso, recarregar /device ou /cofre/chaves dá erro 404)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+RewriteRule ^ index.html [L]
+
+<IfModule mod_headers.c>
+  # 3) O app instalado (PWA) se atualiza sozinho: estes 3 arquivos nunca ficam em cache velho
+  <FilesMatch "^(index\.html|sw\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # 4) Cabeçalhos de segurança
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+</IfModule>
