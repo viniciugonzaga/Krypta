@@ -214,5 +214,5 @@ Passo a passo para a Hostinger (plano Premium ou Business) e alternativas: **[do
 - App Android/iOS nativo empacotando o mesmo front (Capacitor), se a loja for necessária.
 
 ## 14. Autores
-Projeto desenvolvido por **Vinícius Gonzaga Pereira** e equipe.
+Projeto desenvolvido por Kevin Lima &bull; Lukas Bariani &bull; Sofia Moura &bull; Vinícius Gonzaga.
 <!-- Adicione aqui os demais integrantes do grupo -->
