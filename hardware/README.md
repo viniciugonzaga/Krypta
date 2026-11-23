@@ -36,6 +36,9 @@
    marque "Usar o hardware real" e confira o código com a tela → gere a CCP → Parear.
 5. A tela muda para "Aproxime o cartão": o primeiro cartão vira o cartão do dono.
 
+> A placa e o site precisam usar o **mesmo servidor**: com `api https://krypta-api.onrender.com/api`,
+> pareie em `https://krypta.website`. O firmware aceita HTTPS (por enquanto sem conferir o certificado; ver Produção abaixo).
+
 ## Próximas fases
 - Fase 2: o cofre dentro do ESP32 (AES-GCM, credenciais na flash cifrada) e envio do backup com o token do dispositivo.
 - Fase 3: app/PWA conversando com o ESP32 por USB ou Bluetooth (o ESP32 assina, o app mostra).

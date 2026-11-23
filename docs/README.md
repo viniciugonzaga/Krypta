@@ -10,7 +10,8 @@ Comece pelo [README principal](../README.md). Aqui estão os documentos técnico
 | 4 | [COFRE-REMOTO.md](COFRE-REMOTO.md) | Front / back / segurança | Senha de acesso, relatórios e pontos de restauração (v1.2.0) |
 | 5 | [MODO-MOBILE.md](MODO-MOBILE.md) | Front | Modo Mobile, PWA, identificação do cliente, questionário |
 | 6 | [DESKTOP.md](DESKTOP.md) | Front / deploy | App Windows (Tauri) e publicação do `.exe` |
-| 7 | [HOSPEDAGEM.md](HOSPEDAGEM.md) | Deploy | Colocar front, API, banco, PWA e `.exe` no ar (Hostinger + Render) |
+| 7 | [PRODUCAO.md](PRODUCAO.md) | Todos | Como o Krypta foi hospedado e como funciona no ar (endereços, fluxo, operação) |
+| 8 | [HOSPEDAGEM.md](HOSPEDAGEM.md) | Deploy | Passo a passo para refazer a hospedagem (Hostinger + Render + Brevo) |
 
 ## Documentação por pasta
 | Pasta | README |

@@ -24,4 +24,5 @@ Não tem tela, lógica ou banco próprios; usa a mesma API do site.
    `Krypta-Setup.exe` com nome fixo — o botão **Baixar para Windows** do site sempre pega o mais novo.
 
 O endereço da API vem das *Variables* do GitHub (`VITE_API_URL`, `VITE_SITE_URL`), escritas no `.env.desktop` durante o build.
+Em produção: `VITE_API_URL=https://krypta-api.onrender.com/api` e `VITE_SITE_URL=https://krypta.website`.
 Guia completo: [docs/DESKTOP.md](../docs/DESKTOP.md).

@@ -8,11 +8,13 @@
 
 Site · App do celular (PWA) · App para Windows · API · Dispositivo ESP32
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-1.2.0-6d28d9)
+![versão](https://img.shields.io/badge/vers%C3%A3o-1.2.1-6d28d9)
 ![front](https://img.shields.io/badge/front-React%2019%20%2B%20Vite%20%2B%20TS-61dafb)
 ![api](https://img.shields.io/badge/API-Node%20%2B%20Express%20%2B%20MySQL-339933)
 ![desktop](https://img.shields.io/badge/desktop-Tauri%202-ffc131)
 ![hardware](https://img.shields.io/badge/hardware-ESP32-e7352c)
+
+**No ar:** [krypta.website](https://krypta.website) · API `krypta-api.onrender.com`
 
 </div>
 
@@ -28,7 +30,7 @@ Site · App do celular (PWA) · App para Windows · API · Dispositivo ESP32
 7. [Como rodar no seu computador](#7-como-rodar-no-seu-computador)
 8. [Testes](#8-testes)
 9. [As aplicações: site, celular e Windows](#9-as-aplicações-site-celular-e-windows)
-10. [Hospedagem](#10-hospedagem)
+10. [Hospedagem (no ar)](#10-hospedagem-no-ar)
 11. [Documentação completa](#11-documentação-completa)
 12. [Histórico de versões](#12-histórico-de-versões)
 13. [Próximos passos](#13-próximos-passos)
@@ -95,7 +97,7 @@ flowchart LR
   W & P & D -- HTTPS + JWT --> API
   E -- HTTPS + assinatura Ed25519 --> API
   API[API Krypta<br/>Node + Express + TS] --> DB[(MySQL / MariaDB)]
-  API -. e-mail .-> SMTP[(SMTP)]
+  API -. e-mail .-> MAIL[(Brevo / SMTP)]
 ```
 
 - **Um front só** (`src/`) serve o site, o PWA e o app Windows. Mudou uma tela → muda nos três.
@@ -159,7 +161,7 @@ npm run dev
 ```
 
 - Site: http://localhost:5173 · API: http://localhost:3333/api · saúde: http://localhost:3333/health
-- Sem SMTP configurado, os e-mails (códigos, alertas) aparecem no **terminal da API**.
+- Sem e-mail configurado (SMTP no PC ou `BREVO_API_KEY`), os códigos e alertas aparecem no **terminal da API**.
 
 > ⚠️ Guarde uma cópia do `PASSWORD_PEPPER` fora do projeto. Se ele mudar, nenhuma CCP confere mais.
 
@@ -176,16 +178,27 @@ Lista de comandos: [server/scripts/README.md](server/scripts/README.md).
 
 | Aplicação | Como chega ao usuário | Atualização |
 |---|---|---|
-| **Site** | Navegador, endereço do site | Ao publicar o novo `dist/` |
+| **Site** | Navegador, `https://krypta.website` | **Sozinho**: cada push na `main` faz a Hostinger montar o site de novo |
 | **App do celular (PWA)** | Aplicações → "Instalar no celular" (Android: botão; iPhone: Compartilhar → Tela de Início) | **Sozinho**, na próxima abertura |
 | **App Windows** | Aplicações → "Baixar para Windows" (`Krypta-Setup.exe` do GitHub Releases) | Nova versão = GitHub Actions → **Run workflow** → instalar por cima |
 | **Krypta físico** | Firmware `hardware/krypta-esp32` gravado pela IDE Arduino | Regravar o firmware |
 
 Guias: [docs/MODO-MOBILE.md](docs/MODO-MOBILE.md) · [docs/DESKTOP.md](docs/DESKTOP.md) · [hardware/GUIA-CONEXAO.md](hardware/GUIA-CONEXAO.md)
 
-## 10. Hospedagem
-O front é estático (qualquer hospedagem serve); a API precisa de **Node.js**; o banco é **MySQL**.
-Passo a passo para a Hostinger (plano Premium ou Business) e alternativas: **[docs/HOSPEDAGEM.md](docs/HOSPEDAGEM.md)**.
+## 10. Hospedagem (no ar)
+
+| Parte | Endereço | Onde |
+|---|---|---|
+| Site + PWA | `https://krypta.website` | Hostinger Premium, montado direto do GitHub (Vite) |
+| API | `https://krypta-api.onrender.com/api` | Render (Free, Node 22, pasta `server/`) |
+| Banco | MySQL da Hostinger | Acesso remoto liberado só para o banco do Krypta |
+| E-mails | `no-reply@krypta.website` | Brevo (API HTTP), opcional |
+| App Windows | Aplicações → Baixar para Windows | GitHub Releases |
+
+Um **push na `main`** atualiza o site (Hostinger) e a API (Render) sozinhos. Migrações SQL continuam manuais (phpMyAdmin).
+
+- Como foi feito e como funciona hoje: **[docs/PRODUCAO.md](docs/PRODUCAO.md)**
+- Passo a passo para refazer do zero: **[docs/HOSPEDAGEM.md](docs/HOSPEDAGEM.md)**
 
 ## 11. Documentação completa
 Índice: **[docs/README.md](docs/README.md)**.
@@ -198,11 +211,13 @@ Passo a passo para a Hostinger (plano Premium ou Business) e alternativas: **[do
 | [docs/COFRE-REMOTO.md](docs/COFRE-REMOTO.md) | Senha de acesso, relatórios e pontos de restauração |
 | [docs/MODO-MOBILE.md](docs/MODO-MOBILE.md) | Modo Mobile, PWA e identificação do cliente |
 | [docs/DESKTOP.md](docs/DESKTOP.md) | App Windows (Tauri) e publicação do .exe |
-| [docs/HOSPEDAGEM.md](docs/HOSPEDAGEM.md) | Colocar tudo no ar |
+| [docs/PRODUCAO.md](docs/PRODUCAO.md) | Como o Krypta foi hospedado e como funciona no ar |
+| [docs/HOSPEDAGEM.md](docs/HOSPEDAGEM.md) | Passo a passo para refazer a hospedagem |
 
 ## 12. Histórico de versões
 | Versão | Principais mudanças |
 |---|---|
+| **1.2.1** | No ar: site em `krypta.website` (Hostinger) e API no Render; e-mails pela API HTTP da Brevo; imports com o nome exato das pastas (build no Linux); dependências atualizadas |
 | **1.2.0** | Senha de acesso ao cofre (Pro), edição em qualquer aparelho com sincronia, relatório de edições, pontos de restauração com a CCP, campos extras só no Pro, editor completo no site, cofre abandonado não leva mais chaves para o novo |
 | **1.1.0** | Ver o cofre com a CCP em outro aparelho, "Perdi minha CCP" (nova CCP / abandonar), tipos de chave, campos e ícones de marcas |
 | **1.0.x** | Modo Mobile + PWA, app Windows (Tauri) e página Aplicações, firmware ESP32 fase 1, loja (planos e dispositivo), Kill Switch, herança, CCP, cofre zero-knowledge |
@@ -215,4 +230,3 @@ Passo a passo para a Hostinger (plano Premium ou Business) e alternativas: **[do
 
 ## 14. Autores
 Projeto desenvolvido por Kevin Lima &bull; Lukas Bariani &bull; Sofia Moura &bull; Vinícius Gonzaga.
-<!-- Adicione aqui os demais integrantes do grupo -->

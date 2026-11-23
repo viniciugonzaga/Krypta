@@ -121,7 +121,7 @@ do Titular (senha mestre).
 
 ## 7. Como testar
 
-Pré-requisitos: XAMPP com MySQL ligado, migração `server/sql/002_cofre_hardware.sql` aplicada,
+Pré-requisitos: XAMPP com MySQL ligado, migrações `server/sql/001` a `007` aplicadas,
 `server/.env` preenchido (veja `server/.env.example`).
 
 ```powershell
@@ -151,29 +151,33 @@ Para voltar a usar a conta de teste depois do roteiro de inatividade, cadastre-a
 
 ---
 
-## 8. Antes de hospedar (checklist)
+## 8. Hospedagem (feita na v1.2.1)
 
-**Hostinger:** o site React vira arquivos estáticos (`npm run build` → `dist/`) e roda em
-qualquer plano. A API Node.js exige o plano **Business** ou **Cloud** (o Premium não roda Node).
+O site está em `https://krypta.website` (Hostinger Premium, montado do GitHub) e a API em
+`https://krypta-api.onrender.com/api` (Render Free), usando o MySQL da Hostinger com acesso remoto.
+Detalhes: [PRODUCAO.md](PRODUCAO.md) · passo a passo: [HOSPEDAGEM.md](HOSPEDAGEM.md).
 
-- [ ] Banco: criar o MySQL no hPanel, importar o dump local e aplicar a migração 002
-- [ ] `server/.env` de produção: `NODE_ENV=production`, `TRUST_PROXY=1`, `DB_*` da Hostinger
-- [ ] **Novos** `JWT_SECRET` e `PASSWORD_PEPPER` (`npm run gerar-segredo`) — guarde o pepper fora do servidor
-- [ ] `CORS_ORIGIN=https://app.seudominio.com.br` (e `tauri://localhost` quando houver o app desktop)
-- [ ] SMTP real (senha de app do Gmail ou SMTP da Hostinger)
-- [ ] Front: `.env.production` com `VITE_API_URL=https://api.seudominio.com.br/api`, depois `npm run build`
-- [ ] HTTPS ligado nos dois subdomínios (as provas da CCP são credenciais: nunca em HTTP)
-- [ ] Trocar o `GOOGLE_CLIENT_SECRET` (ele foi exposto em conversa) antes de ligar o login social
+- [x] Banco de produção novo, migrações 001 a 007, MySQL remoto só para esse banco
+- [x] `NODE_ENV=production`, `TRUST_PROXY=1`, `DB_*` da Hostinger (no Render)
+- [x] **Novos** `JWT_SECRET` e `PASSWORD_PEPPER` só para produção
+- [x] `CORS_ORIGIN=https://krypta.website` (o app desktop é liberado pelo próprio servidor)
+- [x] HTTPS no site e na API
+- [ ] E-mail real: `BREVO_API_KEY` no Render (o Render Free bloqueia SMTP)
+- [ ] Trocar o `GOOGLE_CLIENT_SECRET` antes de ligar o login social
 - [ ] Remover ou esconder o dispositivo virtual em produção quando o app do ESP32 existir
 
 ---
 
-## 9. Próximas fases
+## 9. Fases
 
-1. **Telas mobile + PWA** — layout adaptativo (detecção de tela pequena) e instalação no celular.
-2. **App desktop (Tauri)** — mesmo front React empacotado em `.exe`, falando com o ESP32 pela USB
-   no lugar do dispositivo virtual (`virtualDevice.ts` vira uma ponte para o hardware).
-3. **Login social** — Google/GitHub/Apple com as chaves de produção.
+Concluídas: telas mobile + PWA, app desktop (Tauri) com download direto, firmware ESP32 fase 1,
+cofre em vários aparelhos (v1.1.0/v1.2.0) e hospedagem (v1.2.1).
+
+Próximas:
+1. **Firmware fase 2** — cofre dentro do ESP32 e app conversando com a placa por USB/Bluetooth
+   (`virtualDevice.ts` vira uma ponte para o hardware).
+2. **Login social** — Google/GitHub/Apple com as chaves de produção.
+3. **Pagamento real** — hoje é simulado.
 
 ## 10. Limitações conhecidas (herdadas do contrato da API)
 

@@ -27,7 +27,7 @@ Com a API rodando (`npm run dev`), em outro terminal, dentro de `server/`:
 
 As chaves do simulador ficam em `scripts/.sim-keys.json` (fora do Git).
 
-**Testar a API online:** defina `SIM_API` antes.
-PowerShell: `$env:SIM_API="https://sua-api/api"; npm run sim -- testar-tudo`
+**Testar a API online** (cria uma conta de teste no banco de produção; apague com `limpar` no fim):
+PowerShell: `$env:SIM_API="https://krypta-api.onrender.com/api"; npm run sim -- testar-tudo`
 
 `testar-inatividade.ts` (`npm run ttl`) testa a rotina de avisos e exclusão por inatividade.

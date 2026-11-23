@@ -6,6 +6,11 @@ para a próxima quando o que está ali acontecer.
 
 Tempo estimado: 1 a 2 horas na primeira vez.
 
+> **Atualizado na v1.2.1:** o Krypta está no ar (site `https://krypta.website`, API
+> `https://krypta-api.onrender.com/api`). A placa pode usar a **API online** (mais simples: não precisa
+> de servidor ligado no PC nem de mexer no firewall) ou um **servidor no seu PC** (para desenvolvimento).
+> Veja a parte 6.
+
 ---
 
 ## Sumário
@@ -15,7 +20,7 @@ Tempo estimado: 1 a 2 horas na primeira vez.
 3. [Montar as ligações](#3-montar-as-ligações)
 4. [Preparar a IDE Arduino](#4-preparar-a-ide-arduino)
 5. [Gravar o firmware na placa](#5-gravar-o-firmware-na-placa)
-6. [Preparar o computador que roda o servidor](#6-preparar-o-computador-que-roda-o-servidor)
+6. [Escolher o servidor: online ou no PC](#6-escolher-o-servidor-online-ou-no-pc)
 7. [Configurar a placa pelo Monitor Serial](#7-configurar-a-placa-pelo-monitor-serial)
 8. [Parear no site](#8-parear-no-site)
 9. [Testar o cartão e o Kill Switch](#9-testar-o-cartão-e-o-kill-switch)
@@ -34,13 +39,13 @@ Tempo estimado: 1 a 2 horas na primeira vez.
 - Fios jumper fêmea-fêmea e um cabo **USB de dados** (alguns cabos só carregam: se a placa não aparecer no PC, troque o cabo)
 
 **No computador**
-- O projeto Krypta já rodando (servidor `npm run dev` na pasta `server` e site `npm run dev` na raiz)
 - A IDE Arduino 2 (baixe em arduino.cc → Software)
-- Acesso a uma conta do site com plano **Pro**
+- Uma conta com plano **Pro** no site que a placa vai usar: `https://krypta.website` (API online) ou o site local
+- Só no modo servidor no PC: o projeto rodando (`npm run dev` na pasta `server` e na raiz)
 
 **Rede**
-- Um Wi-Fi de **2,4 GHz** (o ESP32 não conecta em 5 GHz). Pode ser o roteador de casa ou o roteador do celular.
-- O ESP32 e o computador do servidor precisam estar **na mesma rede**.
+- Um Wi-Fi de **2,4 GHz** com internet (o ESP32 não conecta em 5 GHz). Pode ser o roteador de casa ou o do celular.
+- Só no modo servidor no PC: o ESP32 e o computador precisam estar **na mesma rede**.
 
 ---
 
@@ -49,9 +54,9 @@ Tempo estimado: 1 a 2 horas na primeira vez.
 ```
  [Cartão NFC] ──► [PN532] ──I2C──► [ESP32] ──SPI──► [Tela redonda]
                                       │
-                                   Wi-Fi
+                                Wi-Fi (HTTPS)
                                       │
-                           [Servidor Krypta no PC]  ◄──►  [Site: Meu Krypta]
+             [API Krypta: online no Render  OU  no seu PC]  ◄──►  [Site: Meu Krypta]
 ```
 
 O que acontece, em ordem:
@@ -144,7 +149,24 @@ Abra o **Library Manager** (ícone de livros na barra da esquerda) e instale cad
 
 ---
 
-## 6. Preparar o computador que roda o servidor
+## 6. Escolher o servidor: online ou no PC
+
+> ⚠️ A placa e o site precisam usar **o mesmo servidor** (e portanto o mesmo banco).
+> Placa na API online → parear em `https://krypta.website`. Placa no PC → parear no site local (`http://localhost:5173`).
+
+### 6.0 Opção A — API online (recomendado)
+
+Não precisa preparar nada no computador. O endereço da API é:
+
+```
+https://krypta-api.onrender.com/api
+```
+
+**✅ Confira:** no celular, abra `https://krypta-api.onrender.com/health`. Deve aparecer `"status":"OK"`.
+Se demorar até 1 minuto, é a API "acordando" (plano grátis do Render); depois fica rápida.
+Com a opção A, pule para a parte 7 e use esse endereço no comando `api`.
+
+### Opção B — Servidor no seu PC
 
 A placa precisa encontrar o servidor pela rede. `localhost` não serve, porque para a placa "localhost" é ela mesma.
 
@@ -167,7 +189,7 @@ A placa precisa encontrar o servidor pela rede. `localhost` não serve, porque p
 
 ### 6.3 Servidor ligado e banco atualizado
 
-1. No phpMyAdmin, confirme que as migrações **002, 003 e 004** já foram executadas no banco `krypta` (a 004 adiciona a coluna `chave_anunciada` na tabela `dispositivos`).
+1. No phpMyAdmin, confirme que as migrações **001 a 007** já foram executadas no banco `krypta` (a 004 adiciona a coluna `chave_anunciada` na tabela `dispositivos`).
 2. Na pasta `server`: `npm run dev`.
 
 **✅ Confira:** no **celular conectado no mesmo Wi-Fi**, abra o navegador em
@@ -180,7 +202,7 @@ Deve aparecer `"status":"OK"`. Se o celular abre, a placa também vai conseguir.
 
 ### 7.1 Pegar o número de série
 
-1. No site, entre na conta **Pro** que vai usar a placa.
+1. No site (`https://krypta.website` na opção A, ou o local na opção B), entre na conta **Pro** que vai usar a placa.
 2. Se ainda não tiver um dispositivo: **Produtos → Comprar** (o pagamento é simulado).
 3. Vá em **Minhas compras** e clique em **"Recebi meu dispositivo"**.
 4. Clique no ícone de copiar ao lado do número de série (formato `KRY-XXXX-XXXX-XXXX`).
@@ -207,9 +229,11 @@ wifi NomeDaRede SenhaDaRede
 > ```
 
 ```
-api http://SEU-IP:3333/api
+api https://krypta-api.onrender.com/api
 ```
-> Use o IP do passo 6.1. Exemplo: `api http://192.168.0.15:3333/api` (com `/api` no fim e **sem** barra depois).
+> Opção A (API online): use exatamente o endereço acima.
+> Opção B (PC): `api http://SEU-IP:3333/api`, com o IP do passo 6.1. Exemplo: `api http://192.168.0.15:3333/api`.
+> Nos dois casos: com `/api` no fim e **sem** barra depois.
 
 ```
 serial KRY-XXXX-XXXX-XXXX
@@ -227,7 +251,7 @@ Conectando no Wi-Fi MinhaCasa.... ok, IP 192.168.0.42
 Servidor: AGUARDANDO_PAREAMENTO · codigo 482 117
 ------ KRYPTA ------
 Serie:   KRY-7F3A-9C1B-04D2
-API:     http://192.168.0.15:3333/api
+API:     https://krypta-api.onrender.com/api
 Wi-Fi:   MinhaCasa (conectado)
 Codigo:  482 117
 Estado:  AGUARDANDO_PAREAMENTO
@@ -240,7 +264,7 @@ E a tela mostra **"PAREAR NO SITE"** com o código de 6 dígitos.
 
 ## 8. Parear no site
 
-1. Abra **Meu Krypta** (menu Krypta) com a mesma conta Pro.
+1. Abra **Meu Krypta** (menu Krypta) com a mesma conta Pro, **no mesmo site** do servidor escolhido na parte 6.
    - O cofre precisa estar **aguardando pareamento** (conta que ainda não pareou nenhum dispositivo). Se a conta já tem cofre, use uma conta nova Pro para este teste.
 2. Em **"1. Escolha o dispositivo"**, marque o número de série. Ele aparece com **"● ligado"** em verde (a página confere sozinha a cada 5 segundos).
 3. Aparece o quadro **"Usar o hardware real"** com um código grande.
@@ -286,7 +310,9 @@ E a tela mostra **"PAREAR NO SITE"** com o código de 6 dígitos.
 | Tela **"ERRO: PN532"** e `PN532 NAO ENCONTRADO` | Fio SDA/SCL trocado, chavinhas fora do modo I2C ou PN532 sem energia | Confira a tabela da seção 3, chave 1 ON e chave 2 OFF, depois aperte EN/RST |
 | Tela preta | Fios da tela, ou BL sem energia | Confira SCL=18, SDA=23, RST=27, DC=25, CS=26 e BL em 3V3 |
 | **"SEM WI-FI"** | Nome ou senha errados, rede 5 GHz | Repita `wifi Nome Senha` (ou `rede` + `senha` se o nome tiver espaço). Use uma rede 2,4 GHz |
-| **"SEM SERVIDOR"** + `connection refused` | Servidor desligado ou IP errado | Rode `npm run dev` em `server`. Confira o IP com `ipconfig` e repita o comando `api` |
+| **"SEM SERVIDOR"** + `connection refused` | Opção B: servidor desligado ou IP errado | Rode `npm run dev` em `server`. Confira o IP com `ipconfig` e repita o comando `api` |
+| **"SEM SERVIDOR"** + `read Timeout` na API online | A API estava "dormindo" (Render grátis) | Espere 1 minuto: a placa tenta de novo sozinha a cada 10 s. Confira `/health` no celular |
+| O site não mostra **"● ligado"**, mas a placa diz `AGUARDANDO_PAREAMENTO` | Placa e site em servidores diferentes (um online, outro no PC) | Use o mesmo servidor nos dois (parte 6) |
 | **"SEM SERVIDOR"** + `read Timeout` ou `connection lost` | Firewall bloqueando, rede "Pública" ou PC em outra rede | Refaça a seção 6.2 e teste o `/health` no celular |
 | **"SEM SERVIDOR"** + `404 Dispositivo não encontrado` | Número de série digitado errado ou de outro banco | Copie de novo em Minhas compras e repita `serial ...` |
 | **"SEM SERVIDOR"** + `409 ... pareado com outra chave` | Esse número de série já foi pareado com o dispositivo virtual (navegador) | Compre outro dispositivo em Produtos e use o número novo |
@@ -309,7 +335,7 @@ E a tela mostra **"PAREAR NO SITE"** com o código de 6 dígitos.
 |---|---|
 | `wifi <rede> <senha>` | Salva o Wi-Fi e conecta |
 | `rede <nome>` e depois `senha <senha>` | O mesmo, para nome de rede com espaço |
-| `api <url>` | Salva o endereço do servidor (ex.: `http://192.168.0.15:3333/api`) |
+| `api <url>` | Salva o endereço do servidor (online: `https://krypta-api.onrender.com/api` · PC: `http://192.168.0.15:3333/api`) |
 | `serial <KRY-...>` | Salva o número de série do dispositivo comprado |
 | `status` | Mostra configuração, chave pública, código e estado |
 | `cartao` | Esquece o cartão do dono (o próximo cartão aproximado vira o novo) |
@@ -342,4 +368,5 @@ Na pasta `server`, com o servidor ligado:
 ```
 npm run sim -- esp32
 ```
+Para testar contra a API online (PowerShell): `$env:SIM_API="https://krypta-api.onrender.com/api"; npm run sim -- esp32`.
 Ele faz exatamente o que a placa faz (com chaves de verdade) e mostra cada passo. Se esse teste passa e a placa não, o problema está na placa, nos fios ou na rede, não no sistema.

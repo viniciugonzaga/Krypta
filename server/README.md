@@ -30,7 +30,8 @@ Copie `.env.example` para `.env`. Principais variáveis:
 | `PASSWORD_PEPPER` | Segredo das provas da CCP/CCH/PIN (64+ hex, **diferente** do JWT). **Guarde cópia fora do projeto.** |
 | `CORS_ORIGIN` | Endereços do front, separados por vírgula (o app Windows já é liberado sozinho) |
 | `TRUST_PROXY` | `0` local · `1` atrás de proxy (Hostinger, Render) |
-| `SMTP_*`, `MAIL_FROM`, `SUPPORT_EMAIL` | E-mails. Vazio = e-mails aparecem no terminal |
+| `SMTP_*`, `MAIL_FROM`, `SUPPORT_EMAIL` | E-mails por SMTP (uso no PC). Vazio = e-mails aparecem no terminal |
+| `BREVO_API_KEY` | E-mails pela API HTTP da Brevo. Preenchida, substitui o SMTP (obrigatória no Render Free, que bloqueia SMTP) |
 | `GOOGLE_CLIENT_ID` | Login social (opcional) |
 
 Se faltar algo obrigatório, a API **não sobe** e mostra qual variável está errada (`src/config/env.ts`).
@@ -85,4 +86,7 @@ Saúde: `GET /health` (fora do `/api`).
 - Auditoria em `audit_logs` (aparece no Perfil e nos alertas do cofre).
 
 ## Hospedagem
-Precisa de **Node.js 20+** sempre ligado. Passo a passo: [docs/HOSPEDAGEM.md](../docs/HOSPEDAGEM.md).
+Precisa de **Node.js 20+** sempre ligado. Hoje roda no **Render** (Free, Node 22) em `https://krypta-api.onrender.com`,
+com root `server`, build `npm install --include=dev && npm run build`, start `npm start` e health check `/health`.
+Cada push na `main` publica a API de novo. Como está no ar: [docs/PRODUCAO.md](../docs/PRODUCAO.md) ·
+passo a passo: [docs/HOSPEDAGEM.md](../docs/HOSPEDAGEM.md).

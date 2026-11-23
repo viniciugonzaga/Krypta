@@ -13,6 +13,9 @@ O mesmo código vira o **site**, o **app do celular (PWA / modo Mobile)** e o **
 | `npm run lint` | oxlint |
 | `npm run icones` | Regera a biblioteca de logos de marcas |
 
+Em produção o site é montado pela Hostinger a partir do GitHub, com as variáveis definidas no painel do site
+(`VITE_API_URL=https://krypta-api.onrender.com/api`, `VITE_SITE_URL=https://krypta.website`).
+
 Variáveis (`.env` / `.env.production`, veja `.env.example`): `VITE_API_URL`, `VITE_SITE_URL`,
 `VITE_DESKTOP_DOWNLOAD_URL`, login social. **Tudo com `VITE_` vai para o navegador: nunca coloque segredos.**
 
@@ -48,6 +51,8 @@ src/
 Legado sem uso no fluxo atual: `services/mockDb.ts`, `services/database.ts`, `services/fakePayment.ts`, `services/teste.ts`.
 
 ## Regras importantes
+- **Nome de arquivo = import, letra por letra.** O Windows ignora maiúsculas, o servidor de build (Linux) não:
+  a pasta é `assets/Logos`, então o import é `../assets/Logos/...`.
 - **Toda criptografia fica em `crypto/kryptaCrypto.ts`.** Parâmetros congelados: mudar exige rótulo `v2`.
 - As telas chamam `services/vaultFlows.ts` / `services/cofreRemoto.ts`; não falam com a criptografia direto.
 - Gravar o cofre: passe uma **função** (`salvar(lista => ...)`) para aplicar sobre a versão mais nova.

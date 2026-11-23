@@ -58,12 +58,16 @@ Ela também reconhece o sistema do visitante: no Windows, o botão vem em destaq
    ```
    Ele cria a tag `v1.0.1` e envia. O resto é automático.
 
+> **Produção (v1.2.1):** as *Variables* do GitHub já apontam para a API online
+> (`VITE_API_URL=https://krypta-api.onrender.com/api`, `VITE_SITE_URL=https://krypta.website`).
+> Sem Git no terminal, lance pelo site do GitHub: **Actions → App desktop (Windows) → Run workflow**.
+
 ### Sem GitHub (servindo o .exe pela Hostinger)
 
 1. `npm run desktop:build` (gera o instalador no seu PC)
 2. `npm run desktop:copiar` (copia para `public/downloads/Krypta-Setup.exe`)
 3. No `.env` do site: `VITE_DESKTOP_DOWNLOAD_URL=/downloads/Krypta-Setup.exe`
-4. `npm run build` e envie a pasta `dist/` para a Hostinger como sempre.
+4. Faça o commit do `.exe` em `public/downloads/` (a pasta está no `.gitignore`: remova a linha antes) e dê push; a Hostinger monta o site com ele.
 
 ---
 
