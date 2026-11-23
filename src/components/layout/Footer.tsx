@@ -6,8 +6,8 @@ import { ContactAPI } from '../../services/api';
 import { Link } from 'react-router-dom';
 import { IS_DESKTOP } from '../../config/desktop';
 
-import logoTextoClaro from '../../assets/logos/Krypta_de_texto.png';
-import logoTextoEscuro from '../../assets/logos/Krypta_de_texto2.png';
+import logoTextoClaro from '../../assets/Logos/Krypta_de_texto.png';
+import logoTextoEscuro from '../../assets/Logos/Krypta_de_texto2.png';
 
 const FacebookIcon = ({ size = 22, ...props }: { size?: number; [key: string]: any }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>

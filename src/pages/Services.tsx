@@ -22,8 +22,8 @@ import spriteRoboX from '../assets/sprites/sprite_robo_x.png';
 import spriteRoboVerificado from '../assets/sprites/sprite_robo_verificado.png';
 import spriteRoboAnimado from '../assets/sprites/sprite_robo_animado.png';
 
-import logoTextoClaro from '../assets/logos/Krypta_de_texto.png';
-import logoTextoEscuro from '../assets/logos/Krypta_de_texto2.png';
+import logoTextoClaro from '../assets/Logos/Krypta_de_texto.png';
+import logoTextoEscuro from '../assets/Logos/Krypta_de_texto2.png';
 
 // ============================================================
 // FONTE E CORES

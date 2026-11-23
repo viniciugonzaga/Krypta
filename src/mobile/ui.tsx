@@ -13,8 +13,8 @@ import { Bell, ChevronLeft, ChevronRight, Home, Loader2, Lock, Moon, Plus, Setti
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
-import logoBranco from '../assets/logos/Krypta_Nav_Branco.png';
-import logoPreto from '../assets/logos/Krypta_Nav_Preto.png';
+import logoBranco from '../assets/Logos/Krypta_Nav_Branco.png';
+import logoPreto from '../assets/Logos/Krypta_Nav_Preto.png';
 
 export const FONTE = "'Quicksand', 'Poppins', sans-serif";
 export const GRAD = 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)';

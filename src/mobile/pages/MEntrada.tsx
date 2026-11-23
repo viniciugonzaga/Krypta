@@ -14,8 +14,8 @@ import { handleApiError } from '../../services/api';
 import type { DestinoLogin } from '../../routes/destino';
 import { FONTE, MAviso, MBotao, MCampo, OndaFundo, useMCores } from '../ui';
 
-import iconeK from '../../assets/logos/icon_krypta.png';
-import logoBranco from '../../assets/logos/Krypta_Nav_Branco.png';
+import iconeK from '../../assets/Logos/icon_krypta.png';
+import logoBranco from '../../assets/Logos/Krypta_Nav_Branco.png';
 
 const FRASES = [
   ['Sua identidade.', 'Seu controle!'],

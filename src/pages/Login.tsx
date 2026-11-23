@@ -12,10 +12,10 @@ import {
 } from '../components/auth/authShared';
 import { SocialLoginButtons } from '../components/auth/SocialLoginButtons';
 
-import logoTextoClaro from '../assets/logos/Krypta_de_texto.png';
-import logoTextoEscuro from '../assets/logos/Krypta_de_texto2.png';
-import iconKrypta from '../assets/logos/icon_krypta.png';
-import iconKryptaRoxo from '../assets/logos/icon_Krypta_roxo.png';
+import logoTextoClaro from '../assets/Logos/Krypta_de_texto.png';
+import logoTextoEscuro from '../assets/Logos/Krypta_de_texto2.png';
+import iconKrypta from '../assets/Logos/icon_krypta.png';
+import iconKryptaRoxo from '../assets/Logos/icon_krypta_roxo.png';
 import spriteRoboAbraco from '../assets/sprites/sprite_robo_abraco.gif';
 
 // ============================================================

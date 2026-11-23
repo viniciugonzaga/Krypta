@@ -7,8 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { ROUNDED_FONT, useAuthTheme } from '../components/auth/authShared';
 import { SocialLoginButtons } from '../components/auth/SocialLoginButtons';
 
-import logoTextoClaro from '../assets/logos/Krypta_de_texto.png';
-import logoTextoEscuro from '../assets/logos/Krypta_de_texto2.png';
+import logoTextoClaro from '../assets/Logos/Krypta_de_texto.png';
+import logoTextoEscuro from '../assets/Logos/Krypta_de_texto2.png';
 
 // ============================================================
 // FUNDO ANIMADO: FORMAS ORGÂNICAS + MUITAS LINHAS EM LOOP

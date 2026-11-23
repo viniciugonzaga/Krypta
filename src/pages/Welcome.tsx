@@ -19,9 +19,9 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-import logoTextoClaro from '../assets/logos/Krypta_de_texto.png';
-import logoTextoEscuro from '../assets/logos/Krypta_de_texto2.png';
-import iconCadeado from '../assets/logos/icon_cadeado.png';
+import logoTextoClaro from '../assets/Logos/Krypta_de_texto.png';
+import logoTextoEscuro from '../assets/Logos/Krypta_de_texto2.png';
+import iconCadeado from '../assets/Logos/icon_cadeado.png';
 
 import spriteRoboAnimado from '../assets/sprites/sprite_robo_animado.png';
 import spriteRoboVerificado from '../assets/sprites/sprite_robo_verificado.png';
