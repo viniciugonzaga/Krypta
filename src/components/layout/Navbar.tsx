@@ -26,6 +26,7 @@ import {
   Package,
   Download,
 } from 'lucide-react';
+import { FotoPerfil } from '../FotoPerfil';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getPlanLabel } from '../../utils/plan';
@@ -235,7 +236,7 @@ function NavLinkItem({ item, isActive, isHovered, isDark, onHover }: NavLinkItem
   );
 }
 
-function Avatar({ size = 44, isDark }: { size?: number; isDark: boolean }) {
+function Avatar({ size = 44, isDark, foto, nome }: { size?: number; isDark: boolean; foto?: string | null; nome?: string }) {
   return (
     <div className="relative shrink-0" style={{ width: size + 4, height: size + 4 }}>
       <motion.div
@@ -256,7 +257,7 @@ function Avatar({ size = 44, isDark }: { size?: number; isDark: boolean }) {
           background: 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)',
         }}
       >
-        <User className="text-white" style={{ width: size * 0.5, height: size * 0.5 }} fill="currentColor" strokeWidth={1.5} />
+        <FotoPerfil avatar={foto} nome={nome} tamanho={size} />
       </div>
       <span
         className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2"
@@ -506,7 +507,7 @@ export function Navbar() {
                       )}
                     </div>
                     <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}>
-                      <Avatar isDark={isDark} />
+                      <Avatar isDark={isDark} foto={user?.avatarUrl} nome={user?.name} />
                     </motion.div>
                   </button>
 
@@ -655,7 +656,7 @@ export function Navbar() {
                     className="flex items-center gap-3 p-3 rounded-xl border"
                     style={{ background: isDark ? 'rgba(141,81,255,0.08)' : 'rgba(81,0,189,0.04)', borderColor: borderSoft }}
                   >
-                    <Avatar size={40} isDark={isDark} />
+                    <Avatar size={40} isDark={isDark} foto={user?.avatarUrl} nome={user?.name} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate" style={{ color: textMain }}>{user.name}</p>
                       {planLabel && (

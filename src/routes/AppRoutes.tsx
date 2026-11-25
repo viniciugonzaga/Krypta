@@ -144,7 +144,7 @@ export function AppRoutes() {
           <Route path="/profile" element={<PageTransition><PrivateRoute><Profile /></PrivateRoute></PageTransition>} />
           <Route path="/plans" element={<PageTransition><PrivateRoute><Plans /></PrivateRoute></PageTransition>} />
           <Route path="/device" element={<PageTransition><PrivateRoute><Device /></PrivateRoute></PageTransition>} />
-          {/* Cofre em outro aparelho (Pro, só leitura) e "Perdi minha CCP" — mesmas telas do app */}
+          {/* Cofre em outro aparelho (Pro, só leitura) e "Perdi minha chave de contingência" — mesmas telas do app */}
           <Route path="/cofre/ver" element={<PrivateRoute><MVerCofre /></PrivateRoute>} />
           {/* v1.2.0: mesmo editor e telas do app também no modo Web */}
           <Route path="/cofre/acesso" element={<PrivateRoute><MAcessoCofre /></PrivateRoute>} />

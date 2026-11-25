@@ -7,9 +7,11 @@ import { LoadingScreen } from './components/ui/LoadingScreen';
 import { usePageLoading } from './hooks/usePageLoading';
 import { ModoProvider, useModo } from './mobile/ModoContext';
 import { MobileRoutes } from './mobile/MobileRoutes';
+import { KrypBot } from './ajuda/KrypBot';
+import { AvisosApp } from './components/AvisosApp';
 
 function AppContent() {
-  const isLoading = usePageLoading({ minDuration: 1100, maxDuration: 4500 });
+  const isLoading = usePageLoading({ minDuration: 350, maxDuration: 1500 });
   // Celular, app instalado (PWA) ou tela pequena → telas do modo Mobile
   const { modo } = useModo();
 
@@ -19,6 +21,8 @@ function AppContent() {
         {isLoading && <LoadingScreen key="global-loader" />}
       </AnimatePresence>
       {modo === 'mobile' ? <MobileRoutes /> : <AppRoutes />}
+      <KrypBot />
+      <AvisosApp />
     </>
   );
 }

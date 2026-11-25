@@ -6,15 +6,16 @@ MySQL 8 ou MariaDB 10.4+ (XAMPP no PC, Hostinger em produção). Charset `utf8mb
 | Arquivo | O que cria / muda |
 |---|---|
 | `001_base.sql` | Estrutura base: `users`, `sessions`, `audit_logs` |
-| `002_cofre_hardware.sql` | Cofre zero-knowledge: estado do cofre, chave pública, provas da CCP/CCH, `backups`, `chaves_revogadas`, nonces |
+| `002_cofre_hardware.sql` | Cofre zero-knowledge: estado do cofre, chave pública, provas da chave de contingência e da chave do herdeiro, `backups`, `chaves_revogadas`, nonces |
 | `003_pedidos_dispositivos.sql` | `pedidos` (plano e produto) e `dispositivos` comprados |
 | `004_hardware_real.sql` | ESP32 de verdade: chave anunciada, último contato |
 | `005_modo_mobile_onboarding.sql` | `sessions.cliente` e respostas do questionário de boas-vindas |
 | `006_cofre_multiaparelho_abandono.sql` | Código para abandonar o cofre e motivo `ABANDONO` |
 | `007_acesso_remoto_pontos.sql` | `cofre_acesso_remoto` (senha de acesso) e `cofre_pontos` (pontos de restauração) |
+| `008_avatar_perfil.sql` | **v1.3.0** — `users.avatar_url` vira `MEDIUMTEXT` (foto de perfil ou avatar padrão) |
 
 ## Como rodar
-- **Banco novo:** crie o banco `krypta` no phpMyAdmin → aba **SQL** → rode **001 → 007**, um de cada vez, na ordem.
+- **Banco novo:** crie o banco `krypta` no phpMyAdmin → aba **SQL** → rode **001 → 008**, um de cada vez, na ordem.
 - **Banco que já existe:** rode só as migrações que ainda não rodou. Cada uma roda **uma vez só**.
 
 ## Tabelas
@@ -29,4 +30,4 @@ MySQL 8 ou MariaDB 10.4+ (XAMPP no PC, Hostinger em produção). Charset `utf8mb
 | `cofre_acesso_remoto` | Prova do PIN, envelope do PIN, segredo do servidor cifrado, tentativas |
 | `cofre_pontos` | Cópias cifradas do cofre (pontos de restauração) |
 
-> Backup do banco sem o `PASSWORD_PEPPER` não serve para conferir CCPs. Guarde os dois, em lugares separados.
+> Backup do banco sem o `PASSWORD_PEPPER` não serve para conferir chaves de contingência. Guarde os dois, em lugares separados.

@@ -164,7 +164,7 @@ export const VaultRemotoController = {
     exigirRecurso(req.user!.plan, 'acessoRemoto');
     const prova = validarProva(req.body?.prova_cont_dono);
     await exigirAtiva(userId);
-    await conferirProvaDono(userId, prova, 'CCP incorreta.');
+    await conferirProvaDono(userId, prova, 'Chave de contingência incorreta.');
 
     const backup = await VaultModel.obterBackupCifrado(userId);
     if (!backup) throw new ApiError(404, 'O cofre ainda não tem backup. Abra o Krypta no dispositivo pareado uma vez.');
@@ -184,7 +184,7 @@ export const VaultRemotoController = {
     const envelope = validarEnvelope(req.body?.envelope);
     const tipo = req.body?.tipo === 'SENHA' ? 'SENHA' : 'PIN';
     await exigirAtiva(userId);
-    await conferirProvaDono(userId, prova, 'CCP incorreta.');
+    await conferirProvaDono(userId, prova, 'Chave de contingência incorreta.');
 
     const ok = await CofreRemotoModel.ativar(userId, tipo, await hashComPepper(provaPin), envelope);
     if (!ok) throw new ApiError(409, 'Configuração expirada. Comece de novo.');
@@ -209,7 +209,7 @@ export const VaultRemotoController = {
 
     const a = await CofreRemotoModel.obter(userId);
     if (!a?.ativo || !a.hash_prova || !a.envelope) throw new ApiError(404, 'Você ainda não criou a senha de acesso ao cofre.');
-    if (a.bloqueado) throw new ApiError(423, 'Senha de acesso bloqueada por tentativas erradas. Crie outra com a CCP.', { motivo: 'BLOQUEADO' });
+    if (a.bloqueado) throw new ApiError(423, 'Senha de acesso bloqueada por tentativas erradas. Crie outra com a chave de contingência.', { motivo: 'BLOQUEADO' });
 
     const user = req.user!;
     if (!(await compararComPepper(provaPin, a.hash_prova))) {
@@ -225,8 +225,8 @@ export const VaultRemotoController = {
         status: r.bloqueado ? 'error' : 'warning',
       });
       if (r.bloqueado) {
-        EmailService.notifyVaultEvent(user.email, user.name, 'Senha de acesso ao cofre bloqueada', `Erraram a senha de acesso ao seu cofre ${MAX_ERROS_PIN} vezes ${descreverCliente(req.cliente)}. Ela foi bloqueada. Para usar de novo, crie outra com a sua CCP. Se não foi você, troque a senha da conta.`);
-        throw new ApiError(423, 'Senha de acesso bloqueada por tentativas erradas. Crie outra com a CCP.', { motivo: 'BLOQUEADO' });
+        EmailService.notifyVaultEvent(user.email, user.name, 'Senha de acesso ao cofre bloqueada', `Erraram a senha de acesso ao seu cofre ${MAX_ERROS_PIN} vezes ${descreverCliente(req.cliente)}. Ela foi bloqueada. Para usar de novo, crie outra com a sua chave de contingência. Se não foi você, troque a senha da conta.`);
+        throw new ApiError(423, 'Senha de acesso bloqueada por tentativas erradas. Crie outra com a chave de contingência.', { motivo: 'BLOQUEADO' });
       }
       throw new ApiError(401, `Senha de acesso incorreta. ${restantes} tentativa(s) antes de bloquear.`, { motivo: 'PIN', restantes: String(restantes) });
     }
@@ -332,7 +332,7 @@ export const VaultRemotoController = {
     const prova = validarProva(req.body?.prova_cont_dono);
     const nome = validarNome(req.body?.nome);
     await exigirAtiva(userId);
-    await conferirProvaDono(userId, prova, 'CCP incorreta.');
+    await conferirProvaDono(userId, prova, 'Chave de contingência incorreta.');
 
     const limite = regrasDe(req.user!.plan).pontosRestauracao;
     if ((await CofreRemotoModel.contarManuais(userId)) >= limite) {
@@ -350,7 +350,7 @@ export const VaultRemotoController = {
     const id = validarUuid(req.params.id);
     const prova = validarProva(req.body?.prova_cont_dono);
     await exigirAtiva(userId);
-    await conferirProvaDono(userId, prova, 'CCP incorreta.');
+    await conferirProvaDono(userId, prova, 'Chave de contingência incorreta.');
 
     const r = await CofreRemotoModel.restaurarPonto(userId, id);
     if (r.resultado === 'SEM_PONTO') throw new ApiError(404, 'Ponto de restauração não encontrado.');
@@ -368,7 +368,7 @@ export const VaultRemotoController = {
     const userId = req.vault!.userId;
     const id = validarUuid(req.params.id);
     const prova = validarProva(req.body?.prova_cont_dono);
-    await conferirProvaDono(userId, prova, 'CCP incorreta.');
+    await conferirProvaDono(userId, prova, 'Chave de contingência incorreta.');
     if (!(await CofreRemotoModel.apagarPonto(userId, id))) throw new ApiError(404, 'Ponto de restauração não encontrado.');
     await AuditModel.log({ userId, action: 'VAULT_SNAPSHOT_DELETED', detail: `Ponto de restauração apagado ${descreverCliente(req.cliente)}`, ip: req.ip, status: 'warning' });
     res.json({ success: true, data: { apagado: true } });

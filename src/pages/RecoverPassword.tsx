@@ -278,7 +278,7 @@ export function RecoverPassword() {
                 <ArrowLeft className="w-3 h-3" /> Voltar ao login
               </Link>
               <p className="text-[11px] mt-2" style={{ color: muted }}>
-                Esta é a senha do site. Seu cofre continua protegido pelo dispositivo e pela CCP.
+                Esta é a senha do site. Seu cofre continua protegido pelo dispositivo e pela chave de contingência.
               </p>
             </div>
           )}

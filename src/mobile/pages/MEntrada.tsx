@@ -86,8 +86,8 @@ export function MIntro() {
         <Link to="/login" className="block text-center text-sm mt-4 underline underline-offset-4 text-white/90">
           Acessar minha conta
         </Link>
-        <Link to="/heranca" className="block text-center text-[11px] mt-3 text-white/55">
-          Recebi um kit de herança
+        <Link to="/heranca" className="mt-4 mx-auto w-fit flex items-center justify-center gap-1.5 text-[12.5px] text-white/80 underline underline-offset-4 decoration-white/40 hover:text-white">
+          <KeyRound className="w-4 h-4 shrink-0" /> Recebi um código de herança
         </Link>
       </div>
     </div>
@@ -174,8 +174,8 @@ export function MLogin() {
           <Link to="/recover" className="underline underline-offset-4" style={{ color: c.roxo }}>Esqueci minha senha</Link>
           <Link to="/register" state={location.state} className="font-semibold" style={{ color: c.roxo }}>Criar conta</Link>
         </div>
-        <Link to="/heranca" className="flex items-center justify-center gap-1.5 text-[12px] pt-1" style={{ color: c.suave }}>
-          <KeyRound className="w-3.5 h-3.5" /> Recebi um kit de herança
+        <Link to="/heranca" className="flex items-center justify-center gap-1.5 text-[12.5px] pt-1 underline underline-offset-4" style={{ color: c.suave }}>
+          <KeyRound className="w-3.5 h-3.5" /> Recebi um código de herança
         </Link>
       </motion.form>
     </div>

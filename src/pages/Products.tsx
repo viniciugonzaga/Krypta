@@ -135,7 +135,7 @@ const FEATURES = [
 const JORNADA = [
   { icon: ShoppingCart, titulo: 'Compre', texto: 'O pedido fica salvo na sua conta, com um número de série para cada dispositivo.' },
   { icon: Truck, titulo: 'Receba', texto: 'Acompanhe em "Minhas compras" e confirme quando o dispositivo chegar.' },
-  { icon: Cpu, titulo: 'Pareie', texto: 'No Meu Krypta, escolha o número de série e gere sua chave de contingência (CCP).' },
+  { icon: Cpu, titulo: 'Pareie', texto: 'No Meu Krypta, escolha o número de série e gere sua chave de contingência.' },
   { icon: Lock, titulo: 'Proteja', texto: 'O dispositivo passa a guardar o cofre. O servidor só recebe o backup cifrado.' },
 ];
 

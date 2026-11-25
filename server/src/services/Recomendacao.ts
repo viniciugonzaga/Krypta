@@ -76,7 +76,7 @@ export function recomendar(r: RespostasOnboarding): Recomendacao {
   if (tem(r.usos, 'heranca', 'familia', 'idosos', 'parental')) {
     motivos.push({
       recurso: 'heranca',
-      texto: 'Herança digital: seu cofre chega a quem você escolher, com um kit que só essa pessoa consegue usar.',
+      texto: 'Herança digital: seu cofre chega a quem você escolher, com um código de herança que só essa pessoa consegue usar.',
     });
   }
   if (r.nivel === 'maximo' || r.nivel === 'avancado' || tem(r.usos, 'privacidade', 'empresarial')) {
@@ -109,7 +109,7 @@ export function recomendar(r: RespostasOnboarding): Recomendacao {
       resumo: 'Para guardar suas senhas do dia a dia com segurança, o plano gratuito já atende. Dá para fazer upgrade quando quiser.',
       motivos: [
         { recurso: 'cofre', texto: 'Cofre zero-knowledge: nem o Krypta consegue ver suas senhas.' },
-        { recurso: 'cofre', texto: 'Chave de contingência (CCP) para recuperar o cofre se perder o aparelho.' },
+        { recurso: 'cofre', texto: 'Chave de contingência para recuperar o cofre se perder o aparelho.' },
       ],
       dispositivoFisico: false,
     };

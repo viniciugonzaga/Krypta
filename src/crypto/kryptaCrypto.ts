@@ -269,7 +269,7 @@ export async function abrirCofre(
   try {
     chaveCofre = await decifrar(chaveEnvelope, envelope);
   } catch {
-    throw new Error(qual === 'ccp' ? 'CCP incorreta: ela não abre o envelope do cofre.' : 'CCH incorreta.');
+    throw new Error(qual === 'ccp' ? 'Chave de contingência incorreta: ela não abre o envelope do cofre.' : 'Chave do herdeiro incorreta.');
   }
   const chave = await importarChaveCofre(chaveCofre);
   const credenciais = JSON.parse(dec.decode(await decifrar(chave, vault.dados))) as Credencial[];
@@ -358,4 +358,39 @@ export function resumirMudancas(antes: Credencial[], depois: Credencial[]): { ad
   }
   const removidas = antes.filter((c) => !ids.has(c.id)).length;
   return { adicionadas, editadas, removidas };
+}
+
+// ============================================================
+// v1.3.0 — TRAVA DO COFRE NESTE APARELHO (PIN, senha ou biometria)
+//
+// Os dados do dispositivo (chave privada, chave do cofre e credenciais)
+// passam a ficar CIFRADOS no aparelho com uma "chave da trava" aleatória.
+// Essa chave é guardada embrulhada de até 3 jeitos:
+//   • pelo PIN/senha  → Argon2id(PIN, salt do aparelho) + HKDF
+//   • pela biometria  → saída PRF do WebAuthn (Windows Hello, Touch ID, digital)
+//   • pela chave de contingência → para quem esqueceu o PIN
+// ============================================================
+
+/** Chave AES derivada de um PIN/senha com Argon2id (só para uso local) */
+export async function derivarChaveLocal(segredo: string, saltB64: string): Promise<CryptoKey> {
+  const master = (await argon2id({
+    password: segredo.normalize('NFKC'),
+    salt: b64ParaBytes(saltB64),
+    ...ARGON2,
+    outputType: 'binary',
+  })) as Uint8Array;
+  const bytes = await hkdf(master, 'krypta-trava-pin-v1');
+  master.fill(0);
+  return crypto.subtle.importKey('raw', bytes as BufferSource, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+/** Chave AES a partir de bytes de alta entropia (saída PRF da biometria) */
+export async function chaveDeBytes(bytes: Uint8Array, info: string): Promise<CryptoKey> {
+  const k = await hkdf(bytes, info);
+  return crypto.subtle.importKey('raw', k as BufferSource, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+/** Importa 32 bytes como chave AES-GCM (não exportável) */
+export async function chaveAes(raw: Uint8Array): Promise<CryptoKey> {
+  return importarChaveCofre(raw);
 }

@@ -235,6 +235,7 @@ O Pro só é ativado por compra: `POST /api/plans/change` com `pro` responde `40
 |---|---|---|
 | POST | `/api/plans/cancel` | cancela o Pro com a senha do site; pedidos de plano viram `CANCELADO` |
 | POST | `/api/users/me/sessions/revoke` | encerra todas as sessões do site |
+| PUT | `/api/users/me` com `{ avatar }` | **v1.3.0** — foto de perfil: `data:image/jpeg;base64,...` (o app manda 256×256), `preset:robo-roxo` (avatar padrão) ou `null` (remove). Volta em `avatarUrl` |
 | POST | `/api/contact` | formulário de Contato e newsletter → e-mail do suporte (`SUPPORT_EMAIL`) |
 
 **Comportamentos**

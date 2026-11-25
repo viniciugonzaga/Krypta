@@ -10,6 +10,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Bell,
+  Camera,
   Check,
   Crown,
   Download,
@@ -39,6 +40,8 @@ import { verificarAtualizacao } from '../../config/pwa';
 import { useModo } from '../ModoContext';
 import { motivoDoModo, type PreferenciaModo } from '../modo';
 import { FONTE, GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MInterruptor, MTitulo, MobileShell, fmtQuando, useMCores } from '../ui';
+import { useNotificacoesAparelho } from '../../components/AvisosApp';
+import { EditorFoto, FotoPerfil } from '../../components/FotoPerfil';
 
 const ICONE_CLIENTE = { web: Globe, mobile: Smartphone, pwa: Smartphone, desktop: Monitor };
 const NOME_CLIENTE = { web: 'Site', mobile: 'Celular (navegador)', pwa: 'App do celular', desktop: 'App para Windows' };
@@ -48,6 +51,7 @@ const NOME_CLIENTE = { web: 'Site', mobile: 'Celular (navegador)', pwa: 'App do 
 // ============================================================
 export function MPerfil() {
   const c = useMCores();
+  const [editarFoto, setEditarFoto] = useState(false);
   const { user, updateUser, cancelPlan, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -72,7 +76,6 @@ export function MPerfil() {
 
   if (!user) return null;
   const pro = isProPlan(user.plan);
-  const iniciais = user.name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('');
 
   const salvarDados = async () => {
     setMsg(null);
@@ -132,15 +135,19 @@ export function MPerfil() {
 
   return (
     <MobileShell>
+      <EditorFoto aberto={editarFoto} onFechar={() => setEditarFoto(false)} />
       {/* Cabeçalho do perfil */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-5">
         <p className="text-[17px] font-semibold">{user.name}</p>
         <p className="text-[12px] font-bold tracking-[0.25em]" style={{ color: c.roxo }}>{pro ? 'PREMIUM' : 'FREE'}</p>
         <div className="relative w-36 h-36 mx-auto my-4">
           <motion.div className="absolute inset-0 rounded-full" style={{ border: `2px dashed ${c.roxo}` }} animate={{ rotate: 360 }} transition={{ duration: 24, repeat: Infinity, ease: 'linear' }} />
-          <div className="absolute inset-3 rounded-full flex items-center justify-center text-4xl font-bold text-white" style={{ background: GRAD, boxShadow: '0 0 34px rgba(141,81,255,0.55)', fontFamily: FONTE }}>
-            {iniciais}
-          </div>
+          <button type="button" onClick={() => setEditarFoto(true)} aria-label="Trocar foto de perfil" className="absolute inset-3 rounded-full" style={{ boxShadow: '0 0 34px rgba(141,81,255,0.55)' }}>
+            <FotoPerfil avatar={user.avatarUrl} nome={user.name} tamanho={120} />
+            <span className="absolute bottom-1 right-1 w-8 h-8 rounded-full flex items-center justify-center text-white" style={{ background: GRAD, border: `2px solid ${c.fundo}` }}>
+              <Camera className="w-4 h-4" />
+            </span>
+          </button>
         </div>
         <p className="text-[13px]" style={{ color: c.suave }}>{user.email}</p>
         <span className="inline-flex items-center gap-1 mt-2 px-3 py-1 rounded-full text-[11.5px] text-white" style={{ background: GRAD }}>
@@ -187,7 +194,7 @@ export function MPerfil() {
             Alterar senha
           </button>
         </div>
-        <p className="text-[11.5px]" style={{ color: c.suave }}>A senha do site não abre o cofre: ele é aberto pelo dispositivo e pela sua CCP.</p>
+        <p className="text-[11.5px]" style={{ color: c.suave }}>A senha do site não abre o cofre: ele é aberto pelo dispositivo e pela sua chave de contingência.</p>
       </MCard>
 
       {/* Sessões (o servidor identifica site, celular, app e Windows) */}
@@ -257,6 +264,7 @@ export function MPerfil() {
 // ============================================================
 export function MConfig() {
   const c = useMCores();
+  const notif = useNotificacoesAparelho();
   const navigate = useNavigate();
   const { toggleTheme } = useTheme();
   const { modo, preferencia, mudarPreferencia } = useModo();
@@ -320,15 +328,15 @@ export function MConfig() {
       {/* Notificações */}
       <MCard c={c} i={2} className="mb-4">
         <MFaixa c={c} icone={<Bell className="w-5 h-5" />} titulo="Notificações" sub="Como o Krypta avisa você." />
-        {[
-          { icone: Mail, rotulo: 'Alertas de segurança por e-mail' },
-          { icone: Bell, rotulo: 'Notificações no aplicativo' },
-        ].map(({ icone: Icone, rotulo }) => (
-          <div key={rotulo} className="flex items-center justify-between py-2 text-[14px]">
-            <span className="flex items-center gap-2"><Icone className="w-4 h-4" /> {rotulo}</span>
-            <MInterruptor ligado desabilitado />
-          </div>
-        ))}
+        <div className="flex items-center justify-between py-2 text-[14px]">
+          <span className="flex items-center gap-2"><Mail className="w-4 h-4" /> Alertas de segurança por e-mail</span>
+          <MInterruptor ligado desabilitado />
+        </div>
+        <div className="flex items-center justify-between py-2 text-[14px]">
+          <span className="flex items-center gap-2"><Bell className="w-4 h-4" /> Notificações neste aparelho</span>
+          <MInterruptor ligado={notif.ligado} onChange={(v) => void notif.mudar(v)} desabilitado={!notif.podeLigar} />
+        </div>
+        <p className="text-[11.5px]" style={{ color: c.suave }}>{notif.texto}</p>
         <p className="text-[11.5px] mt-1" style={{ color: c.suave }}>Sempre ligados: Kill Switch, resgate de herança e inatividade do cofre são avisos de segurança.</p>
       </MCard>
 
@@ -365,7 +373,7 @@ export function MConfig() {
 // PLANOS
 // ============================================================
 const PRO_RECURSOS = ['Dispositivo Krypta físico', 'Kill Switch (bloqueio remoto)', 'Herança digital', 'Alertas de acesso', 'Backup de até 1 MB'];
-const FREE_RECURSOS = ['Cofre zero-knowledge', 'Dispositivo de software', 'Chave de contingência (CCP)', 'Backup de até 64 KB'];
+const FREE_RECURSOS = ['Cofre zero-knowledge', 'Dispositivo de software', 'Chave de contingência', 'Backup de até 64 KB'];
 
 export function MPlanos() {
   const c = useMCores();

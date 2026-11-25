@@ -267,7 +267,7 @@ export interface EventoConta {
 
 export const UserAPI = {
   me: () => apiRequest<any>('/users/me'),
-  update: (data: { name?: string; email?: string }) => apiRequest<any>('/users/me', { method: 'PUT', body: data }),
+  update: (data: { name?: string; email?: string; avatar?: string | null }) => apiRequest<any>('/users/me', { method: 'PUT', body: data }),
   /** Depois de trocar a senha, TODAS as sessões são encerradas: faça login de novo */
   changePassword: (currentPassword: string, newPassword: string) =>
     apiRequest('/users/me/change-password', { method: 'POST', body: { currentPassword, newPassword } }),

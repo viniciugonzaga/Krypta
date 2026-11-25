@@ -13,12 +13,13 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronRight, Crown, Lock, Moon, Sun } from 'lucide-react';
+import { Bell, ChevronRight, Crown, Lock, Moon, Sun } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useModo } from '../mobile/ModoContext';
+import { useNotificacoesAparelho } from '../components/AvisosApp';
 import { getPlanFullName, recursosDoPlano } from '../utils/plan';
 
 import spriteRoboConfig from '../assets/sprites/sprite_robo_configuracao.png';
@@ -153,6 +154,7 @@ export function Settings() {
   const { isDark, toggleTheme } = useTheme();
   const { user } = useAuth();
   const { preferencia, mudarPreferencia } = useModo();
+  const notif = useNotificacoesAparelho();
 
   const recursos = recursosDoPlano(user?.plan);
   const accent = isDark ? '#8d51ff' : '#5100BD';
@@ -293,6 +295,14 @@ export function Settings() {
                 <SettingRow label="Bloqueio Remoto" isDark={isDark} delay={0.5}>
                   <MutedText isDark={isDark}>{killSwitchAcionado ? 'Acionado: dispositivo bloqueado' : 'Pronto para usar se perder o dispositivo'}</MutedText>
                   {recursos.killSwitch ? <LinkPill to="/device">{killSwitchAcionado ? 'Vincular novo' : 'Abrir'}</LinkPill> : <SeloPro />}
+                </SettingRow>
+
+                <SettingRow label="Notificações" isDark={isDark} delay={0.53}>
+                  <PillButton isDark={isDark} onClick={() => notif.podeLigar && void notif.mudar(!notif.ligado)} ariaLabel="Ligar ou desligar notificações neste aparelho">
+                    <Bell size={13} />
+                    <span className="text-[13px]">{notif.ligado ? 'Ligadas' : 'Desligadas'}</span>
+                  </PillButton>
+                  <MutedText isDark={isDark}>{notif.texto}</MutedText>
                 </SettingRow>
 
                 <SettingRow label="Avisos por e-mail" isDark={isDark} delay={0.56}>

@@ -8,7 +8,7 @@
 
 Site · App do celular (PWA) · App para Windows · API · Dispositivo ESP32
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-1.2.1-6d28d9)
+![versão](https://img.shields.io/badge/vers%C3%A3o-1.3.0-6d28d9)
 ![front](https://img.shields.io/badge/front-React%2019%20%2B%20Vite%20%2B%20TS-61dafb)
 ![api](https://img.shields.io/badge/API-Node%20%2B%20Express%20%2B%20MySQL-339933)
 ![desktop](https://img.shields.io/badge/desktop-Tauri%202-ffc131)
@@ -44,9 +44,13 @@ O servidor recebe só um backup que **ele mesmo não consegue abrir**: nem o Kry
 consegue ler o conteúdo do cofre.
 
 A chave do cofre mora num **dispositivo** (o navegador/app onde o cofre foi pareado ou um **Krypta físico ESP32**
-com leitor NFC). Para emergências existem a **CCP** (chave de contingência do dono), o **Kill Switch** (bloqueio
-remoto), a **herança digital** (CCH, a chave do herdeiro) e, desde a v1.2.0, a **senha de acesso** para abrir
-e editar o cofre em qualquer aparelho e os **pontos de restauração**.
+com leitor NFC). Para emergências existem a **chave de contingência** (do dono), o **Kill Switch** (bloqueio
+remoto), a **herança digital** (o **código de herança**, com a chave do herdeiro) e, desde a v1.2.0, a **senha de acesso** para abrir
+e editar o cofre em qualquer aparelho e os **pontos de restauração**. Na v1.3.0 o cofre ganhou uma **trava no
+próprio aparelho** (PIN, senha ou biometria) e o app ganhou o **Kryp**, um assistente de ajuda.
+
+> Nos textos do app, "CCP" passou a se chamar **chave de contingência** e "kit do herdeiro" virou **código de herança**.
+> No código e na API os nomes técnicos (`ccp`, `cch`) continuam os mesmos.
 
 ## 2. Funcionalidades
 
@@ -55,9 +59,13 @@ e editar o cofre em qualquer aparelho e os **pontos de restauração**.
 | **Conta** | Cadastro, login, renovação automática de sessão, "onde minha conta está aberta", sair de tudo, trocar senha, excluir conta, recuperação de senha por e-mail |
 | **Cofre** | Chaves com tipos (Login, Cartão, Endereço, Wi-Fi, Documento, Nota, Personalizado), campos secretos, ícones de marcas reconhecidos pelo nome, busca, gerador de senha forte |
 | **Dispositivo** | Pareamento de dispositivo de software (navegador/app) ou do Krypta físico (ESP32 + NFC), login por assinatura Ed25519 (challenge-response) |
-| **CCP** | Chave de contingência de 160 bits, mostrada uma vez; recupera o cofre, troca de dispositivo, aciona o Kill Switch |
+| **Chave de contingência** (CCP) | 160 bits, mostrada uma vez; recupera o cofre, troca de dispositivo, aciona o Kill Switch, abre a trava se esquecer o PIN |
+| **Trava do cofre** (v1.3.0) | PIN de 6 dígitos ou senha (e biometria opcional) que tranca o cofre **até no aparelho pareado**; criada no pareamento; tranca sozinha em 5 min |
+| **Kryp** (v1.3.0) | Robô de ajuda no site, no celular e no Windows; responde com base no plano, no estado do cofre, no aparelho e no questionário |
+| **Notificações** (v1.3.0) | Avisos de segurança no Windows (notificação do sistema), no navegador e dentro do app; sino com não lidas |
+| **Foto de perfil** (v1.3.0) | Foto opcional ou avatar padrão do Krypta (robôs) no lugar da letra |
 | **Kill Switch** (Pro) | Bane o dispositivo perdido para sempre e permite vincular outro com a CCP |
-| **Herança digital** (Pro) | Kit do herdeiro (CCH); o herdeiro resgata o cofre sem ter conta |
+| **Herança digital** (Pro) | Código de herança (ID da conta + chave do herdeiro); o herdeiro resgata o cofre sem ter conta |
 | **Senha de acesso** (Pro, v1.2.0) | PIN de 6 dígitos ou senha para **ver e editar** o cofre em qualquer aparelho logado |
 | **Pontos de restauração** (v1.2.0) | "Salvar o estado do cofre" e voltar a ele; exige a CCP |
 | **Relatórios** | Quem entrou, de onde (site, celular, app instalado, Windows), quem editou o cofre e quantas chaves mudaram |
@@ -113,6 +121,9 @@ Detalhes: [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 - **Dois tipos de token:** `admin_web` (site, 24 h, preso à sessão) e `hardware` (dispositivo, 15 min, preso à chave
   pública). Um Kill Switch derruba o token do dispositivo na hora.
 - **Anti-rollback:** todo backup precisa de `version_counter` maior que o anterior.
+- **Trava do cofre (v1.3.0):** os dados do dispositivo ficam cifrados no aparelho com uma chave aleatória,
+  embrulhada pelo PIN (Argon2id), pela chave de contingência e, se ligada, pela biometria (WebAuthn PRF).
+  Aberta só na memória; tranca em 5 min, ao recarregar e ao sair. Detalhes: [docs/TRAVA-AJUDA-AVISOS.md](docs/TRAVA-AJUDA-AVISOS.md).
 - **Senha de acesso (v1.2.0):** a chave depende do PIN **e** de um segredo do servidor liberado só depois do PIN
   certo; 5 erros bloqueiam; criar e desbloquear exige a CCP.
 - **Limites de tentativa** por IP, bloqueio de login, alertas por e-mail, cabeçalhos de segurança (helmet).
@@ -197,6 +208,7 @@ Guias: [docs/MODO-MOBILE.md](docs/MODO-MOBILE.md) · [docs/DESKTOP.md](docs/DESK
 
 Um **push na `main`** atualiza o site (Hostinger) e a API (Render) sozinhos. Migrações SQL continuam manuais (phpMyAdmin).
 
+- **Publicar uma versão nova (passo a passo): [docs/ATUALIZAR.md](docs/ATUALIZAR.md)**
 - Como foi feito e como funciona hoje: **[docs/PRODUCAO.md](docs/PRODUCAO.md)**
 - Passo a passo para refazer do zero: **[docs/HOSPEDAGEM.md](docs/HOSPEDAGEM.md)**
 
@@ -207,16 +219,19 @@ Um **push na `main`** atualiza o site (Hostinger) e a API (Render) sozinhos. Mig
 |---|---|
 | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Componentes, criptografia, estados do cofre, modelo de ameaças |
 | [docs/INTEGRACAO-API.md](docs/INTEGRACAO-API.md) | Todas as rotas da API e como o front usa |
-| [docs/COFRE-ACESSO.md](docs/COFRE-ACESSO.md) | Ver com a CCP, "Perdi minha CCP", tipos de chave e ícones |
+| [docs/COFRE-ACESSO.md](docs/COFRE-ACESSO.md) | Ver com a chave de contingência, "Perdi minha chave", tipos de chave e ícones |
 | [docs/COFRE-REMOTO.md](docs/COFRE-REMOTO.md) | Senha de acesso, relatórios e pontos de restauração |
 | [docs/MODO-MOBILE.md](docs/MODO-MOBILE.md) | Modo Mobile, PWA e identificação do cliente |
 | [docs/DESKTOP.md](docs/DESKTOP.md) | App Windows (Tauri) e publicação do .exe |
 | [docs/PRODUCAO.md](docs/PRODUCAO.md) | Como o Krypta foi hospedado e como funciona no ar |
 | [docs/HOSPEDAGEM.md](docs/HOSPEDAGEM.md) | Passo a passo para refazer a hospedagem |
+| [docs/TRAVA-AJUDA-AVISOS.md](docs/TRAVA-AJUDA-AVISOS.md) | v1.3.0: trava do cofre (PIN/biometria), Kryp, notificações, foto de perfil, dicas |
+| [docs/ATUALIZAR.md](docs/ATUALIZAR.md) | **Como publicar uma versão nova** (site, API, banco, celular e Windows) |
 
 ## 12. Histórico de versões
 | Versão | Principais mudanças |
 |---|---|
+| **1.3.0** | Trava do cofre no aparelho (PIN/senha + biometria) criada no pareamento; Kryp, o robô de ajuda; notificações de verdade (Windows, navegador, app); foto de perfil/avatar padrão; cartões de dica; "chave de contingência" e "código de herança" nos textos; carregamento mais curto; fundo das telas de entrada nítido e animado; mais espaço entre os cartões |
 | **1.2.1** | No ar: site em `krypta.website` (Hostinger) e API no Render; e-mails pela API HTTP da Brevo; imports com o nome exato das pastas (build no Linux); dependências atualizadas |
 | **1.2.0** | Senha de acesso ao cofre (Pro), edição em qualquer aparelho com sincronia, relatório de edições, pontos de restauração com a CCP, campos extras só no Pro, editor completo no site, cofre abandonado não leva mais chaves para o novo |
 | **1.1.0** | Ver o cofre com a CCP em outro aparelho, "Perdi minha CCP" (nova CCP / abandonar), tipos de chave, campos e ícones de marcas |

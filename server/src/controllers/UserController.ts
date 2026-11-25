@@ -25,7 +25,7 @@ export const UserController = {
   async updateMe(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
       const user = req.user!;
-      const { name, email } = req.body;
+      const { name, email, avatar } = req.body;
 
       const patch: any = {};
       if (name !== undefined) {
@@ -42,9 +42,21 @@ export const UserController = {
         patch.email = email.toLowerCase().trim();
       }
 
+      // v1.3.0: foto de perfil (opcional). Aceita a foto já reduzida pelo app
+      // (data:image/jpeg|png|webp;base64, até ~300 KB), um avatar padrão do
+      // Krypta ("preset:robo-roxo") ou null para voltar ao avatar padrão.
+      if (avatar !== undefined) {
+        if (avatar === null || avatar === '') patch.avatar_url = null;
+        else if (typeof avatar === 'string' && /^preset:[a-z0-9-]{1,30}$/.test(avatar)) patch.avatar_url = avatar;
+        else if (typeof avatar === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)) {
+          if (avatar.length > 400_000) throw new ApiError(413, 'Foto grande demais. Escolha outra imagem.');
+          patch.avatar_url = avatar;
+        } else throw new ApiError(400, 'Foto inválida.');
+      }
+
       const updated = await UserModel.update(user.id, patch);
       await AuditModel.log({
-        userId: user.id, action: 'PROFILE_UPDATE', detail: 'Perfil atualizado',
+        userId: user.id, action: 'PROFILE_UPDATE', detail: avatar !== undefined && name === undefined && email === undefined ? 'Foto de perfil atualizada' : 'Perfil atualizado',
       });
 
       res.json({ success: true, data: serializeUser(updated) });

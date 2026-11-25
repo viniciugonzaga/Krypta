@@ -4,14 +4,16 @@
 //   • OndaFundo      → ondas roxas animadas (abertura, login, cadastro)
 //   • MobileShell    → cabeçalho KRYPTA + conteúdo + barra inferior com o "+"
 //   • MCard, MTitulo, MBotao, MCampo, MLinhaAcao, MInterruptor, MFolha (bottom sheet)
-// As animações respeitam "reduzir movimento" do celular.
+// Com "reduzir movimento" ligado, as animações ficam mais lentas (não param).
 // ============================================================
-import { useMemo, type CSSProperties, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type CSSProperties, type InputHTMLAttributes, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Bell, ChevronLeft, ChevronRight, Home, Loader2, Lock, Moon, Plus, Settings, Sun, User, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useNaoLidas } from '../components/AvisosApp';
+import { FotoPerfil } from '../components/FotoPerfil';
 
 import logoBranco from '../assets/Logos/Krypta_Nav_Branco.png';
 import logoPreto from '../assets/Logos/Krypta_Nav_Preto.png';
@@ -44,44 +46,118 @@ export type MCores = ReturnType<typeof useMCores>;
 
 // ============================================================
 // ONDAS ROXAS ANIMADAS (fundo escuro das telas de entrada)
+// v1.3.0: desenhadas em <canvas> na resolução real da tela (nítidas em
+// qualquer celular/monitor) e sempre em movimento. Antes eram SVGs
+// esticados + blur, que ficavam serrilhados e paravam quando o sistema
+// tinha "reduzir animações" ligado. Agora, nesse caso, só ficam mais lentas.
 // ============================================================
-const ONDAS = [
-  { d: 'M0,160 C180,60 360,260 540,160 C720,60 900,260 1080,160 C1260,60 1440,260 1620,160 L1620,400 L0,400 Z', cor: 'rgba(141,81,255,0.55)', dur: 14, y: 0 },
-  { d: 'M0,200 C200,110 400,290 600,200 C800,110 1000,290 1200,200 C1400,110 1600,290 1800,200 L1800,400 L0,400 Z', cor: 'rgba(81,0,189,0.65)', dur: 19, y: 40 },
-  { d: 'M0,230 C160,170 320,300 480,230 C640,170 800,300 960,230 C1120,170 1280,300 1440,230 L1440,400 L0,400 Z', cor: 'rgba(198,174,248,0.25)', dur: 11, y: 90 },
-];
+const CAMADAS = [
+  { base: 0.42, amp: 0.07, freq: 1.3, vel: 0.18, cor: [141, 81, 255], alfa: 0.5, fios: 9 },
+  { base: 0.52, amp: 0.09, freq: 0.9, vel: -0.13, cor: [81, 0, 189], alfa: 0.62, fios: 7 },
+  { base: 0.6, amp: 0.06, freq: 1.7, vel: 0.22, cor: [198, 174, 248], alfa: 0.22, fios: 11 },
+  { base: 0.7, amp: 0.05, freq: 1.1, vel: -0.09, cor: [106, 31, 224], alfa: 0.45, fios: 0 },
+] as const;
+
+function OndasCanvas() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const reduzir = useReducedMotion();
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    let w = 0;
+    let h = 0;
+    let raf = 0;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const medir = () => {
+      const r = cv.getBoundingClientRect();
+      w = r.width;
+      h = r.height;
+      cv.width = Math.max(1, Math.round(w * dpr));
+      cv.height = Math.max(1, Math.round(h * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(cv);
+    const ritmo = reduzir ? 0.25 : 1;
+    const y = (c: (typeof CAMADAS)[number], x: number, t: number, desloc = 0) => {
+      const u = x / Math.max(w, 1);
+      return (
+        h * c.base +
+        h * c.amp * Math.sin(u * Math.PI * 2 * c.freq + t * c.vel * 6 + desloc) +
+        h * c.amp * 0.45 * Math.sin(u * Math.PI * 2 * c.freq * 2.3 - t * c.vel * 4 + desloc * 1.7)
+      );
+    };
+    const passo = 6;
+    const desenhar = (ms: number) => {
+      const t = (ms / 1000) * ritmo;
+      ctx.clearRect(0, 0, w, h);
+      for (const c of CAMADAS) {
+        // faixa preenchida
+        const g = ctx.createLinearGradient(0, h * (c.base - c.amp * 1.6), 0, h);
+        g.addColorStop(0, `rgba(${c.cor.join(',')},${c.alfa})`);
+        g.addColorStop(0.55, `rgba(${c.cor.join(',')},${c.alfa * 0.35})`);
+        g.addColorStop(1, `rgba(${c.cor.join(',')},0)`);
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        for (let x = 0; x <= w + passo; x += passo) ctx.lineTo(x, y(c, x, t));
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = g;
+        ctx.fill();
+        // fios de seda (brilho fino que acompanha a onda)
+        for (let f = 0; f < c.fios; f++) {
+          ctx.beginPath();
+          const d = f * 0.11;
+          for (let x = 0; x <= w + passo; x += passo) {
+            const yy = y(c, x, t, d) + f * 2.2;
+            if (x === 0) ctx.moveTo(x, yy);
+            else ctx.lineTo(x, yy);
+          }
+          ctx.strokeStyle = `rgba(230,215,255,${0.16 - f * 0.012})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+      raf = requestAnimationFrame(desenhar);
+    };
+    const visivel = () => {
+      cancelAnimationFrame(raf);
+      if (!document.hidden) raf = requestAnimationFrame(desenhar);
+    };
+    document.addEventListener('visibilitychange', visivel);
+    raf = requestAnimationFrame(desenhar);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      document.removeEventListener('visibilitychange', visivel);
+    };
+  }, [reduzir]);
+  return <canvas ref={ref} className="absolute inset-0 w-full h-full" aria-hidden />;
+}
 
 export function OndaFundo({ altura = '100%' }: { altura?: string }) {
   const reduzir = useReducedMotion();
+  const lento = reduzir ? 3 : 1;
   return (
     <div className="absolute inset-x-0 top-0 overflow-hidden pointer-events-none" style={{ height: altura, background: 'radial-gradient(120% 80% at 70% 0%, #2a0a5e 0%, #0b0218 55%, #050010 100%)' }}>
       {/* brilhos */}
       <motion.div
         className="absolute -top-24 -right-20 w-80 h-80 rounded-full blur-[90px]"
         style={{ background: 'rgba(141,81,255,0.55)' }}
-        animate={reduzir ? undefined : { opacity: [0.5, 0.9, 0.5], scale: [1, 1.12, 1] }}
-        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+        animate={{ opacity: [0.5, 0.9, 0.5], scale: [1, 1.12, 1] }}
+        transition={{ duration: 7 * lento, repeat: Infinity, ease: 'easeInOut' }}
       />
       <motion.div
         className="absolute top-1/3 -left-24 w-72 h-72 rounded-full blur-[90px]"
         style={{ background: 'rgba(81,0,189,0.5)' }}
-        animate={reduzir ? undefined : { opacity: [0.8, 0.45, 0.8] }}
-        transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+        animate={{ opacity: [0.8, 0.45, 0.8] }}
+        transition={{ duration: 9 * lento, repeat: Infinity, ease: 'easeInOut' }}
       />
       {/* ondas de seda */}
-      {ONDAS.map((o, i) => (
-        <motion.svg
-          key={i}
-          viewBox="0 0 1800 400"
-          preserveAspectRatio="none"
-          className="absolute left-0 w-[260%]"
-          style={{ top: `${22 + i * 9}%`, height: '55%', filter: 'blur(1px)' }}
-          animate={reduzir ? undefined : { x: ['0%', '-38%', '0%'], y: [o.y * 0.1, -o.y * 0.1, o.y * 0.1] }}
-          transition={{ duration: o.dur, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <path d={o.d} fill={o.cor} />
-        </motion.svg>
-      ))}
+      <OndasCanvas />
       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 55%, rgba(5,0,16,0.85) 100%)' }} />
     </div>
   );
@@ -131,7 +207,7 @@ export function MobileShell({ children, voltar, semBarra }: { children: ReactNod
   const { user } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const iniciais = (user?.name ?? 'K').trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('');
+  const naoLidas = useNaoLidas();
 
   return (
     <div className="min-h-[100dvh] relative" style={{ background: c.fundo, color: c.texto, fontFamily: FONTE }}>
@@ -159,11 +235,16 @@ export function MobileShell({ children, voltar, semBarra }: { children: ReactNod
         >
           {c.isDark ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />} {c.isDark ? 'Dark' : 'Light'}
         </button>
-        <Link to="/notificacoes" aria-label="Notificações" className="w-9 h-9 flex items-center justify-center rounded-full" style={{ color: c.roxo }}>
+        <Link to="/notificacoes" aria-label={naoLidas ? `Notificações (${naoLidas} novas)` : 'Notificações'} className="relative w-9 h-9 flex items-center justify-center rounded-full" style={{ color: c.roxo }}>
           <Bell className="w-5 h-5" />
+          {naoLidas > 0 && (
+            <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9.5px] font-bold text-white flex items-center justify-center" style={{ background: '#ef4444' }}>
+              {naoLidas > 9 ? '9+' : naoLidas}
+            </span>
+          )}
         </Link>
-        <Link to="/profile" aria-label="Perfil" className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: GRAD }}>
-          {iniciais || 'K'}
+        <Link to="/profile" aria-label="Perfil" className="w-8 h-8 rounded-full flex items-center justify-center">
+          <FotoPerfil avatar={user?.avatarUrl} nome={user?.name} tamanho={32} />
         </Link>
       </header>
 
@@ -237,7 +318,7 @@ export function MCard({ c, children, className = '', style, onClick, i = 0, dest
       transition={{ duration: 0.4, delay: 0.05 * i }}
       whileTap={onClick ? { scale: 0.98 } : undefined}
       onClick={onClick}
-      className={`relative rounded-2xl p-4 ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`m-bloco relative rounded-2xl p-4 ${onClick ? 'cursor-pointer' : ''} ${className}`}
       style={{
         background: c.cartao,
         border: `1.5px solid ${destaque ? c.roxo : c.borda}`,

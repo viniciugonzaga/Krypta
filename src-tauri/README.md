@@ -6,8 +6,8 @@ Não tem tela, lógica ou banco próprios; usa a mesma API do site.
 | Arquivo | Papel |
 |---|---|
 | `tauri.conf.json` | Nome, janela, ícones, versão (lida do `package.json`), instalador NSIS |
-| `src/main.rs`, `src/lib.rs` | Ponto de entrada em Rust (abre a janela, plugin para abrir links) |
-| `capabilities/default.json` | Permissões mínimas da janela |
+| `src/main.rs`, `src/lib.rs` | Ponto de entrada em Rust (abre a janela; plugins: abrir links, lembrar a janela, uma instância só e **notificações** — v1.3.0) |
+| `capabilities/default.json` | Permissões mínimas da janela (`core`, `opener`, `notification`) |
 | `icons/`, `app-icon.png` | Ícones (`npm run desktop:icon` regera a partir do `app-icon.png`) |
 
 ## Comandos (na raiz)

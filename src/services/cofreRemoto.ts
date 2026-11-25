@@ -108,7 +108,7 @@ export const SessaoCofre = {
     }
     const chaveEnvelope = await d.chaveCom(r.segredo);
     const chaveCofre = await abrirEnvelope(chaveEnvelope, JSON.parse(r.envelope) as Cifrado);
-    if (!chaveCofre) throw new Error('Não foi possível abrir o cofre com esta senha de acesso. Crie outra com a CCP.');
+    if (!chaveCofre) throw new Error('Não foi possível abrir o cofre com esta senha de acesso. Crie outra com a chave de contingência.');
     const credenciais = await lerCredenciais(chaveCofre, r.payload_cifrado);
 
     encerrar();

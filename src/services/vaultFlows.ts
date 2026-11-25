@@ -27,9 +27,18 @@ import {
   type Credencial,
 } from '../crypto/kryptaCrypto';
 
+/** v1.3.0: o cofre deste aparelho está trancado (PIN/biometria) */
+export class TravadoError extends Error {
+  constructor() {
+    super('O cofre está trancado neste aparelho. Desbloqueie com o PIN ou a biometria.');
+    this.name = 'TravadoError';
+  }
+}
+
 function exigirDispositivo(contaId: string): EstadoDispositivo {
   const d = VirtualDevice.carregar(contaId);
   if (!d) throw new Error('Este navegador não tem o dispositivo desta conta.');
+  if (d.bloqueado) throw new TravadoError();
   return d;
 }
 
@@ -84,7 +93,7 @@ export async function parearDispositivo(
   const chaveCofre = aleatorio(32);
   const envelopeCcp = await criarEnvelope(chaveEnvelope, chaveCofre);
   if (!(await envelopeAbre(chaveEnvelope, envelopeCcp, chaveCofre))) {
-    throw new Error('Falha ao conferir o envelope da CCP. Nada foi enviado.');
+    throw new Error('Falha ao conferir o envelope da chave de contingência. Nada foi enviado.');
   }
   d.chaveCofre = bytesParaB64(chaveCofre);
   d.envelopeCcp = envelopeCcp;
@@ -208,7 +217,7 @@ export async function trocarCcp(contaId: string, ccpAtual: string, ccpNova: stri
 
   const envelopeCcp = await criarEnvelope(nova.chaveEnvelope, chaveCofre);
   if (!(await envelopeAbre(nova.chaveEnvelope, envelopeCcp, chaveCofre))) {
-    throw new Error('A nova CCP não abriu o novo envelope. Nada foi enviado.');
+    throw new Error('A nova chave de contingência não abriu o novo envelope. Nada foi enviado.');
   }
 
   const token = await loginDispositivo(d);
@@ -239,7 +248,7 @@ export async function redefinirCcpComDispositivo(contaId: string, senhaSite: str
 
   const envelopeCcp = await criarEnvelope(nova.chaveEnvelope, chaveCofre);
   if (!(await envelopeAbre(nova.chaveEnvelope, envelopeCcp, chaveCofre))) {
-    throw new Error('A nova CCP não abriu o novo envelope. Nada foi enviado.');
+    throw new Error('A nova chave de contingência não abriu o novo envelope. Nada foi enviado.');
   }
 
   const token = await loginDispositivo(d);
@@ -294,7 +303,7 @@ export async function ativarHeranca(contaId: string, ccp: string, cch: string) {
 
   const envelopeHerdeiro = await criarEnvelope(herdeiro.chaveEnvelope, chaveCofre);
   if (!(await envelopeAbre(herdeiro.chaveEnvelope, envelopeHerdeiro, chaveCofre))) {
-    throw new Error('A CCH não abriu o Envelope do Herdeiro. Nada foi enviado.');
+    throw new Error('A chave do herdeiro não abriu o Envelope do Herdeiro. Nada foi enviado.');
   }
 
   const token = await loginDispositivo(d);
@@ -347,7 +356,7 @@ export async function resgatarHeranca(contaId: string, cch: string) {
     ...d,
     chaveCofre: bytesParaB64(aberto.chaveCofre),
     envelopeCcp: aberto.vault.envelope_ccp,
-    envelopeHerdeiro: null, // a CCH é de uso único
+    envelopeHerdeiro: null, // a chave do herdeiro é de uso único
     credenciais: aberto.credenciais,
     versionCounter: backup.version_counter,
   };
@@ -395,7 +404,7 @@ export async function parearHardwareReal(contaId: string, ccp: string, serial: s
   const chaveCofre = aleatorio(32);
   const envelopeCcp = await criarEnvelope(chaveEnvelope, chaveCofre);
   if (!(await envelopeAbre(chaveEnvelope, envelopeCcp, chaveCofre))) {
-    throw new Error('Falha ao conferir o envelope da CCP. Nada foi enviado.');
+    throw new Error('Falha ao conferir o envelope da chave de contingência. Nada foi enviado.');
   }
   molde.chaveCofre = bytesParaB64(chaveCofre);
   molde.envelopeCcp = envelopeCcp;

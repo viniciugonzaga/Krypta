@@ -66,12 +66,12 @@ export const VaultAcessoController = {
     await AuditModel.log({
       userId,
       action: 'VAULT_OPENED_CCP',
-      detail: `Cofre aberto com a CCP em outro aparelho (${descreverCliente(req.cliente)}, só leitura)`,
+      detail: `Cofre aberto com a chave de contingência em outro aparelho (${descreverCliente(req.cliente)}, só leitura)`,
       ip: req.ip,
       status: 'warning',
     });
     const user = req.user!;
-    EmailService.notifyVaultEvent(user.email, user.name, 'Seu cofre foi aberto em outro aparelho', `Seu cofre foi aberto com a chave de contingência (CCP) ${descreverCliente(req.cliente)}, em modo só leitura.`);
+    EmailService.notifyVaultEvent(user.email, user.name, 'Seu cofre foi aberto em outro aparelho', `Seu cofre foi aberto com a chave de contingência ${descreverCliente(req.cliente)}, em modo só leitura.`);
 
     res.json({
       success: true,
@@ -101,10 +101,10 @@ export const VaultAcessoController = {
       payload,
       versionCounter,
     });
-    const data = resultadoOuErro(r, (s) => `Cofre no estado ${s}: a CCP nova exige cofre ATIVO.`);
+    const data = resultadoOuErro(r, (s) => `Cofre no estado ${s}: a chave de contingência nova exige cofre ATIVO.`);
 
-    await AuditModel.log({ userId, action: 'VAULT_CCP_RESET', detail: 'CCP nova criada pelo dispositivo (a anterior foi esquecida)', ip: req.ip, status: 'warning' });
-    EmailService.notifyVaultEvent(user.email, user.name, 'Sua chave de contingência foi trocada', 'Uma nova chave de contingência (CCP) foi criada no dispositivo do seu cofre. A CCP antiga não vale mais.');
+    await AuditModel.log({ userId, action: 'VAULT_CCP_RESET', detail: 'Chave de contingência nova criada pelo dispositivo (a anterior foi esquecida)', ip: req.ip, status: 'warning' });
+    EmailService.notifyVaultEvent(user.email, user.name, 'Sua chave de contingência foi trocada', 'Uma nova chave de contingência foi criada no dispositivo do seu cofre. A chave de contingência antiga não vale mais.');
 
     res.json({ success: true, data });
   }),

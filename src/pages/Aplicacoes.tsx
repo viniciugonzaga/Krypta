@@ -49,6 +49,7 @@ import {
 
 import { aoMudarPwa, foiInstalado, instalarPwa, podeInstalar } from '../config/pwa';
 import spriteRoboAcenando from '../assets/sprites/sprite_robo_acenando.png';
+import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 const GRAD = 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)';
@@ -254,6 +255,9 @@ export function Aplicacoes() {
       </div>
 
       <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-4 pt-32 pb-12">
+        <Dica id="aplicacoes-conta" titulo="Uma conta, todos os aparelhos" pergunta="Tem app para celular?" className="mb-8">
+          Site, celular e Windows usam a <strong>mesma conta</strong>. O cofre fica no aparelho que você pareou{user ? '' : ' (depois de criar a conta)'}; nos outros, abra com o PIN (Pro). O app do celular e o do Windows se atualizam a cada versão nova.
+        </Dica>
         {/* ============ HERO ============ */}
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 md:grid-cols-[1fr_260px] gap-8 items-center mb-14">
           <div>

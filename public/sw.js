@@ -80,3 +80,15 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// v1.3.0 — tocar numa notificação do Krypta abre (ou traz para a frente) o app nas notificações
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((abertas) => {
+      const janela = abertas.find((c) => 'focus' in c);
+      if (janela) return janela.focus();
+      return self.clients.openWindow('/notificacoes');
+    }),
+  );
+});

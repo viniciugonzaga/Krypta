@@ -7,8 +7,8 @@ interface Options {
 }
 
 export function usePageLoading({
-  minDuration = 1100,   // ⬅️ AUMENTADO: dá tempo de ver o GIF
-  maxDuration = 4500,
+  minDuration = 350,   // v1.3.0: transição curta (antes 1,1 s)
+  maxDuration = 1500,
 }: Options = {}): boolean {
   const location = useLocation();
   const [loading, setLoading] = useState(false);

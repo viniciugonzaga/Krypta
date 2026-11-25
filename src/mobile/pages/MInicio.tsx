@@ -11,9 +11,11 @@ import { Activity, AlertTriangle, ChevronRight, Cpu, Crown, History, KeyRound, L
 import { useAuth } from '../../contexts/AuthContext';
 import { UserAPI, type EventoConta } from '../../services/api';
 import { isProPlan } from '../../utils/plan';
+import { Avisos } from '../../services/avisos';
 import { FONTE, GRAD, MCard, MFaixa, MTitulo, MobileShell, fmtQuando, useMCores } from '../ui';
 
 import roboAcenando from '../../assets/sprites/sprite_robo_acenando.png';
+import { Dica } from '../../components/Dica';
 
 function iconeEvento(acao: string) {
   if (acao === 'VAULT_EDITED') return <PencilLine className="w-4 h-4" />;
@@ -77,6 +79,16 @@ export function MHome() {
         </MCard>
       )}
 
+      {user.estadoCofre === 'PENDENTE_PAREAMENTO' ? (
+        <Dica id="home-ativar" titulo="Comece ativando o cofre" pergunta="O que eu faço agora?" acao={{ rotulo: 'Ativar meu cofre', para: '/device' }} className="mb-4">
+          Pareie este celular, anote a chave de contingência e crie o PIN. Leva uns 3 minutos.
+        </Dica>
+      ) : (
+        <Dica id="home-kryp" titulo="Dúvida? Fale com o Kryp" pergunta="O que eu faço agora?" className="mb-4">
+          O robô no canto da tela conhece sua conta (plano, cofre, aparelho) e te leva direto para a tela certa.
+        </Dica>
+      )}
+
       {/* Cofre */}
       <motion.button
         type="button"
@@ -109,14 +121,14 @@ export function MHome() {
           <ul className="flex-1 grid grid-cols-1 gap-1.5 text-[12.5px]">
             {itens.map((i) => (
               <li key={i.rotulo} className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full" style={{ background: i.ok ? '#22c55e' : '#f59e0b' }} />
+                <span className="w-2 h-2 rounded-full" style={{ background: i.ok ? '#22c55e' : c.isDark ? 'rgba(255,255,255,0.28)' : 'rgba(97,49,201,0.28)', boxShadow: i.ok ? undefined : `inset 0 0 0 1.5px ${c.roxo}` }} />
                 <span style={{ color: c.suave }}>{i.rotulo}:</span>
                 <span className="font-semibold">{i.valor}</span>
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-[12.5px] mt-2 font-semibold" style={{ color: pontos >= 3 ? '#22c55e' : '#f59e0b' }}>{statusTexto}</p>
+        <p className="text-[12.5px] mt-2 font-semibold" style={{ color: pontos >= 3 ? '#22c55e' : c.roxo }}>{statusTexto}</p>
       </MCard>
 
       {/* Atividades */}
@@ -145,7 +157,7 @@ export function MHome() {
       </MCard>
 
       {/* Plano e dispositivo */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         <MCard c={c} i={3} onClick={() => navigate('/plans')} className="text-center">
           <span className="w-12 h-12 mx-auto rounded-full flex items-center justify-center text-white mb-2" style={{ background: GRAD }}>
             <Crown className="w-6 h-6" />
@@ -156,7 +168,7 @@ export function MHome() {
         <MCard c={c} i={4} onClick={() => navigate('/device')} className="text-center">
           <p className="text-[13px] font-semibold">Dispositivo</p>
           <p className="text-[11px] font-bold tracking-[0.2em]" style={{ color: c.roxo }}>KRYPTA</p>
-          <div className="relative w-12 h-12 mx-auto my-2 rounded-full flex items-center justify-center" style={{ background: c.isDark ? '#1a0b33' : '#111' }}>
+          <div className="relative w-12 h-12 mx-auto my-2 rounded-full flex items-center justify-center" style={{ background: GRAD, boxShadow: '0 6px 16px rgba(81,0,189,0.35)' }}>
             <Cpu className="w-6 h-6 text-white" />
             {user.dispositivoPareado && <motion.span className="absolute inset-0 rounded-full" style={{ border: '2px solid #22c55e' }} animate={reduzir ? undefined : { scale: [1, 1.25], opacity: [0.8, 0] }} transition={{ duration: 1.8, repeat: Infinity }} />}
           </div>
@@ -176,8 +188,13 @@ export function MNotificacoes() {
   const [eventos, setEventos] = useState<EventoConta[] | null>(null);
 
   useEffect(() => {
-    UserAPI.audit().then(setEventos).catch(() => setEventos([]));
-  }, []);
+    UserAPI.audit()
+      .then((ev) => {
+        setEventos(ev);
+        if (user) Avisos.marcarLidas(user.id, ev);
+      })
+      .catch(() => setEventos([]));
+  }, [user]);
 
   return (
     <MobileShell voltar={true}>

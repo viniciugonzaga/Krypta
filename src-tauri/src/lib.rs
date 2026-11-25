@@ -24,6 +24,8 @@ pub fn run() {
 
     app.plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
+        // v1.3.0: notificações do sistema (o front chama plugin:notification|notify)
+        .plugin(tauri_plugin_notification::init())
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Krypta");
 }

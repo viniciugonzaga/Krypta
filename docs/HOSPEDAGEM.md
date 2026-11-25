@@ -59,7 +59,7 @@
 ## 5. Banco (Hostinger, no painel do site do Krypta)
 1. **Bancos de dados → Gerenciamento**: banco `krypta`, usuário `krypta`, senha aleatória de 24 caracteres
    (`node -e "console.log(require('crypto').randomBytes(18).toString('base64url'))"`). Anotar os nomes **com o prefixo** `u…_`.
-2. **phpMyAdmin** → banco `u…_krypta` → aba **SQL** → rodar `server/sql/001_base.sql` até `007`, um por vez. Ficam 10 tabelas.
+2. **phpMyAdmin** → banco `u…_krypta` → aba **SQL** → rodar `server/sql/001_base.sql` até `008`, um por vez. Ficam 10 tabelas.
 3. **MySQL remoto** → **Qualquer host** → só o banco `u…_krypta` → **Criar**. Anotar o servidor (`srv….hstgr.io`) como `DB_HOST`.
 4. Não usar o botão **Conectar** do cartão "Banco de dados" do site: quem usa o banco é a API, não o site.
 

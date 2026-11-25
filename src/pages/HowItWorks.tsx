@@ -60,20 +60,20 @@ const PECAS = [
 const PASSOS_COFRE = [
   { titulo: 'Crie sua conta', texto: 'Cadastro no site com e-mail e senha.' },
   { titulo: 'Pareie um dispositivo', texto: 'Em "Meu Krypta", escolha software ou um dispositivo comprado. Ele cria um par de chaves e só a chave pública vai ao servidor.' },
-  { titulo: 'Guarde sua CCP', texto: 'A Chave de Contingência (32 caracteres) é gerada no seu aparelho e nunca é enviada. É ela que recupera o cofre se você perder o dispositivo.' },
+  { titulo: 'Guarde sua chave de contingência', texto: 'A Chave de Contingência (32 caracteres) é gerada no seu aparelho e nunca é enviada. É ela que recupera o cofre se você perder o dispositivo.' },
   { titulo: 'Use o cofre', texto: 'Adicione senhas. A cada mudança o dispositivo envia um backup cifrado com número de versão (o servidor recusa versões antigas).' },
 ];
 
 const PASSOS_DISPOSITIVO = [
   { icone: Package, titulo: 'Compre', texto: 'Em Produtos, com o plano Pro. O pedido fica salvo em "Minhas compras" com o número de série.' },
   { icone: Truck, titulo: 'Receba', texto: 'Quando chegar, confirme o recebimento em "Minhas compras". Ele passa a "Pronto para parear".' },
-  { icone: Cpu, titulo: 'Pareie', texto: 'No Meu Krypta, escolha o número de série e gere sua CCP. Pronto: ele protege seu cofre.' },
+  { icone: Cpu, titulo: 'Pareie', texto: 'No Meu Krypta, escolha o número de série e gere sua chave de contingência. Pronto: ele protege seu cofre.' },
   { icone: ShieldCheck, titulo: 'Reserva', texto: 'Comprou mais de um? Os outros ficam guardados para vincular depois de um Kill Switch.' },
 ];
 
 const PLANOS: Array<{ recurso: string; free: boolean | string; pro: boolean | string }> = [
   { recurso: 'Cofre zero-knowledge com dispositivo de software', free: true, pro: true },
-  { recurso: 'Recuperação com a CCP e troca da CCP', free: true, pro: true },
+  { recurso: 'Recuperação e troca da chave de contingência', free: true, pro: true },
   { recurso: 'Espaço do backup cifrado', free: '64 KB', pro: '1 MB' },
   { recurso: 'Dispositivo Krypta físico', free: false, pro: true },
   { recurso: 'Kill Switch (bloqueio remoto do dispositivo)', free: false, pro: true },
@@ -88,19 +88,19 @@ const FAQ = [
   },
   {
     p: 'Onde vejo o ID da minha conta?',
-    r: 'Em "Meu Krypta", logo abaixo do estado do cofre, com um botão de copiar. Você quase nunca precisa dele: o kit do herdeiro já leva o ID dentro do link.',
+    r: 'Em "Meu Krypta", logo abaixo do estado do cofre, com um botão de copiar. Você quase nunca precisa dele: o código de herança já leva o ID dentro do link.',
   },
   {
     p: 'Se eu esquecer a senha do site, perco o cofre?',
-    r: 'Não. A senha do site só administra a conta (recupere em "Esqueci a senha"). O cofre é aberto pelo dispositivo ou pela CCP.',
+    r: 'Não. A senha do site só administra a conta (recupere em "Esqueci a senha"). O cofre é aberto pelo dispositivo ou pela chave de contingência.',
   },
   {
-    p: 'E se eu perder o dispositivo E a CCP?',
-    r: 'Aí ninguém consegue abrir o cofre, nem o Krypta. É o preço de o servidor não ter a chave. Por isso a CCP deve ser guardada em papel, em lugar seguro.',
+    p: 'E se eu perder o dispositivo E a chave de contingência?',
+    r: 'Aí ninguém consegue abrir o cofre, nem o Krypta. É o preço de o servidor não ter a chave. Por isso a chave de contingência deve ser guardada em papel, em lugar seguro.',
   },
   {
     p: 'O herdeiro precisa criar conta?',
-    r: 'Não. Ele abre o link do kit (ou a página de resgate) e o cofre é aberto num dispositivo novo, no navegador dele.',
+    r: 'Não. Ele abre o link de resgate (ou a página de resgate) e o cofre é aberto num dispositivo novo, no navegador dele.',
   },
   {
     p: 'Tem versão para instalar no computador?',
@@ -223,9 +223,9 @@ export function HowItWorks() {
                 <span className="w-11 h-11 rounded-xl flex items-center justify-center mb-3" style={{ background: GRAD }}>
                   <Users className="w-5 h-5 text-white" />
                 </span>
-                <h3 className="font-bold text-lg mb-1" style={{ fontFamily: ROUNDED_FONT }}>Recebi um kit de herança</h3>
+                <h3 className="font-bold text-lg mb-1" style={{ fontFamily: ROUNDED_FONT }}>Recebi um código de herança</h3>
                 <p className="text-sm mb-4" style={{ color: muted }}>
-                  Não precisa de conta. Abra o link do kit ou cole o código que o titular deixou.
+                  Não precisa de conta. Abra o link de resgate ou cole o código que o titular deixou.
                 </p>
                 <BotaoPrimario to="/heranca">Resgatar herança <ArrowRight className="w-4 h-4" /></BotaoPrimario>
               </div>
@@ -249,7 +249,7 @@ export function HowItWorks() {
             <Cloud className="w-5 h-5 shrink-0 mt-0.5" style={{ color: bright }} />
             <p style={{ color: muted }}>
               <strong style={{ color: fg }}>O que o servidor tem:</strong> sua conta, a chave pública do dispositivo e o
-              backup cifrado. <strong style={{ color: fg }}>O que ele nunca tem:</strong> suas senhas, a CCP e a chave do herdeiro.
+              backup cifrado. <strong style={{ color: fg }}>O que ele nunca tem:</strong> suas senhas, a chave de contingência e a chave do herdeiro.
             </p>
           </div>
         </Bloco>
@@ -290,13 +290,13 @@ export function HowItWorks() {
           </div>
         </Bloco>
 
-        {/* ============ CCP + KILL SWITCH ============ */}
+        {/* ============ chave de contingência + KILL SWITCH ============ */}
         <Bloco id="kill-switch">
           <Titulo tag="Segurança">Perdeu o dispositivo? Você ainda manda no cofre</Titulo>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-2xl p-5" style={card}>
               <KeyRound className="w-6 h-6 mb-2" style={{ color: bright }} />
-              <h3 className="font-bold text-lg mb-1" style={{ fontFamily: ROUNDED_FONT }}>Chave de Contingência (CCP)</h3>
+              <h3 className="font-bold text-lg mb-1" style={{ fontFamily: ROUNDED_FONT }}>Chave de Contingência</h3>
               <p className="text-sm" style={{ color: muted }}>
                 Gerada no pareamento, aparece uma vez. Com ela você recupera o cofre neste ou em outro dispositivo e pode
                 trocá-la quando quiser (a antiga para de funcionar). Disponível em todos os planos.
@@ -308,7 +308,7 @@ export function HowItWorks() {
                 Kill Switch <span className="text-[10px] px-2 py-0.5 rounded-full text-white" style={{ background: GRAD }}>PRO</span>
               </h3>
               <p className="text-sm" style={{ color: muted }}>
-                Prova com a CCP que é você, e o dispositivo perdido é banido na hora: ele não entra mais. Depois você
+                Prova com a chave de contingência que é você, e o dispositivo perdido é banido na hora: ele não entra mais. Depois você
                 vincula um dispositivo novo (outro comprado ou de software) e o cofre é restaurado do backup.
               </p>
             </div>
@@ -324,10 +324,10 @@ export function HowItWorks() {
                 <UserIcon className="w-5 h-5" style={{ color: bright }} /> Você (titular, Pro)
               </h3>
               <ol className="space-y-2 text-sm" style={{ color: muted }}>
-                <li><strong style={{ color: fg }}>1.</strong> Em Meu Krypta → Herança digital, ative com a sua CCP.</li>
-                <li><strong style={{ color: fg }}>2.</strong> É gerado o <strong style={{ color: fg }}>kit do herdeiro</strong>: um arquivo com um link pronto e a chave do herdeiro (CCH).</li>
-                <li><strong style={{ color: fg }}>3.</strong> Entregue o kit a quem você confia (impresso, num envelope, com o advogado...).</li>
-                <li><strong style={{ color: fg }}>4.</strong> Mudou de ideia? Desative: o kit antigo deixa de valer.</li>
+                <li><strong style={{ color: fg }}>1.</strong> Em Meu Krypta → Herança digital, ative com a sua chave de contingência.</li>
+                <li><strong style={{ color: fg }}>2.</strong> É gerado o <strong style={{ color: fg }}>código de herança</strong>: um arquivo com um link pronto e a chave do herdeiro.</li>
+                <li><strong style={{ color: fg }}>3.</strong> Entregue o código de herança a quem você confia (impresso, num envelope, com o advogado...).</li>
+                <li><strong style={{ color: fg }}>4.</strong> Mudou de ideia? Desative: o código de herança antigo deixa de valer.</li>
               </ol>
             </div>
             <div className="rounded-2xl p-5" style={card}>
@@ -335,10 +335,10 @@ export function HowItWorks() {
                 <Users className="w-5 h-5" style={{ color: bright }} /> O herdeiro (sem conta)
               </h3>
               <ol className="space-y-2 text-sm" style={{ color: muted }}>
-                <li><strong style={{ color: fg }}>1.</strong> Abre o link do kit. O ID da conta e a chave já vêm preenchidos.</li>
-                <li><strong style={{ color: fg }}>2.</strong> Sem o link? Entra em Krypta → Como funciona → "Recebi um kit de herança" e cola o código.</li>
+                <li><strong style={{ color: fg }}>1.</strong> Abre o link de resgate. O ID da conta e a chave já vêm preenchidos.</li>
+                <li><strong style={{ color: fg }}>2.</strong> Sem o link? Entra em Krypta → Como funciona → "Recebi um código de herança" e cola o código.</li>
                 <li><strong style={{ color: fg }}>3.</strong> Clica em Resgatar: um dispositivo novo é criado no navegador dele e o cofre abre.</li>
-                <li><strong style={{ color: fg }}>4.</strong> O dispositivo do titular é revogado e ele recebe um e-mail. A CCH vale uma vez.</li>
+                <li><strong style={{ color: fg }}>4.</strong> O dispositivo do titular é revogado e ele recebe um e-mail. A chave do herdeiro vale uma vez.</li>
               </ol>
               <div className="mt-4">
                 <BotaoPrimario to="/heranca">Resgatar herança <ArrowRight className="w-4 h-4" /></BotaoPrimario>

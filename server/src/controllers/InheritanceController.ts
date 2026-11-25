@@ -84,7 +84,7 @@ export const InheritanceController = {
     await AuditModel.log({
       userId,
       action: 'VAULT_INHERITANCE_ENABLED',
-      detail: 'Herança digital ativada ou chave do herdeiro (CCH) trocada',
+      detail: 'Herança digital ativada ou chave do herdeiro trocada',
       ip: req.ip,
     });
 

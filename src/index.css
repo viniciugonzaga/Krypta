@@ -119,3 +119,9 @@ html.theme-transitioning *::after {
       0 0 30px rgba(var(--krypta-purple) / 0.5);
   }
 }
+/* v1.3.0 — modo celular: cartões empilhados nunca ficam colados.
+   :where() tem especificidade zero, então mt-*/space-y-* das telas continuam valendo.
+   Não vale dentro de grade/linha (grid/flex), para não desalinhar. */
+:where(:not(.grid):not(.flex) > .m-bloco + .m-bloco) {
+  margin-top: 0.875rem;
+}

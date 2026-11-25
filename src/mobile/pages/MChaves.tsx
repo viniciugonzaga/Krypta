@@ -28,6 +28,7 @@ import { GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MTitulo, useMCores
 import { Moldura } from '../Moldura';
 import { FaixaRemota } from './MRemoto';
 import { CofreNaoPronto } from './CofreNaoPronto';
+import { Dica } from '../../components/Dica';
 
 export const CATEGORIAS = ['Pessoal', 'Bancos', 'Redes sociais', 'Trabalho', 'Estudos', 'Compras', 'Jogos', 'Casa', 'Saúde', 'Outros'];
 
@@ -178,6 +179,9 @@ export function MChaves() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: c.suave }} />
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, tipo ou categoria" className="w-full h-11 pl-9 pr-3 rounded-xl text-[14px] outline-none" style={{ background: c.campo, border: `1.5px solid ${c.borda}`, color: c.texto }} />
           </label>
+          <Dica id="chaves-busca" titulo="Ache qualquer senha em segundos" pergunta="Como edito ou apago uma chave?" className="mb-3">
+            Busque pelo nome, tipo ou categoria. Toque numa chave para copiar o usuário ou a senha. Apagou sem querer? Volte a um ponto de restauração.
+          </Dica>
           <MCard c={c} className="mb-4">
             {lista.length === 0 ? (
               <p className="text-[13px] py-4 text-center" style={{ color: c.suave }}>{busca ? 'Nada encontrado.' : 'Nenhuma chave ainda.'}</p>
@@ -384,6 +388,11 @@ export function MNovaChave() {
     <Moldura voltar={true}>
       <MTitulo c={c} titulo={existente ? 'Editar chave' : 'Criar nova chave'} sub="Tudo o que você digitar aqui é cifrado no seu aparelho." />
       <FaixaRemota c={c} sessao={remoto} />
+      {!existente && (
+        <Dica id="nova-chave-icone" titulo="O ícone aparece sozinho" pergunta="Posso ter mais campos numa chave?" className="mb-4">
+          Escreva o nome do serviço (ex.: “Netflix”, “Nubank”) e o Krypta coloca o ícone da marca. Use o gerador para criar senhas fortes.
+        </Dica>
+      )}
       {carregando ? (
         <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
       ) : !pronto ? (

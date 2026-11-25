@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { DestinoLogin } from '../routes/destino';
 import { motion } from 'framer-motion';
-import { Mail, Lock, ArrowRight, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   ROUNDED_FONT,
@@ -709,14 +709,12 @@ export function LoginForm() {
           Cadastre-se
         </Link>
       </p>
+      <Link to="/heranca" className="mt-3 mx-auto w-fit flex items-center justify-center gap-1.5 text-xs font-semibold underline underline-offset-4" style={{ color: accent }}>
+        <KeyRound className="w-3.5 h-3.5 shrink-0" /> Recebi um código de herança
+      </Link>
       <p className="text-[11px] mt-2 text-center" style={{ color: mutedText }}>
-        Recebeu um kit de herança?{' '}
-        <Link to="/heranca" className="font-semibold hover:underline" style={{ color: accent }}>
-          Resgatar sem conta
-        </Link>
-        {' · '}
         <Link to="/como-funciona" className="font-semibold hover:underline" style={{ color: accent }}>
-          Como funciona
+          Como funciona o Krypta
         </Link>
       </p>
     </>

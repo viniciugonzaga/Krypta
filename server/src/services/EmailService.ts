@@ -206,7 +206,7 @@ export const EmailService = {
         <p>O <strong>Kill Switch</strong> foi acionado na sua conta Krypta. O dispositivo vinculado
         foi <strong>revogado de forma permanente</strong> e a conta aguarda um novo dispositivo.</p>
         <p>Se foi você, nenhuma ação é necessária.</p>
-        <p style="color:#f87171;"><strong>Se NÃO foi você</strong>, a sua chave de contingência (CCP)
+        <p style="color:#f87171;"><strong>Se NÃO foi você</strong>, a sua chave de contingência
         pode ter sido exposta. Entre no portal e troque sua senha imediatamente.</p>
         `,
         true
@@ -260,17 +260,17 @@ export const EmailService = {
   notifyInheritanceClaim(to: string, name: string): void {
     silencioso(
       to,
-      'Krypta — A chave de herança da sua conta foi usada',
+      'Krypta — O código de herança da sua conta foi usado',
       layout(
         'Resgate de herança realizado',
         `
         <p>Olá, <strong>${name}</strong>.</p>
-        <p>A <strong>chave de herança</strong> da sua conta Krypta foi usada para um resgate.
+        <p>O <strong>código de herança</strong> da sua conta Krypta foi usado para um resgate.
         O seu dispositivo foi revogado e o dispositivo do herdeiro foi vinculado à conta,
         que agora está em recuperação.</p>
-        <p style="color:#f87171;"><strong>Se você não autorizou este resgate</strong>, a sua chave
-        de herança pode ter sido exposta. Para retomar a conta, use a sua chave de contingência
-        (CCP) para acionar o Kill Switch e vincular um novo dispositivo seu.</p>
+        <p style="color:#f87171;"><strong>Se você não autorizou este resgate</strong>, o seu código
+        de herança pode ter sido exposto. Para retomar a conta, use a sua chave de contingência
+        para acionar o Kill Switch e vincular um novo dispositivo seu.</p>
         `,
         true
       )

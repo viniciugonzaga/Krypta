@@ -39,15 +39,19 @@ import {
   User as UserIcon,
   Users,
   X,
+  Camera,
 } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { OrdersAPI, UserAPI, handleApiError, type EventoConta, type Pedido } from '../services/api';
+import { Avisos } from '../services/avisos';
+import { EditorFoto, FotoPerfil } from '../components/FotoPerfil';
 import { getPlanFullName, isProPlan, recursosDoPlano } from '../utils/plan';
 
 import spriteRoboAcenando from '../assets/sprites/sprite_robo_acenando.png';
+import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 const GRAD = 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)';
@@ -88,8 +92,6 @@ const fmtData = (v?: string | null, comHora = true) => {
   return d.toLocaleString('pt-BR', comHora ? { dateStyle: 'short', timeStyle: 'short' } : { dateStyle: 'long' });
 };
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const iniciais = (nome: string) =>
-  nome.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'K';
 
 // ============================================================
 // TEMA
@@ -315,6 +317,7 @@ export function Profile() {
 
   // identidade
   const [editando, setEditando] = useState(false);
+  const [editarFoto, setEditarFoto] = useState(false);
   const [nome, setNome] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
@@ -338,7 +341,12 @@ export function Profile() {
 
   useEffect(() => {
     OrdersAPI.list().then(setPedidos).catch(() => setPedidos([]));
-    UserAPI.audit().then(setAtividade).catch(() => setAtividade([]));
+    UserAPI.audit()
+      .then((ev) => {
+        setAtividade(ev);
+        if (user) Avisos.marcarLidas(user.id, ev);
+      })
+      .catch(() => setAtividade([]));
   }, []);
 
   // Veio de "Gerenciar assinatura"? Rola até o cartão
@@ -431,6 +439,7 @@ export function Profile() {
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ backgroundColor: 'rgb(var(--krypta-bg))', color: c.fg }}>
       <Navbar />
+      <EditorFoto aberto={editarFoto} onFechar={() => setEditarFoto(false)} />
 
       {/* ============ FUNDO ============ */}
       <div className="absolute inset-0 pointer-events-none">
@@ -472,6 +481,9 @@ export function Profile() {
       </div>
 
       <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pt-40 pb-16">
+        <Dica id="perfil-foto" titulo="Coloque uma foto (opcional)" className="mb-6">
+          Toque no avatar para enviar uma foto ou escolher um robô do Krypta. Em <strong>Segurança da conta</strong> você vê onde a conta está aberta e pode sair de todos os aparelhos.
+        </Dica>
         {/* ============ TÍTULO + ROBÔ ============ */}
         <motion.header initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="relative mb-8">
           <p className="text-xs font-bold tracking-[0.25em] uppercase mb-1" style={{ color: c.bright }}>Minha conta</p>
@@ -552,18 +564,25 @@ export function Profile() {
                 <motion.div className="absolute inset-3" animate={{ rotate: -360 }} transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}>
                   <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full" style={{ background: '#C6AEF8', boxShadow: '0 0 10px #C6AEF8' }} />
                 </motion.div>
-                <motion.div
-                  className="w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold text-white select-none"
-                  style={{ background: GRAD, boxShadow: c.isDark ? '0 0 44px rgba(141,81,255,0.65)' : '0 10px 26px rgba(81,0,189,0.35)', fontFamily: ROUNDED_FONT }}
+                <motion.button
+                  type="button"
+                  onClick={() => setEditarFoto(true)}
+                  aria-label="Trocar foto de perfil"
+                  title="Trocar foto de perfil"
+                  className="group relative w-32 h-32 rounded-full select-none"
+                  style={{ boxShadow: c.isDark ? '0 0 44px rgba(141,81,255,0.65)' : '0 10px 26px rgba(81,0,189,0.35)' }}
                   animate={{ scale: [1, 1.04, 1] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  {iniciais(user.name)}
-                </motion.div>
+                  <FotoPerfil avatar={user.avatarUrl} nome={user.name} tamanho={128} />
+                  <span className="absolute inset-0 rounded-full flex items-center justify-center bg-black/45 text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-5 h-5 mr-1" /> Trocar
+                  </span>
+                </motion.button>
                 {pro && (
                   <motion.span
                     className="absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center"
-                    style={{ background: 'linear-gradient(135deg, #f5c542, #f59e0b)', boxShadow: '0 0 16px rgba(245,197,66,0.7)' }}
+                    style={{ background: 'linear-gradient(135deg, #C6AEF8, #8d51ff)', boxShadow: '0 0 16px rgba(141,81,255,0.7)' }}
                     animate={{ rotate: [0, -10, 10, 0] }}
                     transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
                     title="Krypta Pro"
@@ -802,7 +821,7 @@ export function Profile() {
             <ul className="text-sm space-y-1.5 mb-4">
               {[
                 'Kill Switch, alertas de acesso e novos pareamentos de dispositivo físico ficam travados',
-                'Ativar ou trocar a herança fica travado (um kit já entregue continua valendo)',
+                'Ativar ou trocar a herança fica travado (um código de herança já entregue continua valendo)',
                 'O limite do backup volta a 64 KB nos próximos envios',
                 'Um dispositivo físico já pareado continua funcionando',
               ].map((t) => (
@@ -824,7 +843,7 @@ export function Profile() {
           <>
             <h3 className="text-xl font-bold mb-2" style={{ fontFamily: ROUNDED_FONT, color: '#f87171' }}>Excluir a conta para sempre?</h3>
             <p className="text-sm mb-3" style={{ color: c.muted }}>
-              O backup cifrado, os pedidos, os dispositivos comprados e o histórico serão apagados. Se a herança estiver ativa, o kit deixa de funcionar.
+              O backup cifrado, os pedidos, os dispositivos comprados e o histórico serão apagados. Se a herança estiver ativa, o código de herança deixa de funcionar.
             </p>
             <div className="space-y-3">
               <Campo c={c} rotulo="Sua senha" type="password" autoComplete="current-password" value={senhaModal} onChange={(e) => setSenhaModal(e.target.value)} />

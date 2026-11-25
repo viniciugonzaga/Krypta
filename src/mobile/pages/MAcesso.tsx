@@ -31,7 +31,7 @@ import { DetalheChave, LinhaChave } from './MChaves';
 
 const MINUTOS_ABERTO = 5;
 
-export function CampoCcp({ c, valor, onChange, rotulo = 'Sua chave de contingência (CCP)' }: { c: MCores; valor: string; onChange: (v: string) => void; rotulo?: string }) {
+export function CampoCcp({ c, valor, onChange, rotulo = 'Sua chave de contingência' }: { c: MCores; valor: string; onChange: (v: string) => void; rotulo?: string }) {
   return (
     <MCampo
       c={c}
@@ -82,7 +82,7 @@ export function MVerCofre() {
 
   const abrir = async () => {
     setErro(null);
-    if (!segredoValido(ccp)) return setErro('CCP inválida: são 32 caracteres em 8 blocos (XXXX-XXXX-...).');
+    if (!segredoValido(ccp)) return setErro('Chave de contingência inválida: são 32 caracteres em 8 blocos (XXXX-XXXX-...).');
     setOcupado(true);
     try {
       const r = await Flows.abrirCofreComCcp(contaId, normalizarSegredo(ccp));
@@ -97,7 +97,7 @@ export function MVerCofre() {
 
   return (
     <Moldura voltar="/cofre/acesso">
-      <MTitulo c={c} titulo="Ver com a CCP (só leitura)" sub="Plano B: abra suas chaves com a CCP quando a senha de acesso não estiver disponível." />
+      <MTitulo c={c} titulo="Ver com a chave de contingência (só leitura)" sub="Plano B: abra suas chaves com a chave de contingência quando a senha de acesso não estiver disponível." />
 
       {carregando ? (
         <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
@@ -121,8 +121,8 @@ export function MVerCofre() {
             <ul className="text-[12.5px] space-y-2" style={{ color: c.suave }}>
               <li>• Abrir o cofre no aparelho onde ele foi pareado.</li>
               <li>• Ver sua conta, plano, compras e alertas em qualquer aparelho.</li>
-              <li>• Criar <strong style={{ color: c.texto }}>pontos de restauração</strong> do cofre (com a CCP).</li>
-              <li>• Perdeu o aparelho pareado e não tem a CCP? Use <strong style={{ color: c.texto }}>Perdi minha CCP → Abandonar o cofre</strong> e comece um cofre novo aqui.</li>
+              <li>• Criar <strong style={{ color: c.texto }}>pontos de restauração</strong> do cofre (com a chave de contingência).</li>
+              <li>• Perdeu o aparelho pareado e não tem a chave de contingência? Use <strong style={{ color: c.texto }}>Perdi minha chave de contingência → Abandonar o cofre</strong> e comece um cofre novo aqui.</li>
               <li>• No Pro: crie uma <strong style={{ color: c.texto }}>senha de acesso</strong> e abra e edite o cofre em qualquer aparelho.</li>
             </ul>
           </MCard>
@@ -130,9 +130,9 @@ export function MVerCofre() {
       ) : !aberto ? (
         /* ---------------- PRO: pedir a CCP ---------------- */
         <MCard c={c}>
-          <MFaixa c={c} icone={<KeyRound className="w-5 h-5" />} titulo="Abrir com a CCP" sub="Só leitura · fecha sozinho em 5 minutos" />
+          <MFaixa c={c} icone={<KeyRound className="w-5 h-5" />} titulo="Abrir com a chave de contingência" sub="Só leitura · fecha sozinho em 5 minutos" />
           <ul className="text-[12.5px] space-y-1.5 mb-4" style={{ color: c.suave }}>
-            <li>• A CCP é conferida neste aparelho: só uma prova dela vai ao servidor.</li>
+            <li>• A chave de contingência é conferida neste aparelho: só uma prova dela vai ao servidor.</li>
             <li>• O servidor envia o cofre cifrado e é este aparelho que abre.</li>
             <li>• Para editar em outro aparelho, use a <strong style={{ color: c.texto }}>senha de acesso ao cofre</strong>.</li>
             <li>• Você recebe um alerta por e-mail a cada abertura.</li>
@@ -140,7 +140,7 @@ export function MVerCofre() {
           <CampoCcp c={c} valor={ccp} onChange={setCcp} />
           {erro && <div className="mt-3"><MAviso tipo="erro">{erro}</MAviso></div>}
           <MBotao className="mt-4" carregando={ocupado} onClick={abrir}><Eye className="w-4 h-4" /> Abrir meu cofre</MBotao>
-          {ocupado && <p className="text-[11px] text-center mt-2" style={{ color: c.suave }}>Conferindo a CCP... pode levar alguns segundos.</p>}
+          {ocupado && <p className="text-[11px] text-center mt-2" style={{ color: c.suave }}>Conferindo a chave de contingência... pode levar alguns segundos.</p>}
         </MCard>
       ) : (
         /* ---------------- ABERTO (só leitura) ---------------- */
@@ -248,21 +248,21 @@ export function MPerdiCcp() {
 
   return (
     <Moldura voltar="/emergencia">
-      <MTitulo c={c} titulo="Perdi minha CCP" sub="A chave de contingência abre o cofre quando o dispositivo não está à mão. Veja o que dá para fazer." />
+      <MTitulo c={c} titulo="Perdi minha chave de contingência" sub="A chave de contingência abre o cofre quando o dispositivo não está à mão. Veja o que dá para fazer." />
 
       {carregando ? (
         <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
       ) : feito === 'ccp' ? (
         <MCard c={c}>
-          <p className="font-semibold flex items-center gap-2" style={{ color: '#22c55e' }}><Check className="w-5 h-5" /> CCP nova criada</p>
-          <p className="text-[13px] mt-2" style={{ color: c.suave }}>A CCP antiga não vale mais. Suas chaves continuam todas no cofre. Se a herança estava ativa, o kit do herdeiro continua valendo.</p>
+          <p className="font-semibold flex items-center gap-2" style={{ color: '#22c55e' }}><Check className="w-5 h-5" /> Chave de contingência nova criada</p>
+          <p className="text-[13px] mt-2" style={{ color: c.suave }}>A chave de contingência antiga não vale mais. Suas chaves continuam todas no cofre. Se a herança estava ativa, o código de herança continua valendo.</p>
           <MBotao className="mt-4" onClick={() => navigate('/device')}>Voltar ao cofre</MBotao>
         </MCard>
       ) : feito === 'abandonado' ? (
         <MCard c={c}>
           <p className="font-semibold flex items-center gap-2" style={{ color: '#22c55e' }}><Check className="w-5 h-5" /> Cofre antigo abandonado</p>
           <p className="text-[13px] mt-2" style={{ color: c.suave }}>
-            Sua conta, plano e compras continuam. Agora crie o cofre novo: você vai gerar uma CCP nova (guarde em papel!).
+            Sua conta, plano e compras continuam. Agora crie o cofre novo: você vai gerar uma chave de contingência nova (guarde em papel!).
             O cofre novo começa vazio: as chaves, a senha de acesso e os pontos de restauração do cofre antigo foram apagados.
           </p>
           <MBotao className="mt-4" onClick={() => navigate(modo === 'mobile' ? '/cofre/completo' : '/device')}>Criar meu cofre novo</MBotao>
@@ -275,32 +275,32 @@ export function MPerdiCcp() {
           <MCard c={c} onClick={podeDispositivo ? () => setCaminho('dispositivo') : undefined} style={podeDispositivo ? undefined : { opacity: 0.6 }}>
             <MFaixa c={c} icone={<Cpu className="w-5 h-5" />} titulo="Estou com o dispositivo" sub="Nada se perde" />
             <p className="text-[12.5px]" style={{ color: c.suave }}>
-              O dispositivo tem a chave do cofre e cria uma CCP nova. Para isso o Krypta pede também a senha da sua conta.
+              O dispositivo tem a chave do cofre e cria uma chave de contingência nova. Para isso o Krypta pede também a senha da sua conta.
             </p>
             {!podeDispositivo && <p className="text-[11.5px] mt-2 font-semibold" style={{ color: '#f59e0b' }}>Disponível só no aparelho onde o cofre está pareado.</p>}
           </MCard>
 
           <MCard c={c} onClick={() => setCaminho('abandonar')} style={{ borderColor: 'rgba(239,68,68,0.5)' }}>
-            <MFaixa c={c} icone={<ShieldOff className="w-5 h-5" />} titulo="Perdi a CCP e o dispositivo" sub="Abandonar o cofre e começar um novo" />
+            <MFaixa c={c} icone={<ShieldOff className="w-5 h-5" />} titulo="Perdi a chave de contingência e o dispositivo" sub="Abandonar o cofre e começar um novo" />
             <p className="text-[12.5px]" style={{ color: c.suave }}>
-              Sem a CCP e sem o dispositivo, ninguém consegue abrir o cofre antigo, nem o Krypta. Ele é descartado e sua conta fica livre para um cofre novo.
+              Sem a chave de contingência e sem o dispositivo, ninguém consegue abrir o cofre antigo, nem o Krypta. Ele é descartado e sua conta fica livre para um cofre novo.
             </p>
           </MCard>
 
           <MCard c={c} style={{ background: c.faixa }}>
             <p className="text-[12.5px]" style={{ color: c.suave }}>
-              <strong style={{ color: c.texto }}>Tem a CCP, mas perdeu o dispositivo?</strong> Aí não precisa disso: use o Bloqueio Remoto (Kill Switch, Pro) e vincule um aparelho novo com a mesma CCP.
+              <strong style={{ color: c.texto }}>Tem a chave de contingência, mas perdeu o dispositivo?</strong> Aí não precisa disso: use o Bloqueio Remoto (Kill Switch, Pro) e vincule um aparelho novo com a mesma chave de contingência.
             </p>
           </MCard>
         </div>
       ) : caminho === 'dispositivo' ? (
         /* ---------------- A) CCP NOVA PELO DISPOSITIVO ---------------- */
         <MCard c={c}>
-          <MFaixa c={c} icone={<Cpu className="w-5 h-5" />} titulo="Criar uma CCP nova" sub="Pelo dispositivo deste aparelho" />
+          <MFaixa c={c} icone={<Cpu className="w-5 h-5" />} titulo="Criar uma chave de contingência nova" sub="Pelo dispositivo deste aparelho" />
           <div className="space-y-3">
             <MCampo c={c} rotulo="Senha da sua conta" type="password" autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} />
             {!ccpNova ? (
-              <MBotao variante="secundario" onClick={() => setCcpNova(gerarSegredo())}><KeyRound className="w-4 h-4" /> Gerar a CCP nova</MBotao>
+              <MBotao variante="secundario" onClick={() => setCcpNova(gerarSegredo())}><KeyRound className="w-4 h-4" /> Gerar a chave de contingência nova</MBotao>
             ) : (
               <>
                 <div className="rounded-xl p-3 text-center" style={{ background: c.faixa }}>
@@ -311,12 +311,12 @@ export function MPerdiCcp() {
                 </div>
                 <label className="flex items-start gap-2 text-[12.5px]">
                   <input type="checkbox" checked={anotei} onChange={(e) => setAnotei(e.target.checked)} className="accent-purple-600 w-4 h-4 mt-0.5" />
-                  Anotei a CCP nova em papel e guardei num lugar seguro. Ela aparece só agora.
+                  Anotei a chave de contingência nova em papel e guardei num lugar seguro. Ela aparece só agora.
                 </label>
               </>
             )}
             {erro && <MAviso tipo="erro">{erro}</MAviso>}
-            <MBotao carregando={ocupado} disabled={!senha || !ccpNova || !anotei} onClick={criarCcpNova}>Salvar a CCP nova</MBotao>
+            <MBotao carregando={ocupado} disabled={!senha || !ccpNova || !anotei} onClick={criarCcpNova}>Salvar a chave de contingência nova</MBotao>
             <button type="button" onClick={() => { setCaminho(null); setErro(null); }} className="w-full text-[13px]" style={{ color: c.suave }}>Voltar</button>
           </div>
         </MCard>
@@ -325,7 +325,7 @@ export function MPerdiCcp() {
         <MCard c={c} style={{ borderColor: 'rgba(239,68,68,0.5)' }}>
           <MFaixa c={c} icone={<AlertTriangle className="w-5 h-5" />} titulo="Abandonar o cofre" sub="Não dá para desfazer" />
           <div className="text-[12.5px] space-y-1.5 mb-4" style={{ color: c.suave }}>
-            <p><strong style={{ color: '#f87171' }}>Some:</strong> todas as chaves do cofre antigo (também as deste aparelho), o backup cifrado, a senha de acesso, os pontos de restauração, o kit de herança e o vínculo com o dispositivo perdido.</p>
+            <p><strong style={{ color: '#f87171' }}>Some:</strong> todas as chaves do cofre antigo (também as deste aparelho), o backup cifrado, a senha de acesso, os pontos de restauração, o código de herança e o vínculo com o dispositivo perdido.</p>
             <p><strong style={{ color: '#22c55e' }}>Fica:</strong> sua conta, plano, compras e histórico. Um Krypta físico comprado pode ser pareado de novo.</p>
             <p>Por segurança, pedimos a senha e um código enviado ao seu e-mail.</p>
           </div>
@@ -359,7 +359,7 @@ export function MPerdiCcp() {
 
       {!carregando && !feito && (
         <p className="text-[11px] mt-5 text-center" style={{ color: c.suave }}>
-          Por que não dá para recuperar a CCP? Porque ela nunca sai do seu aparelho: o Krypta guarda só uma prova dela. É isso que impede qualquer pessoa (até o Krypta) de abrir seu cofre.
+          Por que não dá para recuperar a chave de contingência? Porque ela nunca sai do seu aparelho: o Krypta guarda só uma prova dela. É isso que impede qualquer pessoa (até o Krypta) de abrir seu cofre.
         </p>
       )}
     </Moldura>

@@ -10,6 +10,7 @@ import { PlanAPI } from '../services/api';
 import { normalizePlan, getPlanLabel, type PlanId } from '../utils/plan';
 
 import spriteRoboEncolhido from '../assets/sprites/sprite_robo_encolhido.png';
+import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 const PURPLE = '#8d51ff';
@@ -223,6 +224,12 @@ export function Plans() {
         >
           <ArrowLeft className="w-4 h-4" /> Voltar
         </button>
+
+        <div className="max-w-3xl mx-auto mb-8">
+          <Dica id="planos-escolha" titulo="Qual plano combina com você?" pergunta="Qual a diferença entre Free e Pro?">
+            O <strong>Free</strong> já protege suas senhas neste aparelho. Escolha o <strong>Pro</strong> se quer abrir o cofre em vários aparelhos, deixar a <strong>herança digital</strong> para alguém ou ter o <strong>Kill Switch</strong> se perder o celular.
+          </Dica>
+        </div>
 
         {/* ============ HERO ============ */}
         <div className="relative text-center mb-16 max-w-3xl mx-auto">

@@ -50,9 +50,12 @@ import { SITE_URL } from '../config/desktop';
 import { IconeServico } from '../mobile/icones';
 import { resumo as resumoCredencial } from '../mobile/credenciais';
 import { DevicesAPI, VaultAPI, type ContaCofre, type DispositivoComprado, type EstadoCofre, type EventoCofre } from '../services/api';
-import { VirtualDevice, type EstadoDispositivo } from '../services/virtualDevice';
+import { Trava, VirtualDevice, type EstadoDispositivo, type TipoTrava } from '../services/virtualDevice';
+import { configurarAcesso, validarSenhaAcesso } from '../services/cofreRemoto';
+import { CriarTrava, DesbloquearCofre } from '../mobile/TravaCofre';
 import * as Flows from '../services/vaultFlows';
 import { gerarSegredo, normalizarSegredo, segredoValido } from '../crypto/kryptaCrypto';
+import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 
@@ -454,6 +457,17 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
   const [atividade, setAtividade] = useState<EventoCofre[] | null>(null);
   const [idCopiado, setIdCopiado] = useState(false);
   const [usarReal, setUsarHardwareReal] = useState(true);
+  // v1.3.0: PIN do cofre criado já no pareamento
+  const [tipoPin, setTipoPin] = useState<TipoTrava>('PIN');
+  const [pin, setPin] = useState('');
+  const [pin2, setPin2] = useState('');
+  const [pinRemoto, setPinRemoto] = useState(true);
+
+  // A trava abriu, fechou ou mudou → relê o dispositivo deste aparelho
+  useEffect(() => {
+    if (!contaId) return;
+    return Trava.assinar(() => setDispositivo(VirtualDevice.carregar(contaId)));
+  }, [contaId]);
 
   const recarregar = useCallback(async () => {
     if (!contaId) return;
@@ -463,7 +477,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
       setCompras(lista);
       let local = VirtualDevice.carregar(contaId);
       // v1.2.0: puxa o que outro aparelho editou com a senha de acesso (ou uma restauração)
-      if (local && contaApi.status === 'ATIVA' && local.publicKey === contaApi.public_key && local.chaveCofre) {
+      if (local && !local.bloqueado && contaApi.status === 'ATIVA' && local.publicKey === contaApi.public_key && local.chaveCofre) {
         local = (await Flows.sincronizarDispositivo(contaId).catch(() => null))?.dispositivo ?? local;
       }
       setDispositivo(local);
@@ -527,6 +541,10 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
   const estado: EstadoCofre = conta?.status ?? 'PENDENTE_PAREAMENTO';
   const info = ESTADO_INFO[estado];
   const temDispositivoAqui = !!dispositivo && dispositivo.publicKey === conta?.public_key;
+  // v1.3.0: mesmo no aparelho que pareou, o cofre só abre com o PIN ou a biometria
+  const travado = temDispositivoAqui && !!dispositivo?.bloqueado;
+  const semTrava = temDispositivoAqui && !!dispositivo && !dispositivo.protegido && !!dispositivo.chaveCofre;
+  const usavel = temDispositivoAqui && !travado && !semTrava;
   const recursos = conta?.recursos;
   const isPro = conta?.plano === 'pro';
   const disponiveis = compras.filter((d) => d.status === 'DISPONIVEL');
@@ -556,11 +574,13 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
   // sem ele, o kit traz só o código (ID da conta + CCH) para colar na página de resgate.
   const linkKit = (cch: string) => (SITE_URL ? `${SITE_URL}/heranca#kit=${encodeURIComponent(`${contaId}:${cch}`)}` : null);
   const ccpOk = segredoValido(ccp);
+  const erroPin = validarSenhaAcesso(tipoPin, pin);
+  const pinOk = !erroPin && pin === pin2;
 
   const kitArquivo = (tipo: 'ccp' | 'cch', segredo: string) =>
     tipo === 'ccp'
-      ? `KRYPTA — CHAVE DE CONTINGÊNCIA (CCP)\n\nConta: ${user?.email}\nCCP: ${segredo}\n\nGuarde em papel, em lugar seguro. Ela recupera o cofre e aciona o Kill Switch.\nO Krypta NÃO consegue recuperá-la para você.\n`
-      : `KRYPTA — KIT DO HERDEIRO\n\nTitular: ${user?.name}\nID da conta: ${contaId}\nChave do herdeiro (CCH): ${segredo}\n\nCOMO RESGATAR\n${linkKit(segredo) ? `1. Abra este link (ele já preenche tudo):\n   ${linkKit(segredo)}\n2. Ou acesse` : `1. Acesse`} o site Krypta → "Como funciona" → "Recebi um kit de herança"\n   e cole o ID da conta e a CCH.\n\nA CCH vale UMA vez. Guarde este kit em lugar seguro.\n`;
+      ? `KRYPTA — CHAVE DE CONTINGÊNCIA\n\nConta: ${user?.email}\nChave: ${segredo}\n\nGuarde em papel, em lugar seguro. Ela recupera o cofre e aciona o Kill Switch.\nO Krypta NÃO consegue recuperá-la para você.\n`
+      : `KRYPTA — CÓDIGO DE HERANÇA\n\nTitular: ${user?.name}\nID da conta: ${contaId}\nChave do herdeiro: ${segredo}\n\nCOMO RESGATAR\n${linkKit(segredo) ? `1. Abra este link (ele já preenche tudo):\n   ${linkKit(segredo)}\n2. Ou acesse` : `1. Acesse`} o site Krypta → "Como funciona" → "Recebi um código de herança"\n   e cole o ID da conta e a chave do herdeiro.\n\nA chave do herdeiro vale UMA vez. Guarde este código de herança em lugar seguro.\n`;
 
   // ------------------------------------------------------------
   // Cofre (credenciais de demonstração)
@@ -657,21 +677,27 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                 </div>
                 <p className="text-sm mt-2" style={{ color: c.muted }}>{info.texto}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-3 text-xs justify-center md:justify-start">
+                  {estado !== 'PENDENTE_PAREAMENTO' && (
+                  <>
                   <span style={{ color: c.muted }}>ID da conta:</span>
                   <code className="font-mono px-2 py-0.5 rounded" style={{ background: c.fieldBg, border: `1px solid ${c.border}` }}>{contaId}</code>
                   <button type="button" onClick={copiarId} className="inline-flex items-center gap-1 font-semibold" style={{ color: c.bright }}>
                     {idCopiado ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {idCopiado ? 'Copiado' : 'Copiar'}
                   </button>
+                  </>
+                  )}
                   <span className="px-2 py-0.5 rounded-full font-bold" style={{ background: isPro ? 'linear-gradient(135deg, #5100BD, #8d51ff)' : 'transparent', color: isPro ? '#fff' : c.muted, border: isPro ? 'none' : `1px solid ${c.border}` }}>
                     {isPro ? 'Krypta Pro' : 'Krypta Free'}
                   </span>
                 </div>
+                {estado !== 'PENDENTE_PAREAMENTO' && (
                 <dl className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-xs">
                   <div><dt style={{ color: c.muted }}>Origem</dt><dd className="font-semibold">{conta?.tipo_dispositivo === 'FISICO' ? 'Dispositivo comprado' : conta?.tipo_dispositivo === 'SOFTWARE' ? 'Software' : '—'}</dd></div>
                   <div><dt style={{ color: c.muted }}>Dispositivo</dt><dd className="font-mono font-semibold">{conta?.hardware_uuid ?? '—'}</dd></div>
                   <div><dt style={{ color: c.muted }}>Última atividade</dt><dd className="font-semibold">{conta?.ultimo_sincronismo ? new Date(conta.ultimo_sincronismo).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</dd></div>
                   <div><dt style={{ color: c.muted }}>Backup</dt><dd className="font-semibold">{dispositivo?.versionCounter ? `versão ${dispositivo.versionCounter}` : '—'}</dd></div>
                 </dl>
+                )}
               </div>
               <Botao c={c} variante="secundario" onClick={() => recarregar()} disabled={!!ocupado}>
                 <RefreshCw className="w-4 h-4" /> Atualizar
@@ -680,13 +706,30 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
           )}
         </Painel>
 
+        {/* ============ DICA DA TELA (v1.3.0) ============ */}
+        {!carregando && estado === 'PENDENTE_PAREAMENTO' && (
+          <Dica id="device-parear" titulo="Três passos e seu cofre está pronto" pergunta="O que é parear?" className="mb-6">
+            1) escolha o dispositivo (pode ser este aparelho), 2) anote a <strong>chave de contingência</strong> em papel e 3) crie o <strong>PIN do cofre</strong>. Depois é só guardar suas senhas.
+          </Dica>
+        )}
+        {!carregando && estado === 'ATIVA' && temDispositivoAqui && !travado && !semTrava && (
+          <Dica id="device-ativo" titulo="Abra o cofre mais rápido" pergunta="Como ligo a biometria?" acao={{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }} className="mb-6">
+            Ligue a <strong>biometria</strong> (digital, rosto ou Windows Hello) e salve um <strong>ponto de restauração</strong> antes de grandes mudanças. O cofre tranca sozinho depois de 5 minutos.
+          </Dica>
+        )}
+        {!carregando && estado === 'ATIVA' && !temDispositivoAqui && (
+          <Dica id="device-outro" titulo="Seu cofre está em outro aparelho" pergunta="Como abro o cofre em outro aparelho?" className="mb-6">
+            {isPro ? 'Com a senha de acesso (PIN) você vê e edita o cofre aqui também.' : 'No Free ele abre só no aparelho pareado. O Pro libera abrir com PIN em qualquer aparelho seu.'}
+          </Dica>
+        )}
+
         {/* ============ PENDENTE: PAREAR ============ */}
         {!carregando && estado === 'PENDENTE_PAREAMENTO' && (
           <Painel c={c}>
             <h2 className="text-xl font-semibold mb-1" style={{ fontFamily: ROUNDED_FONT }}>Parear dispositivo</h2>
             <p className="text-sm mb-4" style={{ color: c.muted }}>
               Enquanto o app do ESP32 não está pronto, um <strong>dispositivo virtual</strong> faz o papel do hardware neste navegador.
-              O fluxo é o mesmo: a chave privada é gerada no dispositivo e o servidor recebe só a chave pública e a prova da sua CCP.
+              O fluxo é o mesmo: a chave privada é gerada no dispositivo e o servidor recebe só a chave pública e a prova da sua chave de contingência.
             </p>
             <p className="text-xs font-bold tracking-[0.15em] uppercase mb-2" style={{ color: c.bright }}>1. Escolha o dispositivo</p>
             <div className="mb-5">
@@ -705,7 +748,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                       {hardwareSelecionado.codigoConfirmacao}
                     </span>
                     <span className="block text-[11px] mt-2" style={{ color: c.muted }}>
-                      A chave privada fica no ESP32 e ele passa a fazer o login do cofre. Seu cofre começa vazio e já pode ser recuperado com a CCP.
+                      A chave privada fica no ESP32 e ele passa a fazer o login do cofre. Seu cofre começa vazio e já pode ser recuperado com a chave de contingência.
                     </span>
                   </span>
                 </label>
@@ -714,29 +757,64 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
             <p className="text-xs font-bold tracking-[0.15em] uppercase mb-2" style={{ color: c.bright }}>2. Gere sua chave de contingência</p>
             {!segredoNovo ? (
               <Botao c={c} onClick={() => setSegredoNovo(gerarSegredo())}>
-                <KeyRound className="w-4 h-4" /> Gerar minha chave de contingência (CCP)
+                <KeyRound className="w-4 h-4" /> Gerar minha chave de contingência
               </Botao>
             ) : (
               <div className="space-y-4">
                 <RevelarSegredo
                   c={c}
                   segredo={segredoNovo}
-                  titulo="Sua chave de contingência (CCP)"
+                  titulo="Sua chave de contingência"
                   aviso="Ela aparece UMA vez. Serve para recuperar o cofre e acionar o Kill Switch se perder o dispositivo. Ninguém (nem o Krypta) consegue recuperá-la."
-                  nomeArquivo="krypta-ccp.txt"
+                  nomeArquivo="krypta-chave-de-contingencia.txt"
                   conteudoArquivo={kitArquivo('ccp', segredoNovo)}
                   onConfirmado={onConfirmado}
                 />
+                {confirmado && (
+                  <div className="rounded-xl p-4 space-y-3" style={{ border: `1px solid ${c.border}`, background: c.isDark ? 'rgba(141,81,255,0.05)' : 'rgba(81,0,189,0.03)' }}>
+                    <p className="text-xs font-bold tracking-[0.15em] uppercase" style={{ color: c.bright }}>3. Crie o PIN do cofre</p>
+                    <p className="text-xs" style={{ color: c.muted }}>
+                      O cofre só abre com ele, <strong>mesmo neste aparelho</strong>.{isPro && ' No Krypta Pro, o mesmo PIN abre o cofre nos seus outros aparelhos.'} Não use a senha da conta.
+                    </p>
+                    <div className="flex gap-2">
+                      {(['PIN', 'SENHA'] as const).map((t) => (
+                        <button key={t} type="button" onClick={() => { setTipoPin(t); setPin(''); setPin2(''); }} className="flex-1 py-2 rounded-lg text-xs font-semibold" style={tipoPin === t ? { background: 'linear-gradient(135deg, #5100BD, #8d51ff)', color: '#fff' } : { border: `1px solid ${c.border}`, color: c.muted }}>
+                          {t === 'PIN' ? 'PIN (6 números)' : 'Senha (mais forte)'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input type="password" inputMode={tipoPin === 'PIN' ? 'numeric' : 'text'} maxLength={tipoPin === 'PIN' ? 6 : 128} value={pin} onChange={(e) => setPin(tipoPin === 'PIN' ? e.target.value.replace(/\D/g, '') : e.target.value)} placeholder={tipoPin === 'PIN' ? 'PIN de 6 números' : 'Senha (8+ caracteres)'} className="w-full rounded-lg px-3 py-2.5 text-sm outline-none" style={{ background: c.fieldBg, border: `1px solid ${c.border}`, color: c.fg }} />
+                      <input type="password" inputMode={tipoPin === 'PIN' ? 'numeric' : 'text'} maxLength={tipoPin === 'PIN' ? 6 : 128} value={pin2} onChange={(e) => setPin2(tipoPin === 'PIN' ? e.target.value.replace(/\D/g, '') : e.target.value)} placeholder="Repita" className="w-full rounded-lg px-3 py-2.5 text-sm outline-none" style={{ background: c.fieldBg, border: `1px solid ${c.border}`, color: c.fg }} />
+                    </div>
+                    {pin && erroPin && <p className="text-xs text-red-400">{erroPin}</p>}
+                    {pin && !erroPin && pin2 && pin !== pin2 && <p className="text-xs text-red-400">Os dois não são iguais.</p>}
+                    {isPro && (
+                      <label className="flex items-start gap-2 text-xs">
+                        <input type="checkbox" checked={pinRemoto} onChange={(e) => setPinRemoto(e.target.checked)} className="mt-0.5 accent-purple-600" />
+                        Usar o mesmo {tipoPin === 'PIN' ? 'PIN' : 'senha'} nos meus outros aparelhos
+                      </label>
+                    )}
+                  </div>
+                )}
                 <Botao
                   c={c}
-                  disabled={!confirmado || !!ocupado}
+                  disabled={!confirmado || !pinOk || !!ocupado}
                   onClick={() =>
                     executar(
-                      'Derivando a prova da CCP (Argon2id), pareando e enviando o primeiro backup...',
-                      () =>
-                        usarHardwareReal && hardwareSelecionado?.chaveAnunciada
-                          ? Flows.parearHardwareReal(contaId, segredoNovo, hardwareSelecionado.serial, hardwareSelecionado.chaveAnunciada)
-                          : Flows.parearDispositivo(contaId, segredoNovo, serialValido), // cofre novo começa vazio
+                      'Pareando, enviando o primeiro backup e cifrando o cofre com o seu PIN...',
+                      async () => {
+                        if (usarHardwareReal && hardwareSelecionado?.chaveAnunciada) {
+                          await Flows.parearHardwareReal(contaId, segredoNovo, hardwareSelecionado.serial, hardwareSelecionado.chaveAnunciada);
+                        } else {
+                          await Flows.parearDispositivo(contaId, segredoNovo, serialValido); // cofre novo começa vazio
+                        }
+                        // v1.3.0: tranca o cofre neste aparelho e (Pro) cria a senha para os outros aparelhos
+                        await Trava.criar(contaId, { tipo: tipoPin, segredo: pin, ccp: segredoNovo });
+                        if (isPro && pinRemoto) await configurarAcesso(contaId, segredoNovo, tipoPin, pin).catch(() => undefined);
+                        setPin('');
+                        setPin2('');
+                      },
                       usarHardwareReal
                         ? `Hardware ${serialValido} pareado! Toque o cartão no dispositivo para entrar.`
                         : serialValido
@@ -777,7 +855,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                     </div>
                   )}
                 </div>
-                {temDispositivoAqui && (
+                {usavel && (
                   <button type="button" onClick={() => setMostrarSenhas((v) => !v)} className="text-xs flex items-center gap-1" style={{ color: c.bright }}>
                     {mostrarSenhas ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />} {mostrarSenhas ? 'Ocultar' : 'Mostrar'}
                   </button>
@@ -798,10 +876,14 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                 <p className="text-sm rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: c.isDark ? '#fcd34d' : '#92400e' }}>
                   O dispositivo desta conta não está neste navegador.{' '}
                   <Link to="/cofre/acesso" className="underline font-semibold">Abra o cofre aqui com a sua senha de acesso</Link> (Pro: ver e editar)
-                  {' '}ou <Link to="/cofre/ver" className="underline font-semibold">veja com a CCP</Link> (só leitura).
-                  Perdeu a CCP? <Link to="/perdi-ccp" className="underline font-semibold">Veja as opções</Link>. As ações de emergência abaixo continuam disponíveis.
+                  {' '}ou <Link to="/cofre/ver" className="underline font-semibold">veja com a chave de contingência</Link> (só leitura).
+                  Perdeu a chave de contingência? <Link to="/perdi-ccp" className="underline font-semibold">Veja as opções</Link>. As ações de emergência abaixo continuam disponíveis.
                 </p>
                 )
+              ) : travado ? (
+                <DesbloquearCofre contaId={contaId} />
+              ) : semTrava ? (
+                <CriarTrava contaId={contaId} isPro={isPro} onPronto={() => setDispositivo(VirtualDevice.carregar(contaId))} />
               ) : (
                 <>
                   <div className="space-y-2 mb-4">
@@ -852,7 +934,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                 <History className="w-5 h-5 mt-0.5 shrink-0" style={{ color: c.bright }} />
                 <span>
                   <span className="block text-sm font-semibold">Pontos de restauração</span>
-                  <span className="block text-xs" style={{ color: c.muted }}>Salve o estado do cofre e volte a ele com a CCP.</span>
+                  <span className="block text-xs" style={{ color: c.muted }}>Salve o estado do cofre e volte a ele com a chave de contingência.</span>
                 </span>
               </Link>
             </div>
@@ -861,7 +943,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
             <Painel c={c}>
               <h2 className="text-xl font-semibold mb-4" style={{ fontFamily: ROUNDED_FONT }}>Segurança e contingência</h2>
               <div className="space-y-3">
-                {temDispositivoAqui && (
+                {usavel && (
                   <>
                     <Acao c={c} icone={<ShieldCheck className="w-5 h-5" />} titulo="Testar login do dispositivo" descricao="Assina um desafio com a chave do dispositivo (challenge-response)." aberta={aberta === 'login'} onToggle={() => alternar('login')}>
                       <Botao c={c} disabled={!!ocupado} onClick={() => executar('Assinando o desafio...', () => Flows.testarLogin(contaId), 'Login pelo dispositivo OK: assinatura Ed25519 aceita pelo servidor.')}>
@@ -869,38 +951,38 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                       </Botao>
                     </Acao>
 
-                    <Acao c={c} icone={<KeyRound className="w-5 h-5" />} titulo="Esqueci a senha mestre" descricao="Recupera o cofre com a CCP, com o dispositivo em mãos." aberta={aberta === 'recuperar'} onToggle={() => alternar('recuperar')}>
-                      <CampoSegredo c={c} label="Sua CCP" valor={ccp} onChange={setCcp} />
-                      <Botao c={c} disabled={!ccpOk || !!ocupado} onClick={() => executar('Conferindo a CCP, baixando e abrindo o backup...', () => Flows.recuperacaoLocal(contaId, ccp), 'Cofre recuperado com a CCP e recuperação concluída.')}>
+                    <Acao c={c} icone={<KeyRound className="w-5 h-5" />} titulo="Esqueci a senha mestre" descricao="Recupera o cofre com a chave de contingência, com o dispositivo em mãos." aberta={aberta === 'recuperar'} onToggle={() => alternar('recuperar')}>
+                      <CampoSegredo c={c} label="Sua chave de contingência" valor={ccp} onChange={setCcp} />
+                      <Botao c={c} disabled={!ccpOk || !!ocupado} onClick={() => executar('Conferindo a chave de contingência, baixando e abrindo o backup...', () => Flows.recuperacaoLocal(contaId, ccp), 'Cofre recuperado com a chave de contingência e recuperação concluída.')}>
                         Recuperar cofre
                       </Botao>
                     </Acao>
 
-                    <Acao c={c} icone={<RefreshCw className="w-5 h-5" />} titulo="Trocar a CCP" descricao="Gera uma CCP nova. A antiga deixa de valer." aberta={aberta === 'ccp'} onToggle={() => alternar('ccp')}>
-                      <CampoSegredo c={c} label="CCP atual" valor={ccp} onChange={setCcp} />
+                    <Acao c={c} icone={<RefreshCw className="w-5 h-5" />} titulo="Trocar a chave de contingência" descricao="Gera uma chave de contingência nova. A antiga deixa de valer." aberta={aberta === 'ccp'} onToggle={() => alternar('ccp')}>
+                      <CampoSegredo c={c} label="Chave de contingência atual" valor={ccp} onChange={setCcp} />
                       {!segredoNovo ? (
                         <Botao c={c} variante="secundario" disabled={!ccpOk} onClick={() => setSegredoNovo(gerarSegredo())}>
-                          Gerar a nova CCP
+                          Gerar a nova chave de contingência
                         </Botao>
                       ) : (
                         <>
-                          <RevelarSegredo c={c} segredo={segredoNovo} titulo="Sua NOVA CCP" aviso="Anote a nova CCP. A antiga só deixa de valer depois que o servidor confirmar a troca." nomeArquivo="krypta-ccp-nova.txt" conteudoArquivo={kitArquivo('ccp', segredoNovo)} onConfirmado={onConfirmado} />
-                          <Botao c={c} disabled={!confirmado || !!ocupado} onClick={() => executar('Conferindo o novo envelope e trocando a CCP...', () => Flows.trocarCcp(contaId, ccp, segredoNovo), 'CCP trocada. A anterior não vale mais.')}>
+                          <RevelarSegredo c={c} segredo={segredoNovo} titulo="Sua NOVA chave de contingência" aviso="Anote a nova chave de contingência. A antiga só deixa de valer depois que o servidor confirmar a troca." nomeArquivo="krypta-chave-de-contingencia-nova.txt" conteudoArquivo={kitArquivo('ccp', segredoNovo)} onConfirmado={onConfirmado} />
+                          <Botao c={c} disabled={!confirmado || !!ocupado} onClick={() => executar('Conferindo o novo envelope e trocando a chave de contingência...', () => Flows.trocarCcp(contaId, ccp, segredoNovo), 'Chave de contingência trocada. A anterior não vale mais.')}>
                             Confirmar troca
                           </Botao>
                         </>
                       )}
                     </Acao>
 
-                    <Acao c={c} icone={<Users className="w-5 h-5" />} titulo={conta?.heranca_ativa ? 'Herança digital (ativa)' : 'Herança digital'} descricao="Permite que um herdeiro resgate o cofre com um kit (conta + CCH)." aberta={aberta === 'heranca'} onToggle={() => alternar('heranca')}>
+                    <Acao c={c} icone={<Users className="w-5 h-5" />} titulo={conta?.heranca_ativa ? 'Herança digital (ativa)' : 'Herança digital'} descricao="Permite que um herdeiro resgate o cofre com um código de herança (conta + chave do herdeiro)." aberta={aberta === 'heranca'} onToggle={() => alternar('heranca')}>
                       {!recursos?.heranca && !conta?.heranca_ativa ? (
                         <BloqueadoPro c={c} recurso="A herança digital" />
                       ) : (
                         <>
-                      <CampoSegredo c={c} label="Sua CCP (confirma que é você)" valor={ccp} onChange={setCcp} />
+                      <CampoSegredo c={c} label="Sua chave de contingência (confirma que é você)" valor={ccp} onChange={setCcp} />
                       {!recursos?.heranca && conta?.heranca_ativa && (
                         <p className="text-xs rounded-lg p-2.5" style={{ border: `1px solid ${c.border}`, color: c.muted }}>
-                          Seu plano voltou ao Free: o kit já entregue continua valendo e você pode desativá-lo. Para trocar a CCH,{' '}
+                          Seu plano voltou ao Free: o código de herança já entregue continua valendo e você pode desativá-lo. Para trocar a chave do herdeiro,{' '}
                           <Link to="/services#planos" className="underline" style={{ color: c.bright }}>assine o Pro</Link>.
                         </p>
                       )}
@@ -908,19 +990,19 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                         <div className="flex flex-wrap gap-2">
                           {recursos?.heranca && (
                             <Botao c={c} variante="secundario" disabled={!ccpOk} onClick={() => setSegredoNovo(gerarSegredo())}>
-                              {conta?.heranca_ativa ? 'Gerar nova CCH (troca o kit)' : 'Gerar o kit do herdeiro'}
+                              {conta?.heranca_ativa ? 'Gerar nova chave do herdeiro (troca o código de herança)' : 'Gerar o código de herança'}
                             </Botao>
                           )}
                           {conta?.heranca_ativa && (
-                            <Botao c={c} variante="perigo" disabled={!ccpOk || !!ocupado} onClick={() => executar('Desativando a herança...', () => Flows.desativarHeranca(contaId, ccp), 'Herança desativada. O kit antigo não funciona mais.')}>
+                            <Botao c={c} variante="perigo" disabled={!ccpOk || !!ocupado} onClick={() => executar('Desativando a herança...', () => Flows.desativarHeranca(contaId, ccp), 'Herança desativada. O código de herança antigo não funciona mais.')}>
                               Desativar herança
                             </Botao>
                           )}
                         </div>
                       ) : (
                         <>
-                          <RevelarSegredo c={c} segredo={segredoNovo} titulo="Chave do herdeiro (CCH)" aviso={`Entregue ao herdeiro o kit com a CCH e o ID da conta (${contaId}). Ele resgata em /heranca. Vale uma vez.`} nomeArquivo="krypta-kit-herdeiro.txt" conteudoArquivo={kitArquivo('cch', segredoNovo)} onConfirmado={onConfirmado} />
-                          <Botao c={c} disabled={!confirmado || !!ocupado} onClick={() => executar('Conferindo o Envelope do Herdeiro e ativando a herança...', () => Flows.ativarHeranca(contaId, ccp, segredoNovo), 'Herança ativada. Entregue o kit ao seu herdeiro.')}>
+                          <RevelarSegredo c={c} segredo={segredoNovo} titulo="Chave do herdeiro" aviso={`Entregue ao herdeiro o código de herança com a chave do herdeiro e o ID da conta (${contaId}). Ele resgata em /heranca. Vale uma vez.`} nomeArquivo="krypta-código de herança-herdeiro.txt" conteudoArquivo={kitArquivo('cch', segredoNovo)} onConfirmado={onConfirmado} />
+                          <Botao c={c} disabled={!confirmado || !!ocupado} onClick={() => executar('Conferindo o Envelope do Herdeiro e ativando a herança...', () => Flows.ativarHeranca(contaId, ccp, segredoNovo), 'Herança ativada. Entregue o código de herança ao seu herdeiro.')}>
                             Ativar herança
                           </Botao>
                         </>
@@ -931,7 +1013,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                   </>
                 )}
 
-                {/* Kill Switch: funciona SEM o dispositivo (só login do site + CCP) */}
+                {/* Kill Switch: funciona SEM o dispositivo (só login do site + chave de contingência) */}
                 <Acao c={c} perigo icone={<AlertCircle className="w-5 h-5" />} titulo="Perdi o dispositivo (Kill Switch)" descricao="Revoga o dispositivo para sempre. Depois você vincula um novo." aberta={aberta === 'kill'} onToggle={() => alternar('kill')}>
                   {!recursos?.killSwitch ? (
                     <BloqueadoPro c={c} recurso="O Kill Switch (bloqueio remoto)" />
@@ -940,7 +1022,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                   <p className="text-sm rounded-lg p-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
                     O dispositivo atual será banido permanentemente e deixará de funcionar na hora. Não dá para desfazer.
                   </p>
-                  <CampoSegredo c={c} label="Sua CCP" valor={ccp} onChange={setCcp} />
+                  <CampoSegredo c={c} label="Sua chave de contingência" valor={ccp} onChange={setCcp} />
                   <div>
                     <label className="block text-[10.5px] font-semibold tracking-[0.12em] uppercase mb-1.5" style={{ color: c.muted }}>
                       Digite REVOGAR para confirmar
@@ -992,13 +1074,13 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
           <Painel c={c} destaque="rgba(239,68,68,0.5)">
             <h2 className="text-xl font-semibold mb-1" style={{ fontFamily: ROUNDED_FONT }}>Vincular um dispositivo novo</h2>
             <p className="text-sm mb-4" style={{ color: c.muted }}>
-              Um dispositivo virtual novo será criado. A CCP abre o backup cifrado e devolve seu cofre a ele.
+              Um dispositivo virtual novo será criado. A chave de contingência abre o backup cifrado e devolve seu cofre a ele.
             </p>
             <div className="mb-4">
               <SeletorDispositivo c={c} podeFisico={!!recursos?.dispositivoFisico} disponiveis={disponiveis} emTransporte={emTransporte} serial={serialValido} onChange={setSerialEscolhido} />
             </div>
             <div className="space-y-4 max-w-xl">
-              <CampoSegredo c={c} label="Sua CCP" valor={ccp} onChange={setCcp} />
+              <CampoSegredo c={c} label="Sua chave de contingência" valor={ccp} onChange={setCcp} />
               <Botao c={c} disabled={!ccpOk || !!ocupado} onClick={() => executar('Vinculando o novo dispositivo e restaurando o cofre...', () => Flows.vincularNovoDispositivo(contaId, ccp, serialValido), 'Novo dispositivo vinculado e cofre restaurado!')}>
                 <Cpu className="w-4 h-4" /> Vincular e restaurar
               </Botao>
@@ -1012,8 +1094,8 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
             <h2 className="text-xl font-semibold mb-1" style={{ fontFamily: ROUNDED_FONT }}>Concluir a recuperação</h2>
             {temDispositivoAqui ? (
               <div className="space-y-4 max-w-xl">
-                <p className="text-sm" style={{ color: c.muted }}>Informe a CCP para abrir o backup, gravar no dispositivo e concluir.</p>
-                <CampoSegredo c={c} label="Sua CCP" valor={ccp} onChange={setCcp} />
+                <p className="text-sm" style={{ color: c.muted }}>Informe a chave de contingência para abrir o backup, gravar no dispositivo e concluir.</p>
+                <CampoSegredo c={c} label="Sua chave de contingência" valor={ccp} onChange={setCcp} />
                 <Botao c={c} disabled={!ccpOk || !!ocupado} onClick={() => executar('Restaurando o cofre e concluindo...', () => Flows.retomarRecuperacao(contaId, ccp), 'Recuperação concluída. Cofre ativo de novo.')}>
                   Concluir recuperação
                 </Botao>
@@ -1032,7 +1114,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
           {' · '}
           <Link to="/como-funciona" className="underline" style={{ color: c.bright }}>Como funciona o cofre</Link>
           {' · '}
-          <Link to="/perdi-ccp" className="underline" style={{ color: c.bright }}>Perdi minha CCP</Link>
+          <Link to="/perdi-ccp" className="underline" style={{ color: c.bright }}>Perdi minha chave de contingência</Link>
         </p>
       </main>
 

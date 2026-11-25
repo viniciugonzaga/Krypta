@@ -30,20 +30,24 @@ src/
 │   ├── Moldura.tsx                Mesma tela nos dois modos (app ou página do site)
 │   ├── ui.tsx                     Componentes do app (cards, botões, folhas, campos)
 │   ├── useCofre.ts                Estado do cofre: dispositivo deste aparelho + sessão remota
+│   ├── TravaCofre.tsx             v1.3.0: criar / abrir / gerenciar o PIN e a biometria do cofre
 │   ├── credenciais.ts             Tipos de chave e campos (Free x Pro)
 │   ├── icones/                    Logos de marcas (simple-icons) e ícones padrão
 │   └── pages/                     MEntrada, MOnboarding, MInicio, MCofre, MChaves, MAcesso, MRemoto, MConta
 ├── pages/                 Telas do site: Welcome, AuthPage, Device (Meu Krypta), Plans, Checkout,
 │                          Orders, Products, Profile, Settings, Aplicacoes, HowItWorks, InheritanceClaim,
 │                          Contact, RecoverPassword, ErrorPage, Suspended...
-├── components/            Navbar, Footer, botões, cards, transições, login social
+├── ajuda/                 v1.3.0: Kryp, o robô de ajuda (contexto.ts, base.ts, motor.ts, KrypBot.tsx)
+├── components/            Navbar, Footer, botões, cards, transições, login social;
+│                          v1.3.0: AvisosApp (notificações), FotoPerfil, Dica
 ├── contexts/              AuthContext (sessão/usuário), ThemeContext (claro/escuro)
 ├── services/
 │   ├── api.ts             Cliente HTTP: token, renovação automática, cabeçalho X-Krypta-Cliente, APIs
 │   ├── vaultFlows.ts      Fluxos do cofre (parear, salvar, sincronizar, recuperar, Kill Switch, herança...)
-│   ├── virtualDevice.ts   "ESP32 de software": chaves Ed25519 e cofre no navegador/app
+│   ├── virtualDevice.ts   "ESP32 de software": chaves Ed25519 e cofre no navegador/app + Trava (v1.3.0)
+│   ├── avisos.ts          v1.3.0: notificações (Windows, navegador, app) e não lidas
 │   └── cofreRemoto.ts     v1.2.0: senha de acesso, sessão remota em memória, pontos de restauração
-├── crypto/kryptaCrypto.ts Toda a criptografia: CCP, Argon2id, HKDF, AES-GCM, vault.enc, PIN
+├── crypto/kryptaCrypto.ts Toda a criptografia: chave de contingência, Argon2id, HKDF, AES-GCM, vault.enc, PIN
 ├── config/                PWA, app desktop, login social
 ├── utils/plan.ts          Planos e recursos (espelho do servidor)
 └── assets/, data/, hooks/, types/

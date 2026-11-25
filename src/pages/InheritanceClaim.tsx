@@ -107,7 +107,7 @@ export function InheritanceClaim() {
           </div>
           <h1 className="text-3xl mb-1" style={{ fontFamily: ROUNDED_FONT, fontWeight: 700 }}>Resgate de herança</h1>
           <p className="text-sm mb-6" style={{ color: muted }}>
-            Use o kit que o titular deixou para você. Um dispositivo novo será criado neste navegador e o cofre será
+            Use o código de herança que o titular deixou para você. Um dispositivo novo será criado neste navegador e o cofre será
             aberto aqui, com a sua chave. O Krypta nunca vê o conteúdo.
           </p>
 
@@ -115,18 +115,18 @@ export function InheritanceClaim() {
             <div className="space-y-4">
               {doLink ? (
                 <div className="rounded-lg p-3 flex items-start gap-2 text-sm" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', color: isDark ? '#86efac' : '#15803d' }}>
-                  <Check className="w-4 h-4 mt-0.5 shrink-0" /> Kit carregado pelo link. Confira os dados e clique em "Resgatar cofre".
+                  <Check className="w-4 h-4 mt-0.5 shrink-0" /> Código carregado pelo link. Confira os dados e clique em "Resgatar cofre".
                 </div>
               ) : (
                 <div>
                   <label className="block text-[10.5px] font-semibold tracking-[0.12em] uppercase mb-1.5" style={{ color: muted }}>
-                    Cole o link ou o código do kit (opcional)
+                    Cole o link ou o código de herança (opcional)
                   </label>
                   <div className="flex gap-2">
                     <input
                       value={codigoKit}
                       onChange={(e) => setCodigoKit(e.target.value)}
-                      placeholder="https://.../heranca#kit=...  ou  conta_id:CCH"
+                      placeholder="https://.../heranca#kit=...  ou  conta_id:chave"
                       spellCheck={false}
                       autoComplete="off"
                       className="flex-1 min-w-0 py-3 px-4 rounded-lg text-[13px] font-mono outline-none focus:ring-2 focus:ring-purple-500/50"
@@ -136,7 +136,7 @@ export function InheritanceClaim() {
                       type="button"
                       onClick={() => {
                         if (aplicarCodigo(codigoKit)) { setErro(null); setCodigoKit(''); }
-                        else setErro('Código do kit inválido. Ele tem o formato conta_id:CCH.');
+                        else setErro('Código de herança inválido. Ele tem o formato conta_id:chave.');
                       }}
                       className="px-4 rounded-lg text-sm font-semibold flex items-center gap-1.5"
                       style={{ border: `1px solid ${bright}`, color: bright }}
@@ -144,7 +144,7 @@ export function InheritanceClaim() {
                       <ClipboardPaste className="w-4 h-4" /> Usar
                     </button>
                   </div>
-                  <p className="text-[11px] mt-1" style={{ color: muted }}>Ou preencha os dois campos abaixo, como está escrito no kit.</p>
+                  <p className="text-[11px] mt-1" style={{ color: muted }}>Ou preencha os dois campos abaixo, como está escrito no código de herança.</p>
                 </div>
               )}
               <div>
@@ -162,7 +162,7 @@ export function InheritanceClaim() {
               </div>
               <div>
                 <label className="block text-[10.5px] font-semibold tracking-[0.12em] uppercase mb-1.5" style={{ color: muted }}>
-                  Chave do herdeiro (CCH)
+                  Chave do herdeiro
                 </label>
                 <input
                   value={cch}
@@ -193,7 +193,7 @@ export function InheritanceClaim() {
                 {ocupado ? 'Derivando a chave e resgatando o cofre...' : 'Resgatar cofre'}
               </button>
               <p className="text-[11px]" style={{ color: muted }}>
-                A CCH vale uma única vez. Depois do resgate, o dispositivo do titular é revogado e ele recebe um aviso por e-mail.
+                A chave do herdeiro vale uma única vez. Depois do resgate, o dispositivo do titular é revogado e ele recebe um aviso por e-mail.
               </p>
             </div>
           ) : (

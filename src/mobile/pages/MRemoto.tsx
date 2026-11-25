@@ -23,6 +23,7 @@ import { useCofre } from '../useCofre';
 import { GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MTitulo, fmtQuando, useMCores, type MCores } from '../ui';
 import { Moldura } from '../Moldura';
 import { CampoCcp } from './MAcesso';
+import { GerenciarTrava, GuardaTrava } from '../TravaCofre';
 
 const hora = (ms: number) => new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
@@ -127,7 +128,7 @@ export function MAcessoCofre() {
     const e = validarSenhaAcesso(tipo, novo);
     if (e) return setErro(e);
     if (novo !== repetir) return setErro('As duas senhas de acesso não são iguais.');
-    if (!segredoValido(ccp)) return setErro('CCP inválida: são 32 caracteres em 8 blocos (XXXX-XXXX-...).');
+    if (!segredoValido(ccp)) return setErro('Chave de contingência inválida: são 32 caracteres em 8 blocos (XXXX-XXXX-...).');
     rodar('config', () => configurarAcesso(contaId, normalizarSegredo(ccp), tipo, novo), () => {
       setOk(`${tipo === 'PIN' ? 'PIN' : 'Senha de acesso'} criado(a). Agora você abre o cofre em qualquer aparelho logado.`);
       setConfig(false);
@@ -151,7 +152,14 @@ export function MAcessoCofre() {
 
   return (
     <Moldura voltar="/device">
-      <MTitulo c={c} titulo="Cofre em qualquer aparelho" sub="Uma senha de acesso só sua abre e edita o cofre em todos os aparelhos logados na sua conta." />
+      <MTitulo c={c} titulo="Senha do cofre" sub="O PIN (ou a biometria) abre o cofre neste aparelho. No Pro, o mesmo PIN abre e edita o cofre nos seus outros aparelhos." />
+      {!carregando && aqui && ativo && (
+        <div className="mb-3">
+          <GuardaTrava contaId={contaId} aqui={aqui} ativo={ativo} isPro={conta?.plano === 'pro'}>
+            <GerenciarTrava contaId={contaId} />
+          </GuardaTrava>
+        </div>
+      )}
 
       {carregandoTudo ? (
         <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
@@ -166,7 +174,7 @@ export function MAcessoCofre() {
             <MFaixa c={c} icone={<Crown className="w-5 h-5" />} titulo="Recurso do Krypta Pro" sub="No Free, o cofre abre só no aparelho pareado." />
             <p className="text-[13px] leading-relaxed" style={{ color: c.suave }}>
               Com o Pro você cria um <strong style={{ color: c.texto }}>PIN de 6 dígitos</strong> (ou uma senha) e abre o cofre no celular, no
-              notebook do trabalho ou no app Windows, com tudo: ver, criar, editar e remover chaves. Sem precisar da CCP no dia a dia.
+              notebook do trabalho ou no app Windows, com tudo: ver, criar, editar e remover chaves. Sem precisar da chave de contingência no dia a dia.
             </p>
             <MBotao className="mt-4" onClick={() => navigate('/plans')}>Ver o Krypta Pro</MBotao>
           </MCard>
@@ -198,14 +206,14 @@ export function MAcessoCofre() {
           )}
 
           {aqui && (
-            <MAviso tipo="info">Este aparelho é o dispositivo pareado: o cofre já abre aqui sem senha de acesso. Use esta tela para criar o PIN que os OUTROS aparelhos vão usar.</MAviso>
+            <MAviso tipo="info">Este é o aparelho pareado: aqui o cofre abre pela trava acima. A senha de acesso abaixo é para os seus OUTROS aparelhos — use o mesmo PIN para não precisar decorar dois.</MAviso>
           )}
 
           {estado.bloqueado && (
             <MCard c={c} style={{ borderColor: 'rgba(239,68,68,0.5)' }}>
               <MFaixa c={c} icone={<ShieldAlert className="w-5 h-5" />} titulo="Senha de acesso bloqueada" sub="Erraram 5 vezes seguidas" />
               <p className="text-[12.5px]" style={{ color: c.suave }}>
-                Por segurança, ela não abre mais o cofre. Crie uma nova com a sua CCP. Se não foi você, troque também a senha da conta em Configurações.
+                Por segurança, ela não abre mais o cofre. Crie uma nova com a sua chave de contingência. Se não foi você, troque também a senha da conta em Configurações.
               </p>
             </MCard>
           )}
@@ -238,13 +246,13 @@ export function MAcessoCofre() {
                 </div>
                 <CampoAcesso c={c} tipo={tipo} valor={novo} onChange={setNovo} rotulo={tipo === 'PIN' ? 'Novo PIN' : 'Nova senha de acesso (8+ caracteres)'} />
                 <CampoAcesso c={c} tipo={tipo} valor={repetir} onChange={setRepetir} rotulo="Repita" />
-                <CampoCcp c={c} valor={ccp} onChange={setCcp} rotulo="Sua CCP (só para criar ou trocar)" />
+                <CampoCcp c={c} valor={ccp} onChange={setCcp} rotulo="Sua chave de contingência (só para criar ou trocar)" />
                 <label className="flex items-start gap-2 text-[12.5px]">
                   <input type="checkbox" checked={naoEhSenhaConta} onChange={(e) => setNaoEhSenhaConta(e.target.checked)} className="accent-purple-600 w-4 h-4 mt-0.5" />
                   Não é a mesma senha da minha conta Krypta (nem de outro site).
                 </label>
                 <MBotao carregando={ocupado === 'config'} disabled={!!ocupado || !naoEhSenhaConta} onClick={salvarConfig}><Save className="w-4 h-4" /> Salvar</MBotao>
-                {ocupado === 'config' && <p className="text-[11px] text-center" style={{ color: c.suave }}>Conferindo a CCP e cifrando a chave do cofre neste aparelho...</p>}
+                {ocupado === 'config' && <p className="text-[11px] text-center" style={{ color: c.suave }}>Conferindo a chave de contingência e cifrando a chave do cofre neste aparelho...</p>}
                 <button type="button" onClick={() => { setConfig(false); setErro(null); }} className="w-full text-[13px]" style={{ color: c.suave }}>Cancelar</button>
               </div>
             )}
@@ -262,14 +270,14 @@ export function MAcessoCofre() {
             <ul className="text-[12px] space-y-1.5" style={{ color: c.suave }}>
               <li>• O PIN nunca sai deste aparelho: o servidor guarda só uma prova dele e a chave do cofre cifrada.</li>
               <li>• A chave que abre o cofre depende do PIN <strong style={{ color: c.texto }}>e</strong> de um segredo do servidor, liberado só depois do PIN certo.</li>
-              <li>• 5 erros seguidos bloqueiam. Desbloquear exige a CCP.</li>
+              <li>• 5 erros seguidos bloqueiam. Desbloquear exige a chave de contingência.</li>
               <li>• Precisa estar logado na conta: PIN sozinho não abre nada.</li>
               <li>• Cada abertura e cada edição aparecem nos alertas e você recebe e-mail.</li>
               <li>• O cofre fecha sozinho em 15 minutos, ao recarregar a página ou ao sair da conta.</li>
               <li>• Por que não usar a senha da conta? Porque o servidor recebe a senha da conta no login: se ela abrisse o cofre, o servidor também conseguiria.</li>
             </ul>
             <button type="button" onClick={() => navigate('/cofre/ver')} className="text-[12px] font-semibold mt-3 underline underline-offset-4" style={{ color: c.roxo }}>
-              Sem a senha de acesso? Ver com a CCP (só leitura)
+              Sem a senha de acesso? Ver com a chave de contingência (só leitura)
             </button>
           </MCard>
         </div>
@@ -337,7 +345,7 @@ export function MPontos() {
 
   return (
     <Moldura voltar="/device">
-      <MTitulo c={c} titulo="Pontos de restauração" sub="Salve o estado do cofre e volte a ele se algo der errado. Tudo exige a sua CCP." />
+      <MTitulo c={c} titulo="Pontos de restauração" sub="Salve o estado do cofre e volte a ele se algo der errado. Tudo exige a sua chave de contingência." />
 
       {carregando || !dados ? (
         <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: c.roxo }} /></div>
@@ -349,7 +357,7 @@ export function MPontos() {
           {erro && <MAviso tipo="erro">{erro}</MAviso>}
 
           <MCard c={c}>
-            <MFaixa c={c} icone={<KeyRound className="w-5 h-5" />} titulo="Sua CCP" sub="Fica só nesta tela; é apagada quando você sai." />
+            <MFaixa c={c} icone={<KeyRound className="w-5 h-5" />} titulo="Sua chave de contingência" sub="Fica só nesta tela; é apagada quando você sai." />
             <CampoCcp c={c} valor={ccp} onChange={setCcp} />
           </MCard>
 
@@ -401,10 +409,10 @@ export function MPontos() {
             <p className="font-semibold text-[13.5px] mb-2 flex items-center gap-2"><Info className="w-4 h-4" style={{ color: c.roxo }} /> Como funciona</p>
             <ul className="text-[12px] space-y-1.5" style={{ color: c.suave }}>
               <li>• O ponto é uma cópia <strong style={{ color: c.texto }}>cifrada</strong> do cofre: o servidor guarda, mas não consegue abrir.</li>
-              <li>• Restaurar troca as chaves do cofre pelas do ponto. A CCP e o kit do herdeiro atuais continuam valendo.</li>
+              <li>• Restaurar troca as chaves do cofre pelas do ponto. A chave de contingência e o código de herança atuais continuam valendo.</li>
               <li>• Antes de restaurar, o estado atual vira um ponto automático: dá para desfazer.</li>
               <li>• O dispositivo pareado e os aparelhos com a senha de acesso recebem a versão restaurada.</li>
-              <li>• A CCP é exigida para salvar, restaurar e apagar: quem só tem a senha da conta (ou o PIN) não mexe nos pontos.</li>
+              <li>• A chave de contingência é exigida para salvar, restaurar e apagar: quem só tem a senha da conta (ou o PIN) não mexe nos pontos.</li>
             </ul>
           </MCard>
         </div>
@@ -418,12 +426,12 @@ export function MPontos() {
                 ? <>O cofre volta a ficar como em <strong style={{ color: c.texto }}>"{acao.ponto.nome}"</strong> ({fmtQuando(acao.ponto.criado_em)}). O estado atual será guardado como ponto automático.</>
                 : <>Apagar <strong style={{ color: c.texto }}>"{acao.ponto.nome}"</strong>? Não dá para desfazer.</>}
             </p>
-            {!ccpOk && <MAviso tipo="info">Digite a sua CCP no topo da tela primeiro.</MAviso>}
+            {!ccpOk && <MAviso tipo="info">Digite a sua chave de contingência no topo da tela primeiro.</MAviso>}
             {erro && <MAviso tipo="erro">{erro}</MAviso>}
             <MBotao variante={acao.tipo === 'apagar' ? 'perigo' : 'primario'} carregando={ocupado === 'acao'} disabled={!ccpOk || !!ocupado} onClick={confirmarAcao}>
               {acao.tipo === 'restaurar' ? <><RotateCcw className="w-4 h-4" /> Restaurar</> : <><Trash2 className="w-4 h-4" /> Apagar</>}
             </MBotao>
-            {ocupado === 'acao' && <p className="text-[11px] text-center" style={{ color: c.suave }}>Conferindo a CCP...</p>}
+            {ocupado === 'acao' && <p className="text-[11px] text-center" style={{ color: c.suave }}>Conferindo a chave de contingência...</p>}
           </div>
         )}
       </MFolha>

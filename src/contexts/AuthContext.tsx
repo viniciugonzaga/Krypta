@@ -164,6 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEYS.user);
     // v1.2.0: sair da conta fecha o cofre aberto com a senha de acesso (apaga a chave da memória)
     SessaoCofre.fechar();
+    // v1.3.0: tranca o cofre deste aparelho (a chave da trava sai da memória)
+    window.dispatchEvent(new Event('krypta:logout'));
   }, []);
 
   const refreshUser = useCallback(async () => {

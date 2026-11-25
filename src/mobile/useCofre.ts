@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { VaultAPI, handleApiError, type ContaCofre } from '../services/api';
-import { VirtualDevice, type EstadoDispositivo } from '../services/virtualDevice';
+import { Trava, VirtualDevice, type EstadoDispositivo } from '../services/virtualDevice';
 import * as Flows from '../services/vaultFlows';
 import { SessaoCofre, type SessaoPublica } from '../services/cofreRemoto';
 import type { Credencial } from '../crypto/kryptaCrypto';
@@ -23,6 +23,14 @@ export function useCofre() {
   const [remoto, setRemoto] = useState<SessaoPublica | null>(() => (contaId ? SessaoCofre.atual(contaId) : null));
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+
+  // v1.3.0: a trava deste aparelho abriu/fechou → relê o dispositivo
+  useEffect(() => {
+    if (!contaId) return;
+    return Trava.assinar(() => {
+      setDispositivo(VirtualDevice.carregar(contaId));
+    });
+  }, [contaId]);
 
   // Sessão remota: acompanha abrir / fechar / salvar / expirar
   useEffect(() => {
@@ -39,7 +47,7 @@ export function useCofre() {
       setConta(c);
       let d = VirtualDevice.carregar(contaId);
       // v1.2.0: o dispositivo pareado puxa o que outro aparelho editou
-      if (d && c.status === 'ATIVA' && d.publicKey === c.public_key && d.chaveCofre) {
+      if (d && !d.bloqueado && c.status === 'ATIVA' && d.publicKey === c.public_key && d.chaveCofre) {
         try {
           d = (await Flows.sincronizarDispositivo(contaId)).dispositivo;
         } catch {
@@ -61,7 +69,10 @@ export function useCofre() {
   /** O dispositivo deste aparelho é o que está pareado na conta? */
   const aqui = !!dispositivo && !!conta && dispositivo.publicKey === conta.public_key;
   const ativo = conta?.status === 'ATIVA';
-  const local = aqui && ativo;
+  /** v1.3.0: trancado = o PIN/biometria ainda não foi digitado nesta aba; semTrava = falta criar o PIN */
+  const bloqueado = aqui && !!dispositivo?.bloqueado;
+  const semTrava = aqui && !!dispositivo && !dispositivo.protegido && !!dispositivo.chaveCofre;
+  const local = aqui && ativo && !bloqueado && !semTrava;
   const pronto = local || (!!remoto && ativo);
   const credenciais: Credencial[] = local ? dispositivo!.credenciais : remoto?.credenciais ?? [];
 
@@ -85,7 +96,7 @@ export function useCofre() {
     [contaId, local, refreshUser]
   );
 
-  return { contaId, conta, dispositivo, carregando, erro, aqui, ativo, pronto, local, remoto, credenciais, recarregar, salvar, setDispositivo };
+  return { contaId, conta, dispositivo, carregando, erro, aqui, ativo, pronto, local, remoto, credenciais, bloqueado, semTrava, recarregar, salvar, setDispositivo };
 }
 
 /** Senha forte para o botão "Gerar" */

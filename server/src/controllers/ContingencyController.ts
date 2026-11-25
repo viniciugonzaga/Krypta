@@ -194,19 +194,19 @@ export const ContingencyController = {
 
     const conta = await exigirConta(userId);
     if (conta.status !== 'ATIVA') {
-      throw new ApiError(409, `Cofre no estado ${conta.status}: a troca da CCP exige cofre ATIVO.`);
+      throw new ApiError(409, `Cofre no estado ${conta.status}: a troca da chave de contingência exige cofre ATIVO.`);
     }
     // Token do dispositivo sozinho não troca a CCP: exige a prova atual
     const hashAtual = await conferirProvaDono(userId, provaAtual, 'Prova de contingência atual inválida.');
     const novoHash = await hashComPepper(provaNova);
 
     const r = await VaultModel.rotacionarCcp({ userId, hashAtual, novoHash, payload, versionCounter });
-    const data = resultadoOuErro(r, (s) => `Cofre no estado ${s}: a troca da CCP exige cofre ATIVO.`);
+    const data = resultadoOuErro(r, (s) => `Cofre no estado ${s}: a troca da chave de contingência exige cofre ATIVO.`);
 
     await AuditModel.log({
       userId,
       action: 'VAULT_CCP_ROTATED',
-      detail: 'Chave de contingência (CCP) trocada',
+      detail: 'Chave de contingência trocada',
       ip: req.ip,
     });
 

@@ -58,6 +58,8 @@ Ela também reconhece o sistema do visitante: no Windows, o botão vem em destaq
    ```
    Ele cria a tag `v1.0.1` e envia. O resto é automático.
 
+> **v1.3.0:** o app usa o `tauri-plugin-notification` (avisos de segurança no Windows). Gere o `.exe` de novo depois de atualizar.
+
 > **Produção (v1.2.1):** as *Variables* do GitHub já apontam para a API online
 > (`VITE_API_URL=https://krypta-api.onrender.com/api`, `VITE_SITE_URL=https://krypta.website`).
 > Sem Git no terminal, lance pelo site do GitHub: **Actions → App desktop (Windows) → Run workflow**.
