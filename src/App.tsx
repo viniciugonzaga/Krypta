@@ -7,13 +7,16 @@ import { LoadingScreen } from './components/ui/LoadingScreen';
 import { usePageLoading } from './hooks/usePageLoading';
 import { ModoProvider, useModo } from './mobile/ModoContext';
 import { MobileRoutes } from './mobile/MobileRoutes';
-import { KrypBot } from './ajuda/KrypBot';
+import { CarregadorApp } from './mobile/carregamento';
+import { KodyBot } from './ajuda/KodyBot';
 import { AvisosApp } from './components/AvisosApp';
 
 function AppContent() {
-  const isLoading = usePageLoading({ minDuration: 350, maxDuration: 1500 });
   // Celular, app instalado (PWA) ou tela pequena → telas do modo Mobile
   const { modo } = useModo();
+  // Site/Windows: transição curta a cada troca de página.
+  // Celular: sem loader a cada tela; ele só aparece em telas pesadas ou lentas (CarregadorApp).
+  const isLoading = usePageLoading({ minDuration: 350, maxDuration: 1500, ativo: modo !== 'mobile' });
 
   return (
     <>
@@ -21,7 +24,8 @@ function AppContent() {
         {isLoading && <LoadingScreen key="global-loader" />}
       </AnimatePresence>
       {modo === 'mobile' ? <MobileRoutes /> : <AppRoutes />}
-      <KrypBot />
+      {modo === 'mobile' && <CarregadorApp />}
+      <KodyBot />
       <AvisosApp />
     </>
   );

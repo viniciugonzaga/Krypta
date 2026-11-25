@@ -43,11 +43,11 @@ export const UserController = {
       }
 
       // v1.3.0: foto de perfil (opcional). Aceita a foto já reduzida pelo app
-      // (data:image/jpeg|png|webp;base64, até ~300 KB), um avatar padrão do
-      // Krypta ("preset:robo-roxo") ou null para voltar ao avatar padrão.
+      // (data:image/jpeg|png|webp;base64, até ~300 KB), um Kody com cor de fundo
+      // ("kody:3:#5100BD", v1.4.0) ou null para voltar ao perfil anônimo.
       if (avatar !== undefined) {
         if (avatar === null || avatar === '') patch.avatar_url = null;
-        else if (typeof avatar === 'string' && /^preset:[a-z0-9-]{1,30}$/.test(avatar)) patch.avatar_url = avatar;
+        else if (typeof avatar === 'string' && (/^kody:([1-9]|1[0-2]):#[0-9a-fA-F]{6}$/.test(avatar) || /^preset:[a-z0-9-]{1,30}$/.test(avatar))) patch.avatar_url = avatar;
         else if (typeof avatar === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)) {
           if (avatar.length > 400_000) throw new ApiError(413, 'Foto grande demais. Escolha outra imagem.');
           patch.avatar_url = avatar;

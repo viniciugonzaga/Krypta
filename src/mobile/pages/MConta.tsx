@@ -42,6 +42,7 @@ import { motivoDoModo, type PreferenciaModo } from '../modo';
 import { FONTE, GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MInterruptor, MTitulo, MobileShell, fmtQuando, useMCores } from '../ui';
 import { useNotificacoesAparelho } from '../../components/AvisosApp';
 import { EditorFoto, FotoPerfil } from '../../components/FotoPerfil';
+import { KodyCard } from '../../ajuda/KodyCard';
 
 const ICONE_CLIENTE = { web: Globe, mobile: Smartphone, pwa: Smartphone, desktop: Monitor };
 const NOME_CLIENTE = { web: 'Site', mobile: 'Celular (navegador)', pwa: 'App do celular', desktop: 'App para Windows' };
@@ -149,6 +150,9 @@ export function MPerfil() {
             </span>
           </button>
         </div>
+        <button type="button" onClick={() => setEditarFoto(true)} className="text-[12.5px] font-semibold underline underline-offset-4 mb-1" style={{ color: c.roxo }}>
+          {user.avatarUrl ? 'Trocar foto ou avatar' : 'Escolher um avatar do Kody'}
+        </button>
         <p className="text-[13px]" style={{ color: c.suave }}>{user.email}</p>
         <span className="inline-flex items-center gap-1 mt-2 px-3 py-1 rounded-full text-[11.5px] text-white" style={{ background: GRAD }}>
           <ShieldCheck className="w-3.5 h-3.5" /> Conta {user.status === 'ATIVA' ? 'ativa' : user.status}
@@ -235,6 +239,9 @@ export function MPerfil() {
           <Package className="w-4 h-4" /> Minhas compras
         </button>
       </MCard>
+
+      {/* Ajuda */}
+      <KodyCard className="mb-4" titulo="Dúvidas sobre a sua conta?" sub="O Kody responde na hora." atalhos={['Como coloco foto no perfil?', 'Como ligo as notificações?', 'Onde minha conta está aberta?']} />
 
       <MBotao variante="secundario" onClick={() => { signOut(); navigate('/', { replace: true }); }}><LogOut className="w-4 h-4" /> Sair da conta</MBotao>
 

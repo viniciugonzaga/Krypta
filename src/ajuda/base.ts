@@ -1,212 +1,508 @@
 // src/ajuda/base.ts
 // ============================================================
-// KRYP — base de conhecimento (perguntas frequentes)
+// KODY — o que ele sabe responder
 //
-// Cada assunto tem:
-//   • termos  → palavras/frases que indicam o assunto (com peso)
-//   • resposta(perfil) → o texto muda conforme QUEM pergunta:
-//       plano, situação do cofre, trava, aparelho, herança, compras,
-//       respostas do questionário e onde a pessoa está.
-//   • ações   → botões que levam direto para a tela certa
+// Cada assunto tem termos (com peso) e uma resposta que muda conforme
+// QUEM pergunta (plano, cofre, trava, aparelho, herança, compras,
+// questionário, página) e conforme a conversa (repetiu? está irritado?).
+// Respostas podem ter vários balões, botões que levam à tela certa e
+// OPÇÕES: o Kody faz uma pergunta e entende a resposta seguinte
+// ("sim", "não", "o celular", "a chave"...).
 // ============================================================
 import type { PerfilAjuda } from './contexto';
+import type { Assunto, Ctx, Opcao, Resposta } from './tipos';
 
-export interface Acao {
-  rotulo: string;
-  para: string;
-}
-export interface Resposta {
-  texto: string;
-  acoes?: Acao[];
-  sugestoes?: string[];
-}
-export interface Assunto {
-  id: string;
-  titulo: string; // aparece como sugestão
-  termos: [string, number][];
-  /** páginas onde este assunto é mais provável (ganha um pouco de peso) */
-  paginas?: string[];
-  resposta: (p: PerfilAjuda) => Resposta;
-}
+// ------------------------------------------------------------
+// ajudantes
+// ------------------------------------------------------------
+const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** "Vinícius, frase" ou "Frase" */
+export const com = (ctx: Ctx, frase: string) => (ctx.nome ? `${ctx.nome}, ${frase}` : maiuscula(frase));
+const pronto = (p: PerfilAjuda) => p.situacao === 'pronto';
+const temCofre = (p: PerfilAjuda) => !!p.estadoCofre && p.estadoCofre !== 'PENDENTE_PAREAMENTO';
 
-const oi = (p: PerfilAjuda) => (p.nome ? `${p.nome}, ` : '');
-const proNao = (recurso: string): Resposta => ({
-  texto: `${recurso} é um recurso do **Krypta Pro** (R$ 25/mês ou R$ 225/ano). No Free você tem o cofre cifrado, o dispositivo de software, Login/Wi-Fi/Nota e 2 pontos de restauração.`,
+const SIM = ['sim', 's', 'quero', 'pode', 'claro', 'ok', 'bora', 'vamos', 'isso', 'aham', 'uhum', 'positivo', 'manda', 'por favor', 'yes'];
+const NAO = ['nao', 'n', 'agora nao', 'depois', 'deixa', 'nao precisa', 'negativo', 'nem', 'no'];
+export const simNao = (sim: Omit<Opcao, 'rotulo' | 'termos'>, nao?: Omit<Opcao, 'rotulo' | 'termos'>, rotulos: [string, string] = ['Sim', 'Agora não']): Opcao[] => [
+  { rotulo: rotulos[0], termos: SIM, ...sim },
+  { rotulo: rotulos[1], termos: NAO, ...(nao ?? { resposta: (_p, c) => ({ texto: c.um(['Tranquilo! Se mudar de ideia, é só chamar. 😉', 'Sem problema. Estou por aqui.', 'Combinado. Qualquer coisa, me chama.']), humor: 'ok' }) }) },
+];
+
+const proNao = (recurso: string, ctx: Ctx): Resposta => ({
+  texto: [
+    `${recurso} é do **Krypta Pro** (R$ 25/mês ou R$ 225/ano).`,
+    ctx.um(['No Free você já tem o cofre cifrado, o dispositivo de software, Login/Wi-Fi/Nota, a trava com PIN e 2 pontos de restauração.', 'O Free continua protegendo suas senhas com cifragem e PIN; o Pro adiciona os recursos de emergência e de vários aparelhos.']),
+  ],
   acoes: [{ rotulo: 'Ver o Krypta Pro', para: '/plans' }],
-  sugestoes: ['Qual a diferença entre Free e Pro?'],
+  opcoes: simNao({ resposta: escolherPlano }, undefined, ['Me ajuda a decidir', 'Agora não']),
+  humor: 'pensando',
 });
 
-/** O que a pessoa deveria fazer agora, pela situação dela */
-export function proximoPasso(p: PerfilAjuda): Resposta {
+// ------------------------------------------------------------
+// próximo passo (o "GPS" do Kody)
+// ------------------------------------------------------------
+export function proximoPasso(p: PerfilAjuda, ctx: Ctx): Resposta {
   if (!p.logado)
     return {
-      texto: 'Para começar: **crie sua conta**, depois **pareie um dispositivo** (pode ser este aparelho) e anote a **chave de contingência**. Leva uns 3 minutos.',
+      texto: ['Para começar são 3 passos, uns 3 minutos no total:', '1. **Crie sua conta**.\n2. **Ative o cofre** neste aparelho e anote a **chave de contingência**.\n3. Crie o **PIN do cofre** e guarde sua primeira senha.'],
       acoes: [
         { rotulo: 'Criar conta', para: '/register' },
         { rotulo: 'Como funciona', para: '/como-funciona' },
       ],
+      humor: 'oi',
     };
   switch (p.situacao) {
     case 'sem-cofre':
       return {
-        texto: `${oi(p)}seu próximo passo é **ativar o cofre**: em Meu Krypta você escolhe o dispositivo, gera a chave de contingência (anote em papel!) e cria o PIN do cofre.`,
-        acoes: [{ rotulo: 'Ativar meu cofre', para: '/device' }],
-        sugestoes: ['O que é a chave de contingência?', 'O que é parear?'],
+        texto: [com(ctx, 'seu próximo passo é **ativar o cofre**. 🔐'), 'Você escolhe o dispositivo (pode ser este aparelho), anota a **chave de contingência** em papel e cria o **PIN**. Quer que eu te leve lá?'],
+        opcoes: [
+          { rotulo: 'Sim, vamos!', termos: SIM, para: '/device' },
+          { rotulo: 'O que é a chave de contingência?', termos: ['chave', 'contingencia'], resposta: (pp, cc) => porId('ccp').resposta(pp, cc) },
+        ],
+        humor: 'oi',
       };
     case 'sem-trava':
       return {
-        texto: `${oi(p)}falta **proteger o cofre neste aparelho** com um PIN (ou senha). Sem ele, qualquer pessoa com o aparelho veria suas senhas. Depois dá para ligar a biometria.`,
-        acoes: [{ rotulo: 'Criar o PIN do cofre', para: '/device' }],
+        texto: [com(ctx, 'falta uma coisa importante: **proteger o cofre neste aparelho** com um PIN.'), 'Sem ele, quem pegar o aparelho veria suas senhas. Leva 30 segundos (você vai precisar da chave de contingência).'],
+        opcoes: simNao({ para: '/device' }, undefined, ['Criar o PIN agora', 'Depois']),
+        humor: 'alerta',
       };
     case 'trancado':
       return {
-        texto: `Seu cofre está **trancado** neste aparelho. Digite o PIN${p.biometria ? ' ou use a biometria' : ''} para abrir. Ele tranca sozinho depois de 5 minutos sem uso.`,
+        texto: `Seu cofre está **trancado** neste aparelho (ele tranca sozinho depois de 5 minutos). Digite o PIN${p.biometria ? ' ou use a biometria' : ''} para abrir.`,
         acoes: [{ rotulo: 'Abrir o cofre', para: '/cofre/chaves' }],
         sugestoes: ['Esqueci o PIN do cofre'],
+        humor: 'ok',
       };
     case 'outro-aparelho':
       return p.pro
         ? {
             texto: p.acessoRemoto
-              ? 'Seu cofre está em outro aparelho. Aqui você abre com a **senha de acesso (PIN)** e pode ver e editar tudo.'
-              : 'Seu cofre está em outro aparelho e você ainda **não criou a senha de acesso**. Crie com a chave de contingência e abra o cofre aqui.',
+              ? 'Seu cofre mora em outro aparelho, mas no Pro você abre aqui com a **senha de acesso (PIN)** e pode ver e editar tudo.'
+              : ['Seu cofre mora em outro aparelho e você ainda **não criou a senha de acesso**.', 'Com ela (e a chave de contingência uma vez) você abre e edita o cofre aqui também.'],
             acoes: [{ rotulo: p.acessoRemoto ? 'Abrir com o PIN' : 'Criar a senha de acesso', para: '/cofre/acesso' }],
+            humor: 'ok',
           }
-        : {
-            texto: 'Seu cofre está no aparelho onde você pareou. No Free ele abre só lá. Com o Pro, um PIN abre e edita o cofre em qualquer aparelho seu.',
-            acoes: [{ rotulo: 'Ver o Krypta Pro', para: '/plans' }],
-          };
+        : { texto: ['Seu cofre está no aparelho onde você pareou. No Free ele abre só lá.', 'Com o Pro, um PIN abre e edita o cofre em qualquer aparelho seu.'], acoes: [{ rotulo: 'Ver o Krypta Pro', para: '/plans' }], humor: 'pensando' };
     case 'bloqueado':
-      return {
-        texto: 'O **Kill Switch** foi acionado: o dispositivo antigo foi banido. Para voltar a usar, vincule um dispositivo novo com a chave de contingência.',
-        acoes: [{ rotulo: 'Vincular dispositivo novo', para: '/device' }],
-      };
+      return { texto: ['O **Kill Switch** foi acionado: o dispositivo antigo foi banido.', 'Para voltar a usar, vincule um dispositivo novo com a chave de contingência.'], acoes: [{ rotulo: 'Vincular dispositivo novo', para: '/device' }], humor: 'alerta' };
     case 'recuperacao':
-      return { texto: 'Há uma **recuperação em andamento**. Termine-a em Meu Krypta para voltar a usar o cofre.', acoes: [{ rotulo: 'Meu Krypta', para: '/device' }] };
+      return { texto: 'Há uma **recuperação em andamento**. Termine-a em Meu Krypta para voltar a usar o cofre.', acoes: [{ rotulo: 'Meu Krypta', para: '/device' }], humor: 'alerta' };
     default: {
       const dicas: string[] = [];
-      if ((p.totalChaves ?? 0) === 0) dicas.push('guardar sua **primeira chave**');
+      if ((p.totalChaves ?? 0) === 0) dicas.push('guardar sua **primeira senha**');
       if (!p.biometria) dicas.push('ligar a **biometria** para abrir mais rápido');
       if (p.pro && !p.heranca) dicas.push('ativar a **herança digital**');
       if (p.pro && p.acessoRemoto === false) dicas.push('criar a **senha de acesso** para os outros aparelhos');
       dicas.push('salvar um **ponto de restauração**');
       return {
-        texto: `${oi(p)}seu cofre está pronto. Sugestões: ${dicas.slice(0, 3).join(', ')}.`,
+        texto: [com(ctx, ctx.um(['seu cofre está pronto! ✅', 'tudo certo com o seu cofre. ✅', 'cofre aberto e funcionando. ✅'])), `Se quiser deixar ainda melhor: ${dicas.slice(0, 3).join(', ')}.`],
         acoes: [
           { rotulo: 'Nova chave', para: '/cofre/nova-chave' },
           { rotulo: 'Minhas chaves', para: '/cofre/chaves' },
         ],
+        sugestoes: ['Minha conta está segura?', 'Me dá uma dica de segurança'],
+        humor: 'feliz',
       };
     }
   }
 }
 
+// ------------------------------------------------------------
+// check-up da conta
+// ------------------------------------------------------------
+export function checkup(p: PerfilAjuda, ctx: Ctx): Resposta {
+  if (!p.logado) return { texto: 'Entre na sua conta que eu faço um check-up completo da sua segurança. 🩺', acoes: [{ rotulo: 'Entrar', para: '/login' }], humor: 'oi' };
+  const itens: [boolean, string][] = [
+    [temCofre(p), 'Cofre ativado'],
+    [temCofre(p) && p.situacao !== 'sem-trava', 'PIN do cofre neste aparelho'],
+    [p.biometria, 'Biometria ligada'],
+  ];
+  if (p.pro) {
+    itens.push([p.heranca, 'Herança digital']);
+    if (p.acessoRemoto !== null) itens.push([!!p.acessoRemoto, 'Senha de acesso para outros aparelhos']);
+  }
+  const ok = itens.filter((i) => i[0]).length;
+  const nota = Math.round((ok / itens.length) * 10);
+  const lista = itens.map(([v, t]) => `${v ? '✅' : '⬜'} ${t}`).join('\n');
+  const veredito = nota >= 9 ? 'Excelente, sua conta está muito bem protegida! 🏆' : nota >= 6 ? 'Está boa, mas dá para melhorar.' : 'Tem coisa importante faltando. Vamos resolver?';
+  return {
+    texto: [com(ctx, `fiz o check-up da sua conta. Nota **${nota}/10**.`), lista, veredito, 'E uma pergunta: você guardou a **chave de contingência** em papel, longe do computador?'],
+    opcoes: [
+      { rotulo: 'Guardei sim', termos: SIM.concat(['guardei', 'anotei', 'tenho']), resposta: (pp, cc) => ({ texto: cc.um(['Perfeito! Essa é a parte mais importante. 👏', 'Ótimo! Com ela guardada, você recupera tudo numa emergência. 👏']), sugestoes: nota < 10 ? ['O que eu faço agora?'] : [], humor: 'feliz', ...(nota < 10 ? { acoes: proximoPasso(pp, cc).acoes } : {}) }) },
+      { rotulo: 'Não lembro / perdi', termos: NAO.concat(['perdi', 'nao lembro', 'nao sei', 'esqueci']), resposta: (pp, cc) => porId('perdi-ccp').resposta(pp, cc) },
+    ],
+    humor: nota >= 9 ? 'feliz' : nota >= 6 ? 'ok' : 'alerta',
+  };
+}
+
+// ------------------------------------------------------------
+// fluxos guiados
+// ------------------------------------------------------------
+export function escolherPlano(_p: PerfilAjuda, ctx: Ctx): Resposta {
+  const p2 = (vários: boolean): Resposta => ({
+    texto: 'Segunda: se algo acontecer com você, quer que alguém de confiança receba o cofre (**herança digital**)?',
+    opcoes: [
+      { rotulo: 'Sim, é importante', termos: SIM, resposta: (_pp, c) => p3(vários, true, c) },
+      { rotulo: 'Não precisa', termos: NAO, resposta: (_pp, c) => p3(vários, false, c) },
+    ],
+    humor: 'pensando',
+  });
+  const p3 = (vários: boolean, heranca: boolean, _c: Ctx): Resposta => ({
+    texto: 'Última: se você perder o celular, quer poder **banir o aparelho** na hora (Kill Switch)?',
+    opcoes: [
+      { rotulo: 'Quero', termos: SIM, resposta: (_pp, c) => veredito(vários, heranca, true, c) },
+      { rotulo: 'Tanto faz', termos: NAO.concat(['tanto faz', 'indiferente']), resposta: (_pp, c) => veredito(vários, heranca, false, c) },
+    ],
+    humor: 'pensando',
+  });
+  const veredito = (vários: boolean, heranca: boolean, kill: boolean, c: Ctx): Resposta => {
+    const motivos = [vários && 'abrir o cofre em vários aparelhos', heranca && 'a herança digital', kill && 'o Kill Switch'].filter(Boolean) as string[];
+    return motivos.length
+      ? {
+          texto: [`Pelo que você me contou, o **Pro** é o seu plano. 💜`, `Você quer ${motivos.join(', ').replace(/, ([^,]*)$/, ' e $1')}, e isso só existe no Pro. Custa R$ 25/mês ou R$ 225/ano (sai R$ 18,75/mês).`],
+          acoes: [{ rotulo: 'Assinar o Pro', para: '/plans' }],
+          humor: 'feliz',
+        }
+      : { texto: [c.um(['O **Free** dá conta do recado para você! 🙌', 'Pode ficar no **Free** tranquilo. 🙌']), 'Ele já cifra tudo no aparelho e tem a trava com PIN. Se um dia precisar de herança ou de vários aparelhos, é só mudar.'], humor: 'feliz' };
+  };
+  return {
+    texto: [ctx.um(['Bora descobrir! São 3 perguntas rápidas.', 'Te ajudo a escolher, são só 3 perguntas.']), 'Primeira: você quer usar o cofre em **mais de um aparelho** (celular e computador, por exemplo)?'],
+    opcoes: [
+      { rotulo: 'Sim, vários', termos: SIM.concat(['varios', 'mais de um', 'dois']), resposta: () => p2(true) },
+      { rotulo: 'Só um', termos: NAO.concat(['so um', 'um so', 'apenas um']), resposta: () => p2(false) },
+    ],
+    humor: 'pensando',
+  };
+}
+
+function naoAbre(_p: PerfilAjuda, ctx: Ctx): Resposta {
+  return {
+    texto: [ctx.frustrado ? 'Calma, a gente resolve isso juntos. 🤝' : 'Vamos descobrir o que está acontecendo.', 'O que aparece na tela quando você tenta abrir o cofre?'],
+    opcoes: [
+      { rotulo: 'Pede o PIN e não aceita', termos: ['pin', 'nao aceita', 'errado', 'incorreto'], resposta: (pp, c) => porId('esqueci-pin').resposta(pp, c) },
+      {
+        rotulo: 'Diz que está em outro aparelho',
+        termos: ['outro aparelho', 'outro dispositivo'],
+        resposta: (pp, c) => (pp.pro ? porId('remoto').resposta(pp, c) : { texto: ['Isso acontece quando o cofre foi pareado em outro aparelho (ou o navegador foi limpo).', 'No Free o cofre abre só no aparelho pareado. Se você perdeu o acesso a ele, dá para recuperar com a **chave de contingência**.'], acoes: [{ rotulo: 'Meu Krypta', para: '/device' }], humor: 'pensando' }),
+      },
+      { rotulo: 'Fica carregando', termos: ['carregando', 'demora', 'lento', 'travado', 'nao carrega'], resposta: (pp, c) => porId('lento').resposta(pp, c) },
+      { rotulo: 'Pede para ativar o cofre', termos: ['ativar', 'parear', 'pareamento'], resposta: (pp, c) => (temCofre(pp) ? { texto: ['Se você já tinha cofre e agora pede para ativar de novo, provavelmente os dados do navegador foram apagados.', 'Use **"Perdi minha chave / dispositivo"** com a chave de contingência para trazer o cofre de volta do backup cifrado.'], acoes: [{ rotulo: 'Recuperar', para: '/perdi-ccp' }], humor: 'pensando' } : proximoPasso(pp, c)) },
+    ],
+    humor: ctx.frustrado ? 'triste' : 'duvida',
+  };
+}
+
+function perdiAlgo(_p: PerfilAjuda, ctx: Ctx): Resposta {
+  return {
+    texto: [ctx.um(['Ih, vamos ver isso. 🫡', 'Calma, quase tudo tem volta no Krypta.']), 'O que você perdeu?'],
+    opcoes: [
+      { rotulo: 'O celular / dispositivo', termos: ['celular', 'dispositivo', 'aparelho', 'telefone', 'notebook', 'krypta fisico'], resposta: (pp, c) => porId('kill').resposta(pp, c) },
+      { rotulo: 'A chave de contingência', termos: ['chave', 'contingencia', 'ccp', 'papel'], resposta: (pp, c) => porId('perdi-ccp').resposta(pp, c) },
+      { rotulo: 'O PIN do cofre', termos: ['pin', 'trava'], resposta: (pp, c) => porId('esqueci-pin').resposta(pp, c) },
+      { rotulo: 'A senha da conta', termos: ['senha', 'login', 'conta'], resposta: (pp, c) => porId('senha-conta').resposta(pp, c) },
+    ],
+    humor: 'pensando',
+  };
+}
+
+const DICAS = [
+  'Use uma senha **diferente em cada site**. Se um vazar, os outros continuam seguros (o gerador do Krypta faz isso por você).',
+  'Ligue a **verificação em duas etapas** no e-mail e no banco. O e-mail é a chave de todas as outras contas.',
+  'Desconfie de mensagens com **pressa** ("sua conta será bloqueada hoje!"). Golpes vivem de urgência.',
+  'Guarde a **chave de contingência em papel**, num lugar físico seguro. Foto no celular não vale: se perder o celular, perde as duas.',
+  'Salve um **ponto de restauração** antes de mexer em muitas senhas de uma vez.',
+  'Senha boa é **longa**: 14+ caracteres ganham de qualquer combinação curta cheia de símbolos.',
+  'No Pro, ative a **herança digital**: sua família não fica sem acesso a contas importantes.',
+  'Não salve senhas importantes em **bloco de notas** ou no WhatsApp "para você mesmo".',
+];
+
+function gerarSenha(tam = 18): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?-_';
+  const r = new Uint32Array(tam);
+  crypto.getRandomValues(r);
+  return Array.from(r, (n) => chars[n % chars.length]).join('');
+}
+
+// ------------------------------------------------------------
+// ASSUNTOS
+// ------------------------------------------------------------
 export const ASSUNTOS: Assunto[] = [
-  // ---------------- conversa ----------------
+  // ======= conversa =======
   {
     id: 'oi',
     titulo: 'Oi!',
-    termos: [['oi', 3], ['ola', 3], ['bom dia', 3], ['boa tarde', 3], ['boa noite', 3], ['e ai', 3], ['hello', 2]],
-    resposta: (p) => ({
-      texto: `Oi${p.nome ? `, ${p.nome}` : ''}! Eu sou o **Kryp**, o robô do Krypta. Posso explicar qualquer tela, te dizer o próximo passo ou te levar até onde precisa.`,
-      sugestoes: ['O que eu faço agora?', 'Como funciona o Krypta?'],
+    termos: [['oi', 3], ['ola', 3], ['oie', 3], ['bom dia', 3], ['boa tarde', 3], ['boa noite', 3], ['e ai', 3], ['eae', 3], ['salve', 2], ['hello', 2], ['hey', 2], ['opa', 2]],
+    resposta: (p, ctx) => {
+      const periodo = ctx.hora < 5 ? 'Boa madrugada' : ctx.hora < 12 ? 'Bom dia' : ctx.hora < 18 ? 'Boa tarde' : 'Boa noite';
+      return {
+        texto: [`${periodo}${p.nome ? `, ${p.nome}` : ''}! 👋 ${ctx.um(['Em que posso ajudar?', 'Como posso te ajudar hoje?', 'O que você precisa?'])}`],
+        sugestoes: ['O que eu faço agora?', 'Minha conta está segura?', 'Como funciona o Krypta?'],
+        humor: 'oi',
+      };
+    },
+  },
+  {
+    id: 'como-vai',
+    titulo: 'Tudo bem?',
+    termos: [['tudo bem', 4], ['tudo bom', 4], ['como vai', 4], ['como voce esta', 5], ['beleza', 2], ['suave', 2], ['tranquilo', 1]],
+    resposta: (_p, ctx) => ({
+      texto: ctx.um(['Tudo ótimo por aqui, com os circuitos em dia! 🤖 E você, precisa de alguma coisa?', 'Tudo certo! Acabei de checar meus cadeados. 🔒 E aí, como posso ajudar?', 'Melhor agora que você apareceu! Em que posso ajudar?']),
+      sugestoes: ['O que eu faço agora?', 'Me dá uma dica de segurança'],
+      humor: 'feliz',
     }),
   },
   {
     id: 'obrigado',
     titulo: 'Obrigado',
-    termos: [['obrigad', 3], ['valeu', 3], ['agradeco', 3], ['brigad', 3], ['show', 1], ['top', 1]],
-    resposta: () => ({ texto: 'Por nada! Se precisar, é só me chamar aqui no canto da tela. 🤖' }),
+    termos: [['obrigad', 4], ['valeu', 4], ['agradeco', 4], ['brigad', 4], ['vlw', 4], ['thanks', 3], ['ajudou', 3], ['resolveu', 3]],
+    resposta: (_p, ctx) => ({ texto: ctx.um(['Por nada! Fico feliz em ajudar. 💜', 'Disponha! Qualquer coisa, estou aqui no cantinho.', 'Imagina! Foi um prazer. 🤖']), humor: 'feliz' }),
+  },
+  {
+    id: 'tchau',
+    titulo: 'Tchau',
+    termos: [['tchau', 4], ['ate mais', 4], ['ate logo', 4], ['falou', 3], ['flw', 3], ['bye', 3], ['fui', 2]],
+    resposta: (p, ctx) => ({ texto: ctx.um([`Até mais${p.nome ? `, ${p.nome}` : ''}! Seu cofre fica de olho por aqui. 🔒`, 'Tchau! Volte sempre. 👋', 'Até logo! Qualquer dúvida, me chama.']), humor: 'oi' }),
   },
   {
     id: 'quem',
     titulo: 'Quem é você?',
-    termos: [['quem e voce', 4], ['quem voce', 3], ['seu nome', 3], ['voce e uma ia', 3], ['robo', 2], ['bot', 2], ['kryp', 3]],
+    termos: [['quem e voce', 5], ['quem voce', 3], ['seu nome', 4], ['qual seu nome', 5], ['kody', 3], ['robo', 2], ['bot', 2]],
     resposta: () => ({
-      texto: 'Sou o **Kryp**, o assistente do Krypta. Eu olho a situação da sua conta (plano, cofre, aparelho) para responder certo. **Nunca** vejo suas senhas: o cofre é cifrado e nem eu, nem o servidor, conseguimos abrir.',
-      sugestoes: ['O que eu faço agora?', 'Vocês conseguem ver minhas senhas?'],
+      texto: ['Eu sou o **Kody**, o robô do Krypta! 🤖', 'Eu olho a situação da sua conta (plano, cofre, aparelho) para responder certinho e te levar à tela certa. E fica tranquilo: **eu nunca vejo suas senhas**. O cofre é cifrado e nem eu, nem o servidor, conseguimos abrir.'],
+      sugestoes: ['O que você sabe fazer?', 'Vocês conseguem ver minhas senhas?'],
+      humor: 'oi',
     }),
   },
-  // ---------------- começo ----------------
+  {
+    id: 'ia',
+    titulo: 'Você é uma IA?',
+    termos: [['voce e uma ia', 6], ['inteligencia artificial', 5], ['voce e humano', 6], ['e uma pessoa', 4], ['chatgpt', 5], ['robo de verdade', 4], ['voce pensa', 4]],
+    resposta: () => ({
+      texto: ['Sou um assistente feito pela equipe do Krypta, que roda **dentro do seu aparelho**. 🤖', 'Não mando suas perguntas para nenhuma IA de fora: entendo o que você escreve, olho sua conta e respondo. Se eu não souber, te passo para uma pessoa de verdade.'],
+      sugestoes: ['Falar com uma pessoa'],
+      humor: 'pensando',
+    }),
+  },
+  {
+    id: 'sabe-fazer',
+    titulo: 'O que você sabe fazer?',
+    termos: [['o que voce sabe', 5], ['o que voce faz', 5], ['como voce ajuda', 5], ['suas funcoes', 4], ['ajuda', 1], ['menu', 3], ['opcoes', 2]],
+    resposta: (p) => ({
+      texto: [
+        'Algumas coisas que eu faço:',
+        `• Digo o **próximo passo** pela situação da sua conta\n• Faço um **check-up** de segurança${p.logado ? '' : ' (depois de entrar)'}\n• Resolvo problemas: **cofre não abre**, **perdi algo**, **esqueci o PIN**\n• Te ajudo a **escolher o plano**\n• **Gero senhas fortes** na hora\n• Explico qualquer tela e te levo até ela`,
+      ],
+      sugestoes: ['Minha conta está segura?', 'Gera uma senha forte', 'Me ajuda a escolher o plano'],
+      humor: 'feliz',
+    }),
+  },
+  {
+    id: 'piada',
+    titulo: 'Conta uma piada',
+    termos: [['piada', 5], ['me faz rir', 5], ['algo engracado', 4], ['charada', 4]],
+    resposta: (_p, ctx) => ({
+      texto: ctx.um([
+        'Por que a senha "123456" foi ao psicólogo? Porque todo mundo descobria tudo sobre ela. 😅',
+        'O que o cadeado disse para a chave? "Sem você eu não me abro." 🔐',
+        'Minha senha favorita? Uma que nem eu sei. É assim que tem que ser! 🤫',
+        'Sabe por que robô não tem medo de hacker? Porque a gente tem **firewall** emocional. 🤖',
+      ]),
+      sugestoes: ['Outra!', 'Me dá uma dica de segurança'],
+      humor: 'feliz',
+    }),
+  },
+  {
+    id: 'elogio',
+    titulo: 'Você é legal',
+    termos: [['voce e legal', 5], ['gostei de voce', 5], ['fofo', 4], ['inteligente', 3], ['muito bom', 3], ['amei', 3], ['adorei', 3], ['top demais', 3], ['perfeito', 2]],
+    resposta: (_p, ctx) => ({ texto: ctx.um(['Assim eu fico sem graça! 😊 Obrigado!', 'Awn, você também! 💜', 'Meus circuitos esquentaram aqui. Obrigado! 🤖']), humor: 'feliz' }),
+  },
+  {
+    id: 'grosseria',
+    titulo: 'Você é inútil',
+    termos: [['inutil', 5], ['burro', 5], ['idiota', 5], ['lixo', 4], ['nao serve', 4], ['horrivel', 3], ['pessimo', 3], ['odeio', 4]],
+    resposta: (_p, ctx) => ({
+      texto: [ctx.um(['Poxa, desculpa não ter ajudado. 😕', 'Entendo a frustração, e sinto muito.']), 'Me conta com outras palavras o que você precisa, ou fale com a nossa equipe que uma pessoa te responde.'],
+      acoes: [{ rotulo: 'Falar com a equipe', para: '/contact' }],
+      humor: 'triste',
+    }),
+  },
+  {
+    id: 'hora',
+    titulo: 'Que horas são?',
+    termos: [['que horas', 5], ['que dia e hoje', 5], ['data de hoje', 4], ['hora agora', 4]],
+    resposta: () => {
+      const d = new Date();
+      return { texto: `Agora são **${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}** de ${d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}. ⏰`, humor: 'ok' };
+    },
+  },
+  {
+    id: 'entendi',
+    titulo: 'Entendi',
+    termos: [['entendi', 4], ['certo', 2], ['blz', 3], ['ok', 2], ['esta bom', 3], ['beleza', 1], ['show', 2], ['kkk', 3], ['haha', 3], ['rs', 2]],
+    resposta: (_p, ctx) => ({ texto: ctx.um(['👍 Algo mais em que eu possa ajudar?', 'Fechou! Quer ver mais alguma coisa?', 'Boa! Se precisar, é só falar.']), sugestoes: ['O que eu faço agora?', 'Me dá uma dica de segurança'], humor: 'ok' }),
+  },
+
+  // ======= sua conta =======
   {
     id: 'proximo',
     titulo: 'O que eu faço agora?',
-    termos: [['o que faco', 4], ['proximo passo', 4], ['como comecar', 4], ['comecar', 2], ['primeiro passo', 4], ['por onde', 3], ['perdido', 3], ['nao sei', 2], ['ajuda', 1], ['o que fazer', 4]],
+    termos: [['o que faco', 5], ['proximo passo', 5], ['como comecar', 5], ['comecar', 2], ['primeiro passo', 5], ['por onde', 4], ['perdido', 4], ['to perdido', 5], ['o que fazer', 5], ['e agora', 4]],
     resposta: proximoPasso,
   },
   {
+    id: 'checkup',
+    titulo: 'Minha conta está segura?',
+    termos: [['minha conta esta segura', 7], ['conta segura', 5], ['estou seguro', 5], ['check up', 5], ['checkup', 5], ['analisa minha conta', 6], ['status', 3], ['resumo da conta', 5], ['como esta minha conta', 6], ['nota', 2]],
+    resposta: checkup,
+  },
+  {
+    id: 'meu-plano',
+    titulo: 'Qual é o meu plano?',
+    termos: [['qual meu plano', 6], ['qual e o meu plano', 6], ['meu plano', 4], ['sou pro', 4], ['sou free', 4], ['minha assinatura', 4]],
+    resposta: (p, ctx) =>
+      !p.logado
+        ? { texto: 'Você ainda não entrou na conta. Quando entrar, eu te digo o plano e o que ele inclui.', acoes: [{ rotulo: 'Entrar', para: '/login' }] }
+        : p.pro
+          ? { texto: [com(ctx, 'você é **Krypta Pro**. 💜'), 'Tem tudo liberado: vários aparelhos com PIN, herança, Kill Switch, todos os tipos de chave, 20 pontos de restauração e 1 MB de cofre.'], acoes: [{ rotulo: 'Gerenciar plano', para: '/settings' }], humor: 'feliz' }
+          : { texto: [com(ctx, 'você está no **Krypta Free**.'), 'Ele cobre o essencial. Quer que eu te diga se o Pro vale a pena para você?'], opcoes: simNao({ resposta: escolherPlano }), humor: 'ok' },
+  },
+  {
+    id: 'quantas',
+    titulo: 'Quantas senhas eu tenho?',
+    termos: [['quantas senhas', 6], ['quantas chaves', 6], ['quantos logins', 5], ['total de senhas', 5], ['minhas senhas', 3]],
+    resposta: (p, ctx) =>
+      p.totalChaves === null
+        ? { texto: p.situacao === 'trancado' ? 'Seu cofre está trancado, então não consigo contar. Abra com o PIN e me pergunte de novo. 🔒' : 'Só consigo contar quando o cofre está aberto neste aparelho.', acoes: [{ rotulo: 'Minhas chaves', para: '/cofre/chaves' }], humor: 'duvida' }
+        : p.totalChaves === 0
+          ? { texto: [com(ctx, 'seu cofre ainda está vazio.'), 'Que tal guardar a primeira? Comece pelo e-mail: ele é a chave de todas as outras contas.'], acoes: [{ rotulo: 'Nova chave', para: '/cofre/nova-chave' }], humor: 'oi' }
+          : { texto: `Você tem **${p.totalChaves}** chave${p.totalChaves === 1 ? '' : 's'} guardada${p.totalChaves === 1 ? '' : 's'} no cofre. ${p.totalChaves > 15 ? 'Que organização! 👏' : '📂'}`, acoes: [{ rotulo: 'Ver minhas chaves', para: '/cofre/chaves' }], humor: 'ok' },
+  },
+  {
+    id: 'novidades',
+    titulo: 'O que tem de novo?',
+    termos: [['novidade', 5], ['o que tem de novo', 6], ['atualizacao', 4], ['versao nova', 5], ['mudou', 3], ['nova versao', 5]],
+    resposta: () => ({
+      texto: [
+        'As novidades mais recentes do Krypta:',
+        '• **PIN e biometria** trancam o cofre até no aparelho pareado\n• **Eu!** O Kody, para te ajudar em qualquer tela\n• **Notificações** de segurança no Windows, no navegador e no app\n• **Foto de perfil** com 12 avatares do Kody e a cor que você quiser\n• Telas mais rápidas no celular',
+      ],
+      sugestoes: ['O que é o PIN do cofre?', 'Como coloco foto no perfil?'],
+      humor: 'feliz',
+    }),
+  },
+
+  // ======= começo =======
+  {
     id: 'krypta',
     titulo: 'Como funciona o Krypta?',
-    termos: [['como funciona', 4], ['o que e o krypta', 5], ['krypta', 1], ['para que serve', 3], ['explica', 2]],
+    termos: [['como funciona', 4], ['o que e o krypta', 6], ['krypta', 1], ['para que serve', 4], ['explica', 2]],
     paginas: ['/', '/como-funciona'],
     resposta: () => ({
-      texto:
-        'O Krypta é um **cofre de senhas** que cifra tudo **no seu aparelho**. O servidor guarda só um backup que ele mesmo não consegue abrir.\n\n1. Você cria a conta.\n2. **Pareia um dispositivo** (este aparelho ou o Krypta físico com cartão NFC).\n3. Anota a **chave de contingência** (para emergências).\n4. Cria o **PIN do cofre** e guarda suas chaves.',
+      texto: [
+        'O Krypta é um **cofre de senhas** que cifra tudo **no seu aparelho**, antes de sair. O servidor só guarda um backup que nem ele consegue abrir. 🔐',
+        '1. Você cria a conta.\n2. **Ativa o cofre** num dispositivo (este aparelho ou o Krypta físico com cartão NFC).\n3. Anota a **chave de contingência** (para emergências).\n4. Cria o **PIN** e guarda suas senhas.',
+      ],
       acoes: [{ rotulo: 'Como funciona (página)', para: '/como-funciona' }],
-      sugestoes: ['O que é parear?', 'O que é a chave de contingência?'],
+      sugestoes: ['O que é parear?', 'Vocês conseguem ver minhas senhas?'],
+      humor: 'oi',
     }),
   },
   {
     id: 'parear',
     titulo: 'O que é parear?',
-    termos: [['parear', 4], ['pareamento', 4], ['ativar cofre', 4], ['ativar o cofre', 4], ['criar cofre', 4], ['dispositivo de software', 3], ['vincular', 2]],
+    termos: [['parear', 5], ['pareamento', 5], ['ativar cofre', 5], ['ativar o cofre', 5], ['criar cofre', 5], ['dispositivo de software', 4], ['vincular', 2]],
     paginas: ['/device'],
-    resposta: (p) =>
+    resposta: (p, ctx) =>
       p.situacao === 'sem-cofre' || !p.logado
         ? {
-            texto:
-              '**Parear** é ligar um dispositivo ao seu cofre. Ele cria uma chave secreta que nunca sai dele e é ela que abre o cofre. Pode ser **este aparelho** (dispositivo de software, Free e Pro) ou o **Krypta físico** (Pro).\n\nNo pareamento você também gera a **chave de contingência** e cria o **PIN do cofre**.',
-            acoes: [{ rotulo: 'Parear agora', para: p.logado ? '/device' : '/register' }],
+            texto: [
+              '**Parear** é ligar um dispositivo ao seu cofre. Ele cria uma chave secreta que **nunca sai dele**, e é ela que abre o cofre.',
+              'Pode ser **este aparelho** (Free e Pro) ou o **Krypta físico** com cartão NFC (Pro). No pareamento você também gera a chave de contingência e cria o PIN.',
+            ],
+            opcoes: p.logado ? simNao({ para: '/device' }, undefined, ['Parear agora', 'Depois']) : undefined,
+            acoes: p.logado ? undefined : [{ rotulo: 'Criar conta', para: '/register' }],
+            humor: 'oi',
           }
         : {
-            texto: `Seu cofre já está pareado${p.situacao === 'outro-aparelho' ? ', mas em outro aparelho' : ' neste aparelho'}. Para trocar de dispositivo (perdeu o antigo), use o **Kill Switch** e vincule um novo com a chave de contingência.`,
+            texto: [com(ctx, `seu cofre já está pareado${p.situacao === 'outro-aparelho' ? ', mas em outro aparelho' : ' neste aparelho'}. ✅`), 'Se perdeu o dispositivo antigo, use o **Kill Switch** e vincule um novo com a chave de contingência.'],
             acoes: [{ rotulo: 'Meu Krypta', para: '/device' }],
             sugestoes: ['Perdi meu dispositivo'],
+            humor: 'ok',
           },
   },
-  // ---------------- chaves de emergência ----------------
+
+  // ======= emergências =======
   {
     id: 'ccp',
     titulo: 'O que é a chave de contingência?',
-    termos: [['chave de contingencia', 5], ['contingencia', 4], ['ccp', 5], ['32 caracteres', 3], ['chave de emergencia', 4], ['onde guardo', 2]],
+    termos: [['chave de contingencia', 6], ['contingencia', 5], ['ccp', 5], ['32 caracteres', 3], ['chave de emergencia', 5], ['onde guardo', 2]],
     resposta: () => ({
-      texto:
-        'A **chave de contingência** é o código de 32 caracteres (8 blocos) que aparece **uma vez** no pareamento. Ela recupera o cofre, troca o dispositivo, aciona o Kill Switch e abre a trava se você esquecer o PIN.\n\nGuarde **em papel**, longe do computador. O Krypta **não** consegue recuperá-la.',
+      texto: [
+        'A **chave de contingência** é o código de 32 caracteres (8 blocos) que aparece **uma vez só**, quando você ativa o cofre.',
+        'Ela é o seu "plano B": recupera o cofre, troca o dispositivo, aciona o Kill Switch e abre a trava se você esquecer o PIN.',
+        '📝 Guarde **em papel**, longe do computador. O Krypta **não consegue** recuperá-la por você.',
+      ],
       sugestoes: ['Perdi a chave de contingência', 'Esqueci o PIN do cofre'],
+      humor: 'alerta',
     }),
   },
   {
     id: 'perdi-ccp',
     titulo: 'Perdi a chave de contingência',
-    termos: [['perdi a chave de contingencia', 8], ['esqueci a chave de contingencia', 8], ['perdi a chave', 5], ['perdi minha chave', 5], ['esqueci a chave de contingencia', 6], ['perdi a ccp', 6], ['perdi ccp', 5], ['sem a chave', 3]],
-    resposta: (p) => ({
+    termos: [['perdi a chave de contingencia', 8], ['esqueci a chave de contingencia', 8], ['perdi a chave', 5], ['perdi minha chave', 5], ['perdi a ccp', 6], ['perdi ccp', 5], ['sem a chave', 3]],
+    resposta: (p, ctx) => ({
       texto:
         p.situacao === 'pronto' || p.situacao === 'trancado'
-          ? 'Sem problema: como o dispositivo está com você, dá para **criar uma chave de contingência nova** usando o dispositivo + a senha da conta. A antiga deixa de valer.'
-          : 'Se você ainda tem o dispositivo, crie uma **chave nova** com ele + a senha da conta. Se perdeu o dispositivo **e** a chave, a saída é **abandonar o cofre** (senha + código por e-mail) e começar um novo, vazio.',
-      acoes: [{ rotulo: 'Perdi minha chave', para: '/perdi-ccp' }],
+          ? [ctx.um(['Respira, tem solução! 😮‍💨', 'Fica tranquilo, isso tem jeito.']), 'Como o dispositivo está com você, dá para **criar uma chave nova** usando o dispositivo + a senha da conta. A antiga deixa de valer na hora.']
+          : ['Se você ainda tem o dispositivo, crie uma **chave nova** com ele + a senha da conta.', 'Se perdeu o dispositivo **e** a chave, a saída é **abandonar o cofre** (senha + código por e-mail) e começar um novo, vazio. É chato, mas é o que garante que ninguém mais abre o seu cofre.'],
+      acoes: [{ rotulo: 'Criar chave nova', para: '/perdi-ccp' }],
+      humor: 'pensando',
     }),
   },
-  // ---------------- trava do cofre ----------------
+  {
+    id: 'perdi',
+    titulo: 'Perdi uma coisa',
+    termos: [['perdi', 3], ['sumiu', 3], ['nao acho', 3], ['esqueci', 2], ['roubaram', 3]],
+    resposta: perdiAlgo,
+  },
+  {
+    id: 'nao-abre',
+    titulo: 'Não consigo abrir o cofre',
+    termos: [['nao consigo abrir', 7], ['nao abre', 6], ['cofre nao abre', 7], ['nao consigo acessar', 6], ['nao funciona', 4], ['deu erro', 4], ['bugou', 4], ['travou', 4], ['problema', 2]],
+    resposta: naoAbre,
+  },
+
+  // ======= trava =======
   {
     id: 'pin',
     titulo: 'O que é o PIN do cofre?',
-    termos: [['pin', 4], ['trava', 4], ['trancado', 4], ['senha do cofre', 5], ['bloqueio do cofre', 4], ['abrir o cofre', 3], ['proteger o cofre', 4]],
+    termos: [['pin', 4], ['trava', 4], ['trancado', 4], ['senha do cofre', 5], ['bloqueio do cofre', 4], ['abrir o cofre', 3], ['proteger o cofre', 4], ['tranca sozinho', 5]],
     resposta: (p) => ({
-      texto:
-        `O **PIN do cofre** (ou uma senha maior) tranca o cofre **mesmo no aparelho que pareou**: os dados ficam cifrados no aparelho e só abrem com ele${p.pro ? '. No Pro, o mesmo PIN abre o cofre nos seus outros aparelhos' : ''}.\n\nO cofre tranca sozinho depois de **5 minutos** sem uso, ao recarregar a página e ao sair da conta.` +
-        (p.situacao === 'sem-trava' ? '\n\n⚠️ Você ainda **não criou** o PIN neste aparelho.' : ''),
-      acoes: [{ rotulo: p.situacao === 'sem-trava' ? 'Criar o PIN' : 'Senha do cofre', para: p.situacao === 'sem-trava' ? '/device' : '/cofre/acesso' }],
+      texto: [
+        `O **PIN do cofre** (6 números) ou uma senha maior tranca o cofre **até no aparelho que pareou**: os dados ficam cifrados e só abrem com ele${p.pro ? '. No Pro, o mesmo PIN abre o cofre nos seus outros aparelhos' : ''}.`,
+        'Ele tranca sozinho depois de **5 minutos** sem uso, ao recarregar a página e ao sair da conta.' + (p.situacao === 'sem-trava' ? '\n\n⚠️ Você ainda **não criou** o seu PIN neste aparelho.' : ''),
+      ],
+      opcoes: p.situacao === 'sem-trava' ? simNao({ para: '/device' }, undefined, ['Criar o PIN agora', 'Depois']) : undefined,
+      acoes: p.situacao === 'sem-trava' ? undefined : [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }],
       sugestoes: ['Como ligo a biometria?', 'Esqueci o PIN do cofre'],
+      humor: p.situacao === 'sem-trava' ? 'alerta' : 'ok',
     }),
   },
   {
     id: 'esqueci-pin',
     titulo: 'Esqueci o PIN do cofre',
-    termos: [['esqueci o pin', 6], ['esqueci pin', 6], ['esqueci a senha do cofre', 6], ['pin errado', 4], ['nao lembro o pin', 6], ['muitas tentativas', 3]],
-    resposta: () => ({
-      texto: 'Na tela do cofre trancado, toque em **"Esqueci o PIN"** e digite a **chave de contingência**. O cofre abre e você cria um PIN novo.\n\nDepois de 5 erros seguidos, o app pede para esperar um pouco antes de tentar de novo.',
+    termos: [['esqueci o pin', 7], ['esqueci pin', 7], ['esqueci a senha do cofre', 7], ['pin errado', 5], ['nao lembro o pin', 7], ['muitas tentativas', 4], ['pin nao aceita', 6]],
+    resposta: (_p, ctx) => ({
+      texto: [
+        ctx.frustrado ? 'Acontece com todo mundo, sem estresse! 🫂' : ctx.um(['Acontece! Tem jeito fácil.', 'Sem problema, dá para resolver.']),
+        'Na tela do cofre trancado, toque em **"Esqueci o PIN"** e digite a **chave de contingência**. O cofre abre e você cria um PIN novo.',
+        'Dica: depois de 5 erros seguidos o app pede para esperar um pouco antes de tentar de novo. É proteção contra quem tenta adivinhar.',
+      ],
       acoes: [{ rotulo: 'Ir para o cofre', para: '/cofre/chaves' }],
+      sugestoes: ['Perdi a chave de contingência'],
+      humor: 'ok',
     }),
   },
   {
@@ -214,100 +510,145 @@ export const ASSUNTOS: Assunto[] = [
     titulo: 'Como ligo a biometria?',
     termos: [['biometria', 5], ['digital', 4], ['impressao digital', 5], ['face id', 5], ['rosto', 3], ['windows hello', 5], ['touch id', 5]],
     resposta: (p) => ({
-      texto:
-        (p.biometria ? 'Sua biometria **já está ligada** neste aparelho. ' : '') +
-        'Abra o cofre com o PIN, vá em **Senha do cofre → Ligar biometria** e confirme com a digital, o rosto ou o Windows Hello. Ela fica **neste aparelho**: em cada aparelho você liga de novo.\n\nAlguns navegadores ainda não permitem (o botão avisa). Nesses, use o PIN.',
+      texto: p.biometria
+        ? ['Sua biometria **já está ligada** neste aparelho. ✅', 'Lembre: ela vale só neste aparelho. Em cada aparelho você liga de novo.']
+        : ['Abra o cofre com o PIN e vá em **Senha do cofre → Ligar biometria**. Confirme com a digital, o rosto ou o Windows Hello e pronto. 👆', 'Alguns navegadores ainda não oferecem; nesses o botão avisa e o PIN continua valendo.'],
       acoes: [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }],
+      humor: p.biometria ? 'ok' : 'oi',
     }),
+  },
+  {
+    id: 'trancar',
+    titulo: 'Como tranco o cofre agora?',
+    termos: [['trancar agora', 6], ['fechar o cofre', 6], ['trancar o cofre', 6], ['bloquear agora', 5], ['sair do cofre', 5]],
+    resposta: () => ({ texto: 'Em **Senha do cofre** tem o botão **"Trancar agora"**. Ele também tranca sozinho em 5 minutos sem uso ou quando você sai da conta. 🔒', acoes: [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }], humor: 'ok' }),
   },
   {
     id: 'remoto',
     titulo: 'Como abro o cofre em outro aparelho?',
-    termos: [['outro aparelho', 5], ['outro dispositivo', 5], ['outro celular', 5], ['outro computador', 5], ['fora de casa', 4], ['senha de acesso', 5], ['acessar de outro', 5], ['trabalho', 2]],
-    resposta: (p) =>
+    termos: [['outro aparelho', 5], ['outro dispositivo', 5], ['outro celular', 5], ['outro computador', 5], ['fora de casa', 4], ['senha de acesso', 5], ['acessar de outro', 5], ['no trabalho', 3], ['no computador', 3]],
+    resposta: (p, ctx) =>
       !p.pro
-        ? proNao('Abrir e editar o cofre em outros aparelhos')
+        ? proNao('Abrir e editar o cofre em outros aparelhos', ctx)
         : {
             texto: p.acessoRemoto
               ? 'Sua **senha de acesso** já está criada. Em qualquer aparelho, entre na conta e abra **Senha do cofre**: digite o PIN e pronto, dá para ver e editar tudo.'
-              : 'Crie a **senha de acesso** (de preferência o mesmo PIN do cofre) com a chave de contingência. Depois, em qualquer aparelho logado, o PIN abre e edita o cofre.',
+              : ['Crie a **senha de acesso** (de preferência o mesmo PIN do cofre) usando a chave de contingência uma vez.', 'Depois, em qualquer aparelho logado, o PIN abre e edita o cofre.'],
             acoes: [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }],
+            humor: 'ok',
           },
   },
-  // ---------------- chaves ----------------
+
+  // ======= chaves =======
   {
     id: 'nova-chave',
     titulo: 'Como guardo uma senha?',
     termos: [['guardar senha', 5], ['salvar senha', 5], ['adicionar senha', 5], ['nova chave', 5], ['nova senha', 4], ['criar chave', 5], ['cadastrar', 3], ['adicionar', 2], ['salv', 2], ['guard', 2], ['senha', 1.5]],
     paginas: ['/cofre/chaves'],
-    resposta: (p) =>
-      p.situacao === 'pronto' || (p.situacao === 'outro-aparelho' && p.pro)
+    resposta: (p, ctx) =>
+      pronto(p) || (p.situacao === 'outro-aparelho' && p.pro)
         ? {
-            texto: 'Toque em **Nova chave**, escolha o tipo (Login, Wi-Fi, Nota' + (p.pro ? ', Cartão, Endereço, Documento...' : '') + '), preencha e salve. O ícone da marca aparece sozinho pelo nome (ex.: "Netflix").',
+            texto: [`Toque em **Nova chave** (o **+** no celular), escolha o tipo (Login, Wi-Fi, Nota${p.pro ? ', Cartão, Endereço, Documento...' : ''}), preencha e salve.`, 'O ícone da marca aparece sozinho pelo nome (ex.: "Netflix"). E use o **gerador** para criar uma senha forte. 💪'],
             acoes: [{ rotulo: 'Nova chave', para: '/cofre/nova-chave' }],
+            sugestoes: ['Gera uma senha forte'],
+            humor: 'oi',
           }
-        : proximoPasso(p),
+        : proximoPasso(p, ctx),
   },
   {
     id: 'editar-chave',
     titulo: 'Como edito ou apago uma chave?',
     termos: [['editar', 4], ['alterar senha', 3], ['mudar senha', 3], ['apagar', 4], ['excluir chave', 5], ['remover', 3], ['deletar', 4]],
     resposta: () => ({
-      texto: 'Em **Minhas chaves**, toque na chave: ali tem **Editar** e **Excluir**. Apagou sem querer? Volte a um **ponto de restauração**.',
+      texto: 'Em **Minhas chaves**, toque na chave: ali tem **Editar** e **Excluir**. Apagou sem querer? Volte a um **ponto de restauração**. 😉',
       acoes: [{ rotulo: 'Minhas chaves', para: '/cofre/chaves' }],
       sugestoes: ['O que é ponto de restauração?'],
+      humor: 'ok',
     }),
   },
   {
     id: 'campos',
     titulo: 'Posso ter mais campos numa chave?',
     termos: [['mais campos', 5], ['campo extra', 5], ['cartao de credito', 4], ['endereco', 3], ['documento', 3], ['tipo de chave', 4], ['campos', 3]],
-    resposta: (p) =>
+    resposta: (p, ctx) =>
       p.pro
-        ? { texto: 'Sim! No Pro você usa todos os tipos (Cartão, Endereço, Documento, Personalizado) e **Adicionar campo** quantas vezes quiser. Cada campo pode ser secreto.', acoes: [{ rotulo: 'Nova chave', para: '/cofre/nova-chave' }] }
-        : proNao('Cartão, Endereço, Documento e campos extras'),
+        ? { texto: 'Sim! No Pro você usa todos os tipos (Cartão, Endereço, Documento, Personalizado) e **Adicionar campo** quantas vezes quiser. Cada campo pode ser secreto. 🗂️', acoes: [{ rotulo: 'Nova chave', para: '/cofre/nova-chave' }], humor: 'ok' }
+        : proNao('Cartão, Endereço, Documento e campos extras', ctx),
+  },
+  {
+    id: 'gerar',
+    titulo: 'Gera uma senha forte',
+    termos: [['gera uma senha', 7], ['gerar senha', 6], ['senha forte', 5], ['sugere uma senha', 6], ['cria uma senha', 6], ['senha segura', 4], ['outra senha', 4]],
+    resposta: (_p, ctx) => ({
+      texto: [ctx.um(['Saindo do forno! 🔥', 'Aqui está, novinha:', 'Fresquinha para você:']), `\`${gerarSenha(18)}\``, '18 caracteres, misturando letras, números e símbolos. Ela **não fica guardada** nesta conversa: copie e salve no cofre.'],
+      acoes: [{ rotulo: 'Guardar numa chave nova', para: '/cofre/nova-chave' }],
+      sugestoes: ['Outra senha', 'Me dá uma dica de segurança'],
+      humor: 'feliz',
+      efemera: true,
+    }),
+  },
+  {
+    id: 'dica',
+    titulo: 'Me dá uma dica de segurança',
+    termos: [['dica', 5], ['dicas', 5], ['conselho', 4], ['como me proteger', 5], ['golpe', 4], ['phishing', 5], ['seguranca digital', 4]],
+    resposta: (_p, ctx) => ({ texto: ['💡 ' + ctx.um(DICAS)], sugestoes: ['Outra dica', 'Minha conta está segura?'], humor: 'pensando' }),
+  },
+  {
+    id: 'importar',
+    titulo: 'Dá para importar senhas?',
+    termos: [['importar', 6], ['exportar', 5], ['trazer do chrome', 6], ['do google', 3], ['lastpass', 5], ['bitwarden', 5], ['planilha', 3], ['csv', 5]],
+    resposta: () => ({ texto: ['Ainda **não** existe importação automática (de navegador, planilha ou outro gerenciador). 😕', 'Por enquanto você cadastra em **Nova chave**: comece pelas mais importantes (e-mail, banco, redes sociais). É uma boa hora para trocar senhas repetidas!'], acoes: [{ rotulo: 'Nova chave', para: '/cofre/nova-chave' }], humor: 'pensando' }),
   },
   {
     id: 'pontos',
     titulo: 'O que é ponto de restauração?',
     termos: [['ponto de restauracao', 6], ['restaurar', 4], ['backup', 3], ['voltar atras', 4], ['desfazer', 4], ['salvar estado', 5], ['recuperar chave apagada', 5]],
     resposta: (p) => ({
-      texto: `É uma **cópia cifrada** do cofre num momento. Se algo der errado, você volta a ela. Salvar, restaurar e apagar pedem a **chave de contingência**. Seu plano guarda **${p.pro ? '20' : '2'}** pontos, e antes de restaurar o Krypta salva o estado atual (dá para desfazer).`,
+      texto: [`É uma **cópia cifrada** do cofre num momento, tipo "salvar jogo". 💾`, `Se algo der errado, você volta a ela. Salvar, restaurar e apagar pedem a **chave de contingência**. Seu plano guarda **${p.pro ? '20' : '2'}** pontos, e antes de restaurar o Krypta salva o estado atual (dá para desfazer).`],
       acoes: [{ rotulo: 'Pontos de restauração', para: '/cofre/pontos' }],
+      humor: 'ok',
     }),
   },
   {
     id: 'conflito',
     titulo: 'O cofre foi alterado em outro aparelho',
     termos: [['alterado em outro aparelho', 6], ['conflito', 4], ['sincron', 4], ['nao atualizou', 4], ['nao aparece', 3]],
-    resposta: () => ({ texto: 'Quando outro aparelho muda o cofre ao mesmo tempo, o Krypta **não sobrescreve** nada: ele atualiza a lista e pede para você salvar de novo. Confira e salve.' }),
+    resposta: () => ({ texto: 'Quando outro aparelho muda o cofre ao mesmo tempo, o Krypta **não sobrescreve** nada: ele atualiza a lista e pede para você salvar de novo. Confira e salve. 🔄', humor: 'ok' }),
   },
-  // ---------------- emergência ----------------
+
+  // ======= emergência e herança =======
   {
     id: 'kill',
     titulo: 'Perdi meu dispositivo',
-    termos: [['perdi o dispositivo', 6], ['perdi meu celular', 5], ['roubaram', 5], ['roubado', 5], ['furtado', 5], ['kill switch', 6], ['bloquear dispositivo', 5], ['perdi o krypta', 5]],
-    resposta: (p) =>
+    termos: [['perdi o dispositivo', 6], ['perdi meu celular', 6], ['perdi o celular', 6], ['roubaram meu', 6], ['roubado', 5], ['furtado', 5], ['kill switch', 6], ['bloquear dispositivo', 5], ['perdi o krypta', 5]],
+    resposta: (p, ctx) =>
       p.pro
         ? {
-            texto: 'Use o **Kill Switch** em Meu Krypta: com a chave de contingência, o dispositivo perdido é **banido para sempre**. Depois vincule um novo e o cofre volta do backup cifrado.\n\nMesmo sem o Kill Switch, o ladrão ainda precisaria do **PIN do cofre**.',
-            acoes: [{ rotulo: 'Kill Switch', para: '/device#kill' }],
+            texto: [ctx.frustrado ? 'Que situação chata, sinto muito. Vamos proteger seu cofre agora. 🛡️' : 'Vamos proteger seu cofre. 🛡️', 'Use o **Kill Switch** em Meu Krypta: com a chave de contingência, o dispositivo perdido é **banido para sempre**. Depois vincule um novo e o cofre volta do backup cifrado.', 'E respira: mesmo antes disso, quem pegou ainda precisaria do **PIN do cofre**.'],
+            acoes: [{ rotulo: 'Acionar Kill Switch', para: '/device#kill' }],
+            humor: 'alerta',
           }
-        : { ...proNao('O Kill Switch'), texto: 'O **Kill Switch** (banir o dispositivo perdido) é do **Krypta Pro**. No Free, o cofre do aparelho perdido continua protegido pelo **PIN do cofre**. Se não tiver mais acesso, dá para **abandonar o cofre** e começar outro.' },
+        : {
+            texto: ['O **Kill Switch** (banir o aparelho perdido) é do Pro, mas calma:', 'no Free o cofre do aparelho perdido continua trancado pelo **PIN do cofre**. Se você não tiver mais acesso, dá para **abandonar o cofre** e começar outro com segurança.'],
+            acoes: [{ rotulo: 'Ver opções', para: '/perdi-ccp' }],
+            humor: 'alerta',
+          },
   },
   {
     id: 'heranca',
     titulo: 'Como funciona a herança digital?',
-    termos: [['heranca', 5], ['herdeiro', 5], ['codigo de heranca', 6], ['kit de heranca', 6], ['falecimento', 4], ['morrer', 4], ['familia', 2]],
-    resposta: (p) => {
-      if (!p.pro) return proNao('A herança digital');
-      if (p.situacao === 'sem-cofre') return { texto: 'A herança aparece **depois que o cofre é ativado**: primeiro pareie o dispositivo, depois gere o código de herança.', acoes: [{ rotulo: 'Ativar meu cofre', para: '/device' }] };
+    termos: [['heranca', 5], ['herdeiro', 5], ['codigo de heranca', 6], ['kit de heranca', 6], ['falecimento', 4], ['morrer', 4], ['se eu morrer', 6], ['familia', 2]],
+    resposta: (p, ctx) => {
+      if (!p.pro) return proNao('A herança digital', ctx);
+      if (!temCofre(p)) return { texto: 'A herança aparece **depois que o cofre é ativado**: primeiro pareie o dispositivo, depois gere o código de herança.', acoes: [{ rotulo: 'Ativar meu cofre', para: '/device' }], humor: 'ok' };
       return {
         texto: p.heranca
-          ? 'Sua **herança está ativa**. O herdeiro usa o **código de herança** na página de resgate e recebe o cofre. Você é avisado por e-mail.'
-          : 'Gere o **código de herança** em Meu Krypta e entregue ao herdeiro (em papel ou arquivo). Se algo acontecer, ele resgata o cofre sem precisar da sua senha.',
-        acoes: [{ rotulo: p.heranca ? 'Ver herança' : 'Gerar código de herança', para: '/device#heranca' }],
+          ? ['Sua **herança está ativa**. ✅', 'Se algo acontecer, o herdeiro usa o **código de herança** na página de resgate e recebe o cofre. Você é avisado por e-mail quando isso acontece.']
+          : ['Você gera um **código de herança** em Meu Krypta e entrega para uma pessoa de confiança (em papel ou arquivo). 🤝', 'Se algo acontecer com você, ela resgata o cofre sem precisar da sua senha. Quer gerar agora?'],
+        opcoes: p.heranca ? undefined : simNao({ para: '/device#heranca' }, undefined, ['Gerar código', 'Depois']),
+        acoes: p.heranca ? [{ rotulo: 'Ver herança', para: '/device#heranca' }] : undefined,
         sugestoes: ['Recebi um código de herança'],
+        humor: 'ok',
       };
     },
   },
@@ -315,31 +656,32 @@ export const ASSUNTOS: Assunto[] = [
     id: 'resgatar',
     titulo: 'Recebi um código de herança',
     termos: [['recebi um codigo', 6], ['recebi o codigo', 6], ['resgatar', 5], ['resgate', 5], ['sou herdeiro', 6]],
-    resposta: () => ({ texto: 'Abra a página de **resgate de herança** e cole o código (ou abra o link que veio junto). Não precisa ter conta antes.', acoes: [{ rotulo: 'Resgatar herança', para: '/heranca' }] }),
+    resposta: () => ({ texto: ['Sinto muito se for por um momento difícil. 💜', 'Abra a página de **resgate de herança** e cole o código (ou abra o link que veio junto). Não precisa ter conta antes.'], acoes: [{ rotulo: 'Resgatar herança', para: '/heranca' }], humor: 'triste' }),
   },
   {
     id: 'abandonar',
     titulo: 'Quero começar um cofre novo',
     termos: [['abandonar', 5], ['cofre novo', 5], ['comecar de novo', 5], ['zerar', 4], ['apagar o cofre', 5]],
-    resposta: () => ({ texto: '**Abandonar o cofre** apaga tudo dele (chaves, backup, pontos, senha de acesso) e libera a conta para um cofre novo, vazio. Pede a senha da conta + um código por e-mail. Não dá para desfazer.', acoes: [{ rotulo: 'Perdi minha chave / abandonar', para: '/perdi-ccp' }] }),
+    resposta: () => ({ texto: ['**Abandonar o cofre** apaga tudo dele (chaves, backup, pontos, senha de acesso) e libera a conta para um cofre novo, vazio.', '⚠️ Pede a senha da conta + um código por e-mail e **não dá para desfazer**. Se ainda tem o dispositivo, talvez criar uma chave de contingência nova resolva.'], acoes: [{ rotulo: 'Ver opções', para: '/perdi-ccp' }], humor: 'alerta' }),
   },
-  // ---------------- dispositivo físico ----------------
+
+  // ======= dispositivo físico =======
   {
     id: 'fisico',
     titulo: 'Como funciona o Krypta físico?',
     termos: [['dispositivo fisico', 6], ['hardware', 4], ['esp32', 5], ['nfc', 4], ['cartao nfc', 5], ['comprar dispositivo', 5], ['chaveiro', 3], ['krypta fisico', 6]],
-    resposta: (p) => {
-      if (!p.pro) return proNao('O dispositivo físico Krypta');
+    resposta: (p, ctx) => {
+      if (!p.pro) return proNao('O dispositivo físico Krypta', ctx);
       const textos: Record<PerfilAjuda['dispositivoFisico'], string> = {
-        nenhum: 'Você ainda não comprou. Ele custa R$ 599 em **Produtos**.',
-        'em-transporte': 'Seu dispositivo está **a caminho**. Quando chegar, toque em **"Recebi"** em Minhas compras.',
-        disponivel: 'Seu dispositivo chegou e está **pronto para parear**: em Meu Krypta, escolha o número de série dele.',
-        pareado: 'Seu cofre já está **no dispositivo físico**. Aproxime o cartão NFC para entrar.',
+        nenhum: 'Você ainda não tem um. Ele custa R$ 599 em **Produtos**.',
+        'em-transporte': 'O seu está **a caminho**! 📦 Quando chegar, toque em **"Recebi"** em Minhas compras.',
+        disponivel: 'O seu chegou e está **pronto para parear**: em Meu Krypta, escolha o número de série dele.',
+        pareado: 'Seu cofre já está **no dispositivo físico**. Aproxime o cartão NFC para entrar. 💳',
       };
-      const st = textos[p.dispositivoFisico];
       return {
-        texto: `O Krypta físico guarda a chave do cofre num chip e só libera com o **cartão NFC** do dono. ${st}`,
+        texto: ['O Krypta físico guarda a chave do cofre num chip e só libera com o **cartão NFC** do dono.', textos[p.dispositivoFisico]],
         acoes: [{ rotulo: p.dispositivoFisico === 'nenhum' ? 'Produtos' : 'Minhas compras', para: p.dispositivoFisico === 'nenhum' ? '/products' : '/compras' }],
+        humor: 'ok',
       };
     },
   },
@@ -347,9 +689,10 @@ export const ASSUNTOS: Assunto[] = [
     id: 'compras',
     titulo: 'Onde vejo minhas compras?',
     termos: [['compras', 4], ['pedido', 4], ['rastreio', 4], ['entrega', 4], ['chegou', 3], ['recebi meu', 4]],
-    resposta: () => ({ texto: 'Em **Minhas compras** você vê a assinatura e os dispositivos, acompanha a entrega e confirma **"Recebi"**.', acoes: [{ rotulo: 'Minhas compras', para: '/compras' }] }),
+    resposta: () => ({ texto: 'Em **Minhas compras** você vê a assinatura e os dispositivos, acompanha a entrega e confirma **"Recebi"**. 📦', acoes: [{ rotulo: 'Minhas compras', para: '/compras' }], humor: 'ok' }),
   },
-  // ---------------- planos ----------------
+
+  // ======= planos =======
   {
     id: 'planos',
     titulo: 'Qual a diferença entre Free e Pro?',
@@ -359,13 +702,21 @@ export const ASSUNTOS: Assunto[] = [
       const uso = p.onboarding?.usos ?? [];
       const quer = uso.includes('heranca') || uso.includes('familia') || p.onboarding?.nivel === 'maximo' || p.onboarding?.nivel === 'avancado' || (p.onboarding?.dispositivos ?? []).includes('multiplos');
       return {
-        texto:
-          '**Free:** cofre cifrado, dispositivo de software, Login/Wi-Fi/Nota, 2 pontos de restauração, 64 KB.\n**Pro (R$ 25/mês ou R$ 225/ano):** tudo do Free + cofre em qualquer aparelho com PIN, todos os tipos e campos extras, 20 pontos, Kill Switch, herança digital, alertas de acesso, dispositivo físico e 1 MB.' +
-          (p.logado ? `\n\nVocê está no **${p.pro ? 'Pro' : 'Free'}**.` : '') +
-          (!p.pro && quer ? ' Pelas suas respostas no questionário (herança, família ou vários aparelhos), o **Pro** combina mais com você.' : ''),
+        texto: [
+          '**Free:** cofre cifrado, PIN e biometria, dispositivo de software, Login/Wi-Fi/Nota, 2 pontos de restauração.\n**Pro (R$ 25/mês ou R$ 225/ano):** tudo do Free + cofre em qualquer aparelho com PIN, todos os tipos e campos, 20 pontos, Kill Switch, herança digital, alertas de acesso e o dispositivo físico.',
+          p.logado ? (p.pro ? 'Você já está no **Pro**. 💜' : !p.pro && quer ? 'Pelas suas respostas no questionário (herança, família ou vários aparelhos), o **Pro** combina com você. Quer conferir comigo?' : 'Quer que eu te ajude a decidir?') : 'Quer que eu te ajude a decidir?',
+        ],
+        opcoes: p.pro ? undefined : simNao({ resposta: escolherPlano }, undefined, ['Me ajuda a decidir', 'Não precisa']),
         acoes: p.pro ? [] : [{ rotulo: 'Ver planos', para: '/plans' }],
+        humor: 'pensando',
       };
     },
+  },
+  {
+    id: 'escolher',
+    titulo: 'Me ajuda a escolher o plano',
+    termos: [['me ajuda a escolher', 7], ['qual plano', 5], ['qual plano escolher', 7], ['qual devo', 4], ['qual e melhor', 4], ['recomenda', 4]],
+    resposta: escolherPlano,
   },
   {
     id: 'cancelar',
@@ -373,10 +724,11 @@ export const ASSUNTOS: Assunto[] = [
     termos: [['cancelar', 5], ['cancelamento', 5], ['desassinar', 5], ['voltar para o free', 5]],
     resposta: (p) =>
       p.pro
-        ? { texto: 'Em **Configurações → Plano → Cancelar assinatura** (pede a senha da conta). Você volta ao Free: os recursos Pro param, mas o cofre continua seu.', acoes: [{ rotulo: 'Configurações', para: '/settings' }] }
-        : { texto: 'Você está no **Free**, não há assinatura para cancelar.' },
+        ? { texto: ['Em **Configurações → Plano → Cancelar assinatura** (pede a senha da conta).', 'Você volta ao Free: os recursos Pro param, mas o cofre e as chaves continuam seus.'], acoes: [{ rotulo: 'Configurações', para: '/settings' }], humor: 'triste' }
+        : { texto: 'Você está no **Free**, então não há assinatura para cancelar. 🙂', humor: 'ok' },
   },
-  // ---------------- aplicativos ----------------
+
+  // ======= aplicativos =======
   {
     id: 'celular',
     titulo: 'Tem app para celular?',
@@ -384,9 +736,10 @@ export const ASSUNTOS: Assunto[] = [
     resposta: (p) => ({
       texto:
         p.plataforma === 'celular'
-          ? 'Você já está no modo celular! Para virar app: **Android** (Chrome) → menu ⋮ → **Instalar app**; **iPhone** (Safari) → **Compartilhar → Adicionar à Tela de Início**. Ele se atualiza sozinho.'
-          : 'Sim: abra o site no celular e vá em **Aplicações → Instalar no celular** (iPhone: Compartilhar → Adicionar à Tela de Início). Ele se atualiza sozinho.',
+          ? ['Você já está no modo celular! 📱', 'Para virar app: **Android** (Chrome) → menu ⋮ → **Instalar app**. **iPhone** (Safari) → **Compartilhar → Adicionar à Tela de Início**. Ele se atualiza sozinho.']
+          : 'Tem sim! Abra o site no celular e vá em **Aplicações → Instalar no celular** (no iPhone: Compartilhar → Adicionar à Tela de Início). Ele se atualiza sozinho. 📱',
       acoes: [{ rotulo: 'Aplicações', para: '/aplicacoes' }],
+      humor: 'oi',
     }),
   },
   {
@@ -394,93 +747,129 @@ export const ASSUNTOS: Assunto[] = [
     titulo: 'Tem app para Windows?',
     termos: [['windows', 5], ['computador', 3], ['pc', 3], ['exe', 5], ['desktop', 4], ['baixar', 3], ['download', 3]],
     resposta: (p) => ({
-      texto: p.plataforma === 'windows' ? 'Você já está no **app do Windows**! Versões novas aparecem na página Aplicações: baixe e instale por cima.' : 'Sim: em **Aplicações → Baixar para Windows** sai o `Krypta-Setup.exe`. Instale e entre com a mesma conta.',
+      texto: p.plataforma === 'windows' ? 'Você já está no **app do Windows**! 💻 Versões novas aparecem em Aplicações: baixe e instale por cima.' : 'Tem! Em **Aplicações → Baixar para Windows** sai o `Krypta-Setup.exe`. Instale e entre com a mesma conta. 💻',
       acoes: [{ rotulo: 'Aplicações', para: '/aplicacoes' }],
+      humor: 'oi',
     }),
   },
   {
     id: 'modo',
     titulo: 'Como troco o modo celular/site?',
     termos: [['modo mobile', 5], ['modo web', 5], ['versao do site', 4], ['trocar modo', 5], ['layout', 3]],
-    resposta: () => ({ texto: 'Em **Configurações** tem a opção **Modo do aplicativo** (automático, celular ou site). A escolha vale só para este aparelho.', acoes: [{ rotulo: 'Configurações', para: '/settings' }] }),
+    resposta: () => ({ texto: 'Em **Configurações** tem **Modo do aplicativo** (automático, celular ou site). Vale só para este aparelho.', acoes: [{ rotulo: 'Configurações', para: '/settings' }], humor: 'ok' }),
   },
-  // ---------------- conta ----------------
+  {
+    id: 'lento',
+    titulo: 'Está lento ou não carrega',
+    termos: [['lento', 5], ['demorando', 5], ['demora', 4], ['nao carrega', 6], ['carregando', 4], ['fora do ar', 6], ['servidor', 3], ['offline', 4], ['sem internet', 5]],
+    resposta: (_p, ctx) => ({
+      texto: [ctx.frustrado ? 'Poxa, desculpa a demora! 😕' : 'Entendi.', 'Se o Krypta ficou um tempo sem uso, o servidor "acorda" no primeiro acesso e pode levar **até 1 minuto**. Depois fica rápido.', 'Se continuar: confira a internet, recarregue a página e, se não resolver, me conta qual tela trava.'],
+      sugestoes: ['Falar com uma pessoa'],
+      humor: 'triste',
+    }),
+  },
+
+  // ======= conta =======
   {
     id: 'seguranca',
     titulo: 'Vocês conseguem ver minhas senhas?',
-    termos: [['ver minhas senhas', 6], ['voces veem', 5], ['seguro', 3], ['seguranca', 3], ['zero knowledge', 5], ['criptografia', 4], ['vazamento', 4], ['hacker', 4], ['confiavel', 3]],
+    termos: [['ver minhas senhas', 6], ['voces veem', 5], ['voces conseguem ver', 6], ['seguro', 3], ['seguranca', 3], ['zero knowledge', 5], ['criptografia', 4], ['vazamento', 4], ['hacker', 4], ['confiavel', 3], ['confiar', 3]],
     resposta: () => ({
-      texto: '**Não.** O cofre é cifrado (AES-256) **no seu aparelho** antes de sair. O servidor guarda só um backup que não consegue abrir, e as chaves (contingência, herança, PIN) **nunca** são enviadas. Nem quem invadir o servidor lê seu cofre.',
-      sugestoes: ['O que é o PIN do cofre?'],
+      texto: ['**Não**, e isso é de propósito. 🔐', 'O cofre é cifrado (AES-256) **no seu aparelho** antes de sair. O servidor guarda só um backup que não consegue abrir, e as chaves (contingência, herança, PIN) **nunca** são enviadas. Nem quem invadir o servidor lê seu cofre.'],
+      sugestoes: ['Minha conta está segura?', 'O que é o PIN do cofre?'],
+      humor: 'ok',
     }),
   },
   {
     id: 'senha-conta',
     titulo: 'Esqueci a senha da conta',
-    termos: [['esqueci a senha', 5], ['esqueci minha senha', 5], ['recuperar senha', 5], ['senha da conta', 4], ['nao consigo entrar', 4], ['login', 2]],
+    termos: [['esqueci a senha', 5], ['esqueci minha senha', 5], ['recuperar senha', 5], ['senha da conta', 4], ['nao consigo entrar', 5], ['trocar senha', 4], ['login', 2]],
     resposta: (p) =>
       p.logado
-        ? { texto: 'Para **trocar** a senha da conta: **Configurações → Segurança → Trocar senha**. A senha da conta é diferente do PIN do cofre.', acoes: [{ rotulo: 'Configurações', para: '/settings' }] }
-        : { texto: 'Na tela de entrar, toque em **Esqueci minha senha**: chega um código no seu e-mail. Seu cofre não muda (ele abre pelo dispositivo + PIN).', acoes: [{ rotulo: 'Recuperar senha', para: '/recover' }] },
+        ? { texto: 'Para **trocar** a senha da conta: **Configurações → Segurança → Trocar senha**. Lembrando: a senha da conta é diferente do PIN do cofre. 😉', acoes: [{ rotulo: 'Configurações', para: '/settings' }], humor: 'ok' }
+        : { texto: ['Na tela de entrar, toque em **Esqueci minha senha**: chega um código no seu e-mail.', 'Seu cofre não muda com isso (ele abre pelo dispositivo + PIN).'], acoes: [{ rotulo: 'Recuperar senha', para: '/recover' }], humor: 'ok' },
   },
   {
     id: 'sessoes',
     titulo: 'Onde minha conta está aberta?',
-    termos: [['sessoes', 5], ['sair de tudo', 5], ['outros lugares', 4], ['quem acessou', 5], ['acesso suspeito', 5], ['alerta', 3], ['notificacao', 3], ['notificacoes', 3]],
+    termos: [['sessoes', 5], ['sair de tudo', 5], ['outros lugares', 4], ['quem acessou', 5], ['acesso suspeito', 5], ['alguem entrou', 5]],
     resposta: (p) => ({
-      texto: `Em **Configurações → Onde estou conectado** você vê cada aparelho (site, celular, app) e pode **sair de todos**. ${p.pro ? 'No Pro, os **alertas** mostram cada abertura e edição do cofre e chegam por e-mail.' : 'Os alertas de acesso por e-mail são do Pro.'}`,
+      texto: [`Em **Configurações → Onde estou conectado** você vê cada aparelho (site, celular, app) e pode **sair de todos** de uma vez.`, p.pro ? 'No Pro, os **alertas** mostram cada abertura e edição do cofre e chegam por e-mail.' : 'Os alertas de acesso por e-mail são do Pro.'],
       acoes: [
         { rotulo: 'Configurações', para: '/settings' },
         { rotulo: 'Perfil', para: '/profile' },
       ],
+      humor: 'alerta',
+    }),
+  },
+  {
+    id: 'notificacoes',
+    titulo: 'Como ligo as notificações?',
+    termos: [['notificacao', 5], ['notificacoes', 5], ['alerta', 3], ['avisos', 4], ['nao recebo aviso', 6], ['sino', 3]],
+    resposta: (p) => ({
+      texto: [
+        `As notificações avisam de novos acessos, cofre aberto em outro aparelho, herança e Kill Switch${p.plataforma === 'windows' ? ', e aparecem no canto do Windows' : ''}. 🔔`,
+        p.plataforma === 'celular' ? 'Ligue em **Ajustes → Notificações neste aparelho** e permita quando o celular perguntar.' : 'Ligue em **Configurações → Notificações** e permita quando o navegador perguntar. Se bloqueou sem querer, libere nas permissões do site (cadeado ao lado do endereço).',
+      ],
+      acoes: [{ rotulo: p.plataforma === 'celular' ? 'Ajustes' : 'Configurações', para: '/settings' }],
+      humor: 'ok',
     }),
   },
   {
     id: 'foto',
     titulo: 'Como coloco foto no perfil?',
-    termos: [['foto', 5], ['avatar', 5], ['imagem do perfil', 5], ['foto de perfil', 6]],
-    resposta: () => ({ texto: 'No **Perfil**, toque na sua foto (ou no ícone) e escolha uma imagem. É opcional; ela aparece no menu e ajuda o herdeiro a reconhecer de quem é o cofre.', acoes: [{ rotulo: 'Perfil', para: '/profile' }] }),
+    termos: [['foto', 5], ['avatar', 5], ['imagem do perfil', 5], ['foto de perfil', 6], ['mudar cor', 3]],
+    resposta: () => ({
+      texto: ['No **Perfil**, toque na sua foto. 📸', 'Você escolhe um dos **12 Kodys** (eu em várias versões! 😄) e a **cor do fundo**, ou envia uma foto sua. Também dá para voltar ao perfil anônimo.'],
+      acoes: [{ rotulo: 'Ir para o Perfil', para: '/profile' }],
+      humor: 'feliz',
+    }),
   },
   {
     id: 'excluir',
     titulo: 'Como excluo minha conta?',
     termos: [['excluir conta', 6], ['apagar conta', 6], ['deletar conta', 6], ['encerrar conta', 6], ['inatividade', 4], ['365 dias', 4]],
     resposta: () => ({
-      texto: 'Em **Configurações → Excluir conta** (pede a senha). Também: contas com cofre **sem uso por 365 dias** são excluídas, com avisos por e-mail 30 dias, 15 dias e 48 h antes.',
+      texto: ['Em **Configurações → Excluir conta** (pede a senha). Poxa, espero que não seja por algo que eu possa ajudar! 😢', 'Também: contas com cofre **sem uso por 365 dias** são excluídas, com avisos por e-mail 30 dias, 15 dias e 48 h antes.'],
       acoes: [{ rotulo: 'Configurações', para: '/settings' }],
+      humor: 'triste',
     }),
   },
   {
     id: 'email',
     titulo: 'O e-mail com o código não chegou',
     termos: [['nao chegou', 5], ['email', 3], ['e-mail', 3], ['codigo', 2], ['spam', 4]],
-    resposta: () => ({ texto: 'Confira o **spam/lixo eletrônico** e espere 2 minutos. Ainda nada? Peça o código de novo. Se continuar, fale com o suporte pelo Contato.', acoes: [{ rotulo: 'Contato', para: '/contact' }] }),
+    resposta: () => ({ texto: ['Confira o **spam/lixo eletrônico** e espere uns 2 minutos. 📬', 'Ainda nada? Peça o código de novo. Se continuar, fale com a equipe pelo Contato.'], acoes: [{ rotulo: 'Contato', para: '/contact' }], humor: 'pensando' }),
   },
   {
     id: 'espaco',
     titulo: 'Quanto cabe no meu cofre?',
     termos: [['espaco', 4], ['limite', 4], ['cabe', 4], ['armazenamento', 4], ['cheio', 4]],
-    resposta: (p) => ({ texto: `Seu plano guarda até **${p.pro ? '1 MB' : '64 KB'}** de cofre cifrado — ${p.pro ? 'milhares' : 'centenas'} de chaves. A barra em Meu Krypta mostra o uso.`, acoes: [{ rotulo: 'Meu Krypta', para: '/device' }] }),
+    resposta: (p) => ({ texto: `Seu plano guarda até **${p.pro ? '1 MB' : '64 KB'}** de cofre cifrado, ou seja, ${p.pro ? 'milhares' : 'centenas'} de chaves. A barra em Meu Krypta mostra o uso.`, acoes: [{ rotulo: 'Meu Krypta', para: '/device' }], humor: 'ok' }),
   },
   {
     id: 'contato',
     titulo: 'Falar com uma pessoa',
-    termos: [['suporte', 5], ['atendente', 5], ['humano', 5], ['pessoa', 3], ['contato', 4], ['reclamar', 3], ['bug', 4], ['erro', 2]],
-    resposta: () => ({ texto: 'Fale com a equipe pelo **Contato**: a mensagem chega por e-mail e a resposta vem para o seu. Conte o que aconteceu e em qual tela.', acoes: [{ rotulo: 'Contato', para: '/contact' }] }),
+    termos: [['suporte', 5], ['atendente', 5], ['humano', 5], ['falar com uma pessoa', 7], ['pessoa', 3], ['contato', 4], ['reclamar', 3], ['bug', 4]],
+    resposta: () => ({ texto: ['Claro! Pelo **Contato** a mensagem chega na equipe e a resposta vem no seu e-mail. ✉️', 'Conta o que aconteceu e em qual tela, que ajuda a resolver mais rápido.'], acoes: [{ rotulo: 'Falar com a equipe', para: '/contact' }], humor: 'oi' }),
   },
 ];
 
-/** Perguntas que fazem sentido em cada página (chips iniciais) */
+export function porId(id: string): Assunto {
+  return ASSUNTOS.find((a) => a.id === id)!;
+}
+
+/** Perguntas que fazem sentido em cada página (botões iniciais) */
 export function sugestoesDaPagina(p: PerfilAjuda): string[] {
   const pg = p.pagina;
-  if (pg.startsWith('/device')) return p.situacao === 'sem-cofre' ? ['O que é parear?', 'O que é a chave de contingência?', 'O que é o PIN do cofre?'] : ['O que eu faço agora?', 'Perdi meu dispositivo', 'Como funciona a herança digital?'];
-  if (pg.startsWith('/cofre/chaves') || pg.startsWith('/cofre/nova-chave')) return ['Como guardo uma senha?', 'Posso ter mais campos numa chave?', 'Esqueci o PIN do cofre'];
+  if (pg.startsWith('/device')) return p.situacao === 'sem-cofre' ? ['O que é parear?', 'O que é a chave de contingência?', 'O que é o PIN do cofre?'] : ['Minha conta está segura?', 'Perdi meu dispositivo', 'Como funciona a herança digital?'];
+  if (pg.startsWith('/cofre/chaves') || pg.startsWith('/cofre/nova-chave')) return ['Gera uma senha forte', 'Como guardo uma senha?', 'Esqueci o PIN do cofre'];
   if (pg.startsWith('/cofre/acesso')) return ['Como ligo a biometria?', 'Como abro o cofre em outro aparelho?', 'Esqueci o PIN do cofre'];
   if (pg.startsWith('/cofre/pontos')) return ['O que é ponto de restauração?', 'O que é a chave de contingência?'];
-  if (pg.startsWith('/plans') || pg.startsWith('/services') || pg.startsWith('/checkout')) return ['Qual a diferença entre Free e Pro?', 'Como cancelo o Pro?', 'Como funciona o Krypta físico?'];
+  if (pg.startsWith('/plans') || pg.startsWith('/services') || pg.startsWith('/checkout')) return ['Me ajuda a escolher o plano', 'Qual a diferença entre Free e Pro?', 'Como cancelo o Pro?'];
   if (pg.startsWith('/aplicacoes')) return ['Tem app para celular?', 'Tem app para Windows?'];
-  if (pg.startsWith('/profile') || pg.startsWith('/settings')) return ['Como coloco foto no perfil?', 'Onde minha conta está aberta?', 'Como excluo minha conta?'];
+  if (pg.startsWith('/profile') || pg.startsWith('/settings')) return ['Como coloco foto no perfil?', 'Como ligo as notificações?', 'Onde minha conta está aberta?'];
   if (pg.startsWith('/heranca')) return ['Recebi um código de herança', 'Como funciona a herança digital?'];
-  if (!p.logado) return ['Como funciona o Krypta?', 'Vocês conseguem ver minhas senhas?', 'Qual a diferença entre Free e Pro?'];
-  return ['O que eu faço agora?', 'Como guardo uma senha?', 'Vocês conseguem ver minhas senhas?'];
+  if (!p.logado) return ['Como funciona o Krypta?', 'Vocês conseguem ver minhas senhas?', 'Me ajuda a escolher o plano'];
+  return ['O que eu faço agora?', 'Minha conta está segura?', 'O que tem de novo?'];
 }

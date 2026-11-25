@@ -64,7 +64,7 @@ import {
   type SimulatedOrder,
 } from '../services/fakePayment';
 
-import spriteRoboAbraco from '../assets/sprites/sprite_robo_abraco.png';
+import spriteRoboAbraco from '../assets/kody/kody_abraco.webp';
 
 const PURPLE = '#8d51ff';
 const DEEP = '#5100BD';

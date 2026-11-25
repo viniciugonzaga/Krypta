@@ -22,7 +22,7 @@ import { useModo } from '../mobile/ModoContext';
 import { useNotificacoesAparelho } from '../components/AvisosApp';
 import { getPlanFullName, recursosDoPlano } from '../utils/plan';
 
-import spriteRoboConfig from '../assets/sprites/sprite_robo_configuracao.png';
+import spriteRoboConfig from '../assets/kody/kody_configuracao.webp';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 

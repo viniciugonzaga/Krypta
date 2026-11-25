@@ -9,7 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { PlanAPI } from '../services/api';
 import { normalizePlan, getPlanLabel, type PlanId } from '../utils/plan';
 
-import spriteRoboEncolhido from '../assets/sprites/sprite_robo_encolhido.png';
+import spriteRoboEncolhido from '../assets/kody/kody_encolhido.webp';
 import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";

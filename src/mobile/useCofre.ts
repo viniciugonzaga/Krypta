@@ -14,6 +14,7 @@ import { Trava, VirtualDevice, type EstadoDispositivo } from '../services/virtua
 import * as Flows from '../services/vaultFlows';
 import { SessaoCofre, type SessaoPublica } from '../services/cofreRemoto';
 import type { Credencial } from '../crypto/kryptaCrypto';
+import { useCarregandoTela } from './carregamento';
 
 export function useCofre() {
   const { user, refreshUser } = useAuth();
@@ -95,6 +96,9 @@ export function useCofre() {
     },
     [contaId, local, refreshUser]
   );
+
+  // v1.4.0: o cofre é tela pesada → loader na 1ª vez da sessão; depois só se demorar
+  useCarregandoTela('cofre', carregando && !!contaId, true);
 
   return { contaId, conta, dispositivo, carregando, erro, aqui, ativo, pronto, local, remoto, credenciais, bloqueado, semTrava, recarregar, salvar, setDispositivo };
 }

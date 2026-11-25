@@ -2,7 +2,8 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import loadingGif from '../../assets/Robo_Carregar.gif';
+// v1.4.0: animação em WebP (≈1 MB) no lugar do GIF de 26 MB, que deixava tudo lento
+import loadingGif from '../../assets/Robo_Carregar.webp';
 
 const STATUS_MESSAGES = [
   'Estabelecendo conexão segura...',
@@ -21,8 +22,10 @@ interface LoadingScreenProps {
 export function LoadingScreen({
   message,
   minimal = false,
-  size = 380,
+  size: tamanhoPedido = 380,
 }: LoadingScreenProps) {
+  // telas pequenas: o palco encolhe junto (antes ficava gigante no celular)
+  const size = typeof window !== 'undefined' ? Math.min(tamanhoPedido, Math.round(window.innerWidth * 0.62)) : tamanhoPedido;
   const { isDark } = useTheme();
   const [statusIndex, setStatusIndex] = useState(0);
 

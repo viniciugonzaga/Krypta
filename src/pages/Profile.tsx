@@ -48,9 +48,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { OrdersAPI, UserAPI, handleApiError, type EventoConta, type Pedido } from '../services/api';
 import { Avisos } from '../services/avisos';
 import { EditorFoto, FotoPerfil } from '../components/FotoPerfil';
+import { KodyCard } from '../ajuda/KodyCard';
 import { getPlanFullName, isProPlan, recursosDoPlano } from '../utils/plan';
 
-import spriteRoboAcenando from '../assets/sprites/sprite_robo_acenando.png';
+import spriteRoboAcenando from '../assets/kody/kody_acenando.webp';
 import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
@@ -481,8 +482,8 @@ export function Profile() {
       </div>
 
       <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pt-40 pb-16">
-        <Dica id="perfil-foto" titulo="Coloque uma foto (opcional)" className="mb-6">
-          Toque no avatar para enviar uma foto ou escolher um robô do Krypta. Em <strong>Segurança da conta</strong> você vê onde a conta está aberta e pode sair de todos os aparelhos.
+        <Dica id="perfil-foto-v14" titulo="Escolha seu avatar (opcional)" className="mb-6">
+          Toque na foto para escolher um dos 12 Kodys e a cor do fundo, ou enviar uma foto sua. Em <strong>Segurança da conta</strong> você vê onde a conta está aberta e pode sair de todos os aparelhos.
         </Dica>
         {/* ============ TÍTULO + ROBÔ ============ */}
         <motion.header initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="relative mb-8">
@@ -597,6 +598,9 @@ export function Profile() {
                   <motion.div key="ver" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <h2 className="text-xl" style={{ fontFamily: ROUNDED_FONT, fontWeight: 600 }}>{user.name}</h2>
                     <p className="text-sm break-all" style={{ color: c.muted }}>{user.email}</p>
+                    <button type="button" onClick={() => setEditarFoto(true)} className="mt-1 text-xs font-semibold underline underline-offset-4" style={{ color: c.bright }}>
+                      {user.avatarUrl ? 'Trocar foto ou avatar' : 'Escolher um avatar do Kody'}
+                    </button>
                     <span
                       className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-xs font-bold"
                       style={pro ? { background: GRAD, color: '#fff', boxShadow: '0 0 16px rgba(141,81,255,0.5)' } : { border: `1px solid ${c.border}`, color: c.muted }}
@@ -650,8 +654,12 @@ export function Profile() {
                     : 'Software'
                   : 'Nenhum'}
               </Linha>
-              <Linha c={c} rotulo="Herança digital">{user.herancaAtiva ? 'Ativa' : 'Desativada'}</Linha>
-              <Linha c={c} rotulo="Última sincronização">{fmtData(user.ultimoSincronismo) ?? '—'}</Linha>
+              {user.estadoCofre !== 'PENDENTE_PAREAMENTO' && (
+                <>
+                  {pro && <Linha c={c} rotulo="Herança digital">{user.herancaAtiva ? 'Ativa' : 'Desativada'}</Linha>}
+                  <Linha c={c} rotulo="Última sincronização">{fmtData(user.ultimoSincronismo) ?? '—'}</Linha>
+                </>
+              )}
               <div className="grid grid-cols-1 gap-2 mt-4">
                 <Link to="/device" className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-bold text-white" style={{ background: GRAD }}>
                   <span className="flex items-center gap-2"><Cpu className="w-4 h-4" /> {user.estadoCofre === 'PENDENTE_PAREAMENTO' ? 'Parear meu dispositivo' : 'Abrir Meu Krypta'}</span>
@@ -667,6 +675,9 @@ export function Profile() {
                 </Link>
               </div>
             </Cartao>
+
+            {/* Kody */}
+            <KodyCard variante="site" titulo="Dúvidas sobre a sua conta?" sub="Pergunte ao Kody, o assistente do Krypta." atalhos={['Minha conta está segura?', 'Como coloco foto no perfil?', 'Como ligo as notificações?']} />
           </div>
 
           {/* ================= COLUNA DIREITA ================= */}

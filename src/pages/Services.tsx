@@ -18,9 +18,9 @@ import {
   Layers,
 } from 'lucide-react';
 
-import spriteRoboX from '../assets/sprites/sprite_robo_x.png';
-import spriteRoboVerificado from '../assets/sprites/sprite_robo_verificado.png';
-import spriteRoboAnimado from '../assets/sprites/sprite_robo_animado.png';
+import spriteRoboX from '../assets/kody/kody_x.webp';
+import spriteRoboVerificado from '../assets/kody/kody_verificado.webp';
+import spriteRoboAnimado from '../assets/kody/kody_animado.webp';
 
 import logoTextoClaro from '../assets/Logos/Krypta_de_texto.png';
 import logoTextoEscuro from '../assets/Logos/Krypta_de_texto2.png';

@@ -14,8 +14,12 @@ import { isProPlan } from '../../utils/plan';
 import { Avisos } from '../../services/avisos';
 import { FONTE, GRAD, MCard, MFaixa, MTitulo, MobileShell, fmtQuando, useMCores } from '../ui';
 
-import roboAcenando from '../../assets/sprites/sprite_robo_acenando.png';
+import roboAcenando from '../../assets/kody/kody_acenando.webp';
 import { Dica } from '../../components/Dica';
+import { KodyCard } from '../../ajuda/KodyCard';
+import { useTrava } from '../TravaCofre';
+import { useCarregandoTela } from '../carregamento';
+import { resumoConta } from '../../utils/resumoConta';
 
 function iconeEvento(acao: string) {
   if (acao === 'VAULT_EDITED') return <PencilLine className="w-4 h-4" />;
@@ -38,6 +42,8 @@ export function MHome() {
   const navigate = useNavigate();
   const reduzir = useReducedMotion();
   const [eventos, setEventos] = useState<EventoConta[] | null>(null);
+  const trava = useTrava(user?.id ?? '');
+  useCarregandoTela('inicio', eventos === null);
 
   useEffect(() => {
     UserAPI.audit().then(setEventos).catch(() => setEventos([]));
@@ -47,16 +53,8 @@ export function MHome() {
   const pro = isProPlan(user.plan);
   const primeiroNome = user.name.trim().split(/\s+/)[0];
 
-  // Pontuação de segurança (anel): cada item conta 25%
-  const itens = [
-    { ok: user.estadoCofre === 'ATIVA', rotulo: 'Cofre', valor: user.estadoCofre === 'ATIVA' ? 'Ativo' : 'Pendente' },
-    { ok: !!user.dispositivoPareado, rotulo: 'Dispositivo', valor: user.dispositivoPareado ? (user.tipoDispositivo === 'FISICO' ? 'Físico' : 'Software') : 'Nenhum' },
-    { ok: !!user.herancaAtiva, rotulo: 'Herança', valor: user.herancaAtiva ? 'Ativa' : 'Desativada' },
-    { ok: pro, rotulo: 'Plano', valor: pro ? 'Pro' : 'Free' },
-  ];
-  const pontos = itens.filter((i) => i.ok).length;
-  const pct = pontos / itens.length;
-  const statusTexto = pontos >= 3 ? 'Conta segura' : pontos === 2 ? 'Quase lá' : 'Proteja sua conta';
+  // Pontuação de segurança (anel) — mesma regra do site (utils/resumoConta.ts)
+  const { itens, pct, status: statusTexto, ativo } = resumoConta(user, trava);
   const R = 34;
   const C = 2 * Math.PI * R;
 
@@ -83,11 +81,7 @@ export function MHome() {
         <Dica id="home-ativar" titulo="Comece ativando o cofre" pergunta="O que eu faço agora?" acao={{ rotulo: 'Ativar meu cofre', para: '/device' }} className="mb-4">
           Pareie este celular, anote a chave de contingência e crie o PIN. Leva uns 3 minutos.
         </Dica>
-      ) : (
-        <Dica id="home-kryp" titulo="Dúvida? Fale com o Kryp" pergunta="O que eu faço agora?" className="mb-4">
-          O robô no canto da tela conhece sua conta (plano, cofre, aparelho) e te leva direto para a tela certa.
-        </Dica>
-      )}
+      ) : null}
 
       {/* Cofre */}
       <motion.button
@@ -120,7 +114,7 @@ export function MHome() {
           </div>
           <ul className="flex-1 grid grid-cols-1 gap-1.5 text-[12.5px]">
             {itens.map((i) => (
-              <li key={i.rotulo} className="flex items-center gap-2">
+              <li key={i.rotulo} className="flex items-center gap-2" onClick={() => !i.ok && navigate(i.para)} style={{ cursor: i.ok ? undefined : 'pointer' }}>
                 <span className="w-2 h-2 rounded-full" style={{ background: i.ok ? '#22c55e' : c.isDark ? 'rgba(255,255,255,0.28)' : 'rgba(97,49,201,0.28)', boxShadow: i.ok ? undefined : `inset 0 0 0 1.5px ${c.roxo}` }} />
                 <span style={{ color: c.suave }}>{i.rotulo}:</span>
                 <span className="font-semibold">{i.valor}</span>
@@ -128,7 +122,7 @@ export function MHome() {
             ))}
           </ul>
         </div>
-        <p className="text-[12.5px] mt-2 font-semibold" style={{ color: pontos >= 3 ? '#22c55e' : c.roxo }}>{statusTexto}</p>
+        <p className="text-[12.5px] mt-2 font-semibold" style={{ color: pct >= 0.99 ? '#22c55e' : c.roxo }}>{statusTexto}</p>
       </MCard>
 
       {/* Atividades */}
@@ -155,6 +149,9 @@ export function MHome() {
           </ol>
         )}
       </MCard>
+
+      {/* Kody */}
+      <KodyCard className="mb-4" atalhos={ativo ? ['Minha conta está segura?', 'Gera uma senha forte'] : ['O que eu faço agora?', 'O que é parear?']} />
 
       {/* Plano e dispositivo */}
       <div className="grid grid-cols-2 gap-4">

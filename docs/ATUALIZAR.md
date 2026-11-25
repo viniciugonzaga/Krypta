@@ -33,13 +33,14 @@ Rode **antes** do push: a API nova pode precisar da coluna nova assim que subir.
 |---|---|
 | 1.2.0 | `007_acesso_remoto_pontos.sql` |
 | 1.3.0 | `008_avatar_perfil.sql` (foto de perfil) |
+| 1.4.0 | nenhuma |
 
 ## 2. Código → GitHub (site e API atualizam sozinhos)
 
 1. Extraia o zip da versão **por cima** da pasta do projeto (aceite substituir os arquivos).
 2. Abra o **GitHub Desktop**: os arquivos mudados aparecem na lista.
    Confira que **não** aparece nenhum `.env` (se aparecer, desmarque).
-3. Em *Summary* escreva, por exemplo, `v1.3.0 — trava do cofre, Kryp e notificações` → **Commit to main**.
+3. Em *Summary* escreva, por exemplo, `v1.3.0 — trava do cofre, Kody e notificações` → **Commit to main**.
 4. Clique **Push origin**.
 
 Em seguida:
@@ -85,3 +86,10 @@ A versão do app vem do `package.json` (`"version"`). Suba o número a cada vers
 - **Biometria:** funciona no Chrome/Edge com Windows Hello, Android com digital e iPhone/Mac recentes.
   Onde o navegador não oferece, o botão avisa e o PIN continua valendo.
 - Variáveis de ambiente: **nenhuma nova** (Hostinger, Render e GitHub continuam iguais).
+
+## Notas da versão 1.4.0
+
+- **Banco:** nada novo (a `008` da v1.3.0 já cobre os avatares). Se ainda não rodou a `008`, rode antes.
+- **API (Render):** muda só a validação da foto (aceita os avatares do Kody). Atualiza sozinha com o push.
+- **Windows:** gere o `.exe` de novo (Run workflow) para o app ter o Kody novo e o Início novo.
+- Variáveis de ambiente: nenhuma nova.

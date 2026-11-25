@@ -42,8 +42,8 @@ import Krypta2 from '../assets/Produtos/Krypta2.png';
 import Krypta3 from '../assets/Produtos/Krypta3.png';
 import Krypta4 from '../assets/Produtos/Krypta4.png';
 import Krypta6 from '../assets/Produtos/Krypta6.png';
-import spriteRoboVerificado from '../assets/sprites/sprite_robo_verificado.png';
-import spriteRoboAnimado from '../assets/sprites/sprite_robo_animado.png';
+import spriteRoboVerificado from '../assets/kody/kody_verificado.webp';
+import spriteRoboAnimado from '../assets/kody/kody_animado.webp';
 
 // ============================================================
 // ESTILOS DOS TÍTULOS (iguais ao Welcome)

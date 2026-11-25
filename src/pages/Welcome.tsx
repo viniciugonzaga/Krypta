@@ -5,6 +5,9 @@ import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { abrirKody } from '../ajuda/abrir';
+import { PainelInicio } from './inicio/PainelInicio';
+import { Novidades } from './inicio/Novidades';
 import {
   AlertTriangle,
   Brain,
@@ -23,9 +26,9 @@ import logoTextoClaro from '../assets/Logos/Krypta_de_texto.png';
 import logoTextoEscuro from '../assets/Logos/Krypta_de_texto2.png';
 import iconCadeado from '../assets/Logos/icon_cadeado.png';
 
-import spriteRoboAnimado from '../assets/sprites/sprite_robo_animado.png';
-import spriteRoboVerificado from '../assets/sprites/sprite_robo_verificado.png';
-import spriteRoboInterrogacao from '../assets/sprites/sprite_robo_interrogacao.png';
+import spriteRoboAnimado from '../assets/kody/kody_animado.webp';
+import spriteRoboVerificado from '../assets/kody/kody_verificado.webp';
+import spriteRoboInterrogacao from '../assets/kody/kody_interrogacao.webp';
 
 // ============================================================
 // FONTE DOS TÍTULOS — QUICKSAND (ARREDONDADA)
@@ -1082,7 +1085,7 @@ interface ExploreCardProps {
 
 function ExploreCard({ sprite, title, desc, href, isDark, delay }: ExploreCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const isExternal = href === '#';
+  const ehKody = href === 'kody';
 
   const content = (
     <motion.div
@@ -1245,8 +1248,12 @@ function ExploreCard({ sprite, title, desc, href, isDark, delay }: ExploreCardPr
     </motion.div>
   );
 
-  if (isExternal) {
-    return <div className="h-full">{content}</div>;
+  if (ehKody) {
+    return (
+      <button type="button" onClick={() => abrirKody()} className="block h-full w-full text-left">
+        {content}
+      </button>
+    );
   }
 
   return (
@@ -1272,15 +1279,15 @@ function ExploreSection({
     },
     {
       sprite: spriteRoboVerificado,
-      title: 'Tenha a segurança ao seu alcance.',
-      desc: 'Acesse os serviços Krypta e descubra uma nova forma de proteger seus acessos.',
-      href: '/services',
+      title: isLoggedIn ? 'Seu cofre, num clique.' : 'Tenha a segurança ao seu alcance.',
+      desc: isLoggedIn ? 'Abra Meu Krypta para ver o cofre, o dispositivo, a chave de contingência e a herança.' : 'Conheça os planos e descubra uma nova forma de proteger seus acessos.',
+      href: isLoggedIn ? '/device' : '/services',
     },
     {
       sprite: spriteRoboInterrogacao,
-      title: 'Precisa de ajuda? Estamos aqui.',
-      desc: 'Fale com nossa equipe ou com o chat de suporte e tire suas dúvidas sempre que precisar.',
-      href: '#',
+      title: 'Precisa de ajuda? Fale com o Kody.',
+      desc: 'O assistente do Krypta responde na hora, resolve problemas passo a passo e te leva para a tela certa. Se precisar, ele te passa para a nossa equipe.',
+      href: 'kody',
     },
   ];
 
@@ -1650,7 +1657,17 @@ export function Welcome() {
     >
       <Navbar />
 
-      {/* SESSÃO 1 — HERO */}
+      {/* v1.4.0: logado → Início com o cofre, resumo, atividades e o Kody (igual ao app) */}
+      {user && (
+        <div className="relative">
+          <div className="absolute inset-0 bg-grid-pattern bg-[size:60px_60px] opacity-20 pointer-events-none" />
+          <div className="absolute top-[-15%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[160px] pointer-events-none" style={{ background: 'rgb(var(--krypta-purple) / 0.22)' }} />
+          <PainelInicio />
+        </div>
+      )}
+
+      {/* SESSÃO 1 — HERO (visitantes) */}
+      {!user && (
       <div className="relative">
         <div className="absolute inset-0 bg-grid-pattern bg-[size:60px_60px] opacity-20 pointer-events-none" />
         <div
@@ -1799,11 +1816,14 @@ export function Welcome() {
         </main>
       </div>
 
-      <ProblemSection isDark={isDark} />
-      <TrinitySection isDark={isDark} />
-      <AudienceSection isDark={isDark} />
+      )}
+
+      {!user && <ProblemSection isDark={isDark} />}
+      {!user && <TrinitySection isDark={isDark} />}
+      <Novidades />
+      {!user && <AudienceSection isDark={isDark} />}
       <ExploreSection isDark={isDark} isLoggedIn={!!user} />
-      <UniquenessSection isDark={isDark} />
+      {!user && <UniquenessSection isDark={isDark} />}
 
       {/* CTA final apenas para usuários NÃO logados */}
       {!user && <CTASection isDark={isDark} />}

@@ -48,7 +48,7 @@ import {
 } from '../config/desktop';
 
 import { aoMudarPwa, foiInstalado, instalarPwa, podeInstalar } from '../config/pwa';
-import spriteRoboAcenando from '../assets/sprites/sprite_robo_acenando.png';
+import spriteRoboAcenando from '../assets/kody/kody_acenando.webp';
 import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";

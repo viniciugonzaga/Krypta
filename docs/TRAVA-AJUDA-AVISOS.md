@@ -1,4 +1,4 @@
-# v1.3.0 — Trava do cofre, Kryp, notificações, foto de perfil e dicas
+# v1.3.0 / v1.4.0 — Trava do cofre, Kody, notificações, foto de perfil, Início e carregamento
 
 ## 1. Trava do cofre neste aparelho (PIN, senha ou biometria)
 
@@ -32,19 +32,22 @@ cofre, porque o dispositivo de software ficava pronto no navegador.
 > Biometria depende do navegador ter WebAuthn com a extensão PRF (Chrome/Edge recentes, Android, Safari 18+).
 > Onde não há, o botão avisa e o PIN continua valendo.
 
-## 2. Kryp — o robô de ajuda
+## 2. Kody — o robô de ajuda (melhorado na v1.4.0)
 
-Botão roxo com o robô no canto da tela (site, celular e Windows). Arquivos em `src/ajuda/`:
+O Kody aparece em três lugares: no **botão flutuante** (canto da tela), no cartão **"Fale com o Kody"** do Início
+e do Perfil (app e site) e nas **dicas** ("Perguntar ao Kody"). No celular, o botão flutuante some no Início e no
+Perfil, porque lá já tem o cartão. Arquivos em `src/ajuda/`:
 
 | Arquivo | Papel |
 |---|---|
-| `contexto.ts` | Monta o **perfil** de quem pergunta: plano, situação do cofre (sem cofre, sem PIN, trancado, pronto, em outro aparelho, bloqueado), biometria, nº de chaves, herança, senha de acesso, dispositivo físico (comprado, a caminho, pareado), respostas do questionário, página e plataforma |
-| `base.ts` | ~40 assuntos (perguntas frequentes). Cada resposta muda conforme o perfil e traz botões que levam à tela certa |
-| `motor.ts` | Entende a pergunta: tira acentos, troca sinônimos e gírias ("vc", "cel", "contigencia"), tolera erros de digitação (distância de edição), dá peso à página atual, entende continuação ("e se eu esquecer?", "não entendi") e, sem certeza, oferece "você quis dizer…?" |
-| `KrypBot.tsx` | A janela: digitando…, sugestões por página, conversa guardada só na aba (`sessionStorage`) |
+| `contexto.ts` | Monta o **perfil** de quem pergunta: plano, situação do cofre (sem cofre, sem PIN, trancado, pronto, em outro aparelho, bloqueado), biometria, nº de chaves, herança, senha de acesso, dispositivo físico, questionário, página e plataforma |
+| `base.ts` | ~60 assuntos com várias formas de responder. Inclui **fluxos guiados** (cofre não abre, perdi algo, escolher o plano em 3 perguntas), **check-up** da conta com nota, **gerador de senha**, dicas, conversa (oi, tudo bem, piada, obrigado, tchau) e perguntas sobre a própria conta (meu plano, quantas senhas) |
+| `motor.ts` | A conversa: entende a resposta às perguntas que o Kody faz ("sim", "não", "o celular"), percebe irritação e responde com calma, entende duas perguntas na mesma mensagem, "outra!", "não entendi", continuação do assunto, tolera erros de digitação, não repete a mesma frase, usa o nome de vez em quando e, depois de 3 tentativas sem entender, oferece falar com a equipe |
+| `KodyBot.tsx` | A janela: respostas em vários balões com "digitando…", rosto do Kody que muda com o humor, opções clicáveis, botões e navegação automática. Conversa guardada só na aba (senhas geradas não ficam) |
+| `KodyCard.tsx` | Cartão "Fale com o Kody" com atalhos de pergunta |
+| `abrir.ts` | `abrirKody('pergunta')` abre o Kody de qualquer tela |
 
-Nada sai do aparelho: não há IA externa e o Kryp **nunca** vê o conteúdo do cofre.
-Qualquer tela pode abrir o Kryp com uma pergunta: `window.dispatchEvent(new CustomEvent('krypta:kryp', { detail: 'pergunta' }))`.
+Nada sai do aparelho: não há IA externa e o Kody **nunca** vê o conteúdo do cofre.
 
 ## 3. Notificações
 
@@ -59,16 +62,18 @@ Antes, "Notificações no aplicativo" era só um texto. Agora (`src/services/avi
 - Sino do modo celular mostra as **não lidas**; abrir *Notificações* (ou *Perfil → Segurança* no site) marca como lidas.
 - Liga/desliga em **Configurações → Notificações** (site) ou **Ajustes → Notificações neste aparelho** (celular).
 
-## 4. Foto de perfil
+## 4. Foto de perfil (v1.4.0)
 
-- **Perfil → toque no avatar**: enviar foto (o app recorta e reduz para 256×256 JPEG) ou escolher um dos 6 avatares do Krypta.
-- Sem escolha, todo mundo tem o **mesmo avatar padrão** (robô roxo), no lugar da letra.
-- Banco: migração `008_avatar_perfil.sql` (`users.avatar_url` → `MEDIUMTEXT`). API: `PUT /api/users/me { avatar }`.
+- Conta nova: perfil **anônimo** (fundo roxo + ícone branco de pessoa).
+- **Perfil → toque na foto**: escolha um dos **12 avatares do Kody** e a **cor do fundo** (12 cores prontas ou qualquer
+  outra), ou envie uma **foto sua** (o app recorta e reduz para 320×320 JPEG). Dá para **baixar** o avatar em PNG e voltar ao anônimo.
+- Fica salvo na conta (`users.avatar_url`): `kody:<1-12>:#RRGGBB` ou `data:image/jpeg;base64,...`. Aparece no site, no celular e no Windows.
+- Banco: migração `008_avatar_perfil.sql` (já rodada na v1.3.0). API: `PUT /api/users/me { avatar }`.
 
 ## 5. Dicas e ajustes visuais
 
 - Cartões **"Você sabia?"** (`src/components/Dica.tsx`) em Meu Krypta, Minhas chaves, Nova chave, Início do celular,
-  Planos, Aplicações e Perfil. Fechou, não volta naquele aparelho. "Perguntar ao Kryp" abre o robô já com a pergunta.
+  Planos, Aplicações e Perfil. Fechou, não volta naquele aparelho. "Perguntar ao Kody" abre o robô já com a pergunta.
 - Textos: **CCP → chave de contingência**, **kit do herdeiro → código de herança**, **CCH → chave do herdeiro**
   (só nos textos; no código e na API continuam `ccp`/`cch`).
 - "Recebi um código de herança" com o ícone de chave e sublinhado na abertura do celular e no login.
@@ -78,3 +83,21 @@ Antes, "Notificações no aplicativo" era só um texto. Agora (`src/services/avi
   (com "reduzir movimento" ligado, só ficam mais lentas).
 - Início do celular: pendências em roxo (antes amarelo), ícone do dispositivo no degradê roxo (antes preto),
   mais espaço entre os cartões; o selo Pro do perfil ficou lilás.
+
+## 6. Início do site igual ao do app (v1.4.0)
+
+- Logado, a página inicial do site e do Windows mostra o **Início** (`src/pages/inicio/PainelInicio.tsx`): cartão do
+  cofre que muda com a situação (ativar, criar PIN, trancado, aberto, em outro aparelho), **resumo da conta**, atividades,
+  cartão do Kody e atalhos. O resumo usa a mesma regra do app (`src/utils/resumoConta.ts`).
+- Itens que ainda não valem (PIN, biometria, herança, pontos antes do cofre existir; recursos Pro no Free) não aparecem.
+- Seção **Novidades** (`src/pages/inicio/Novidades.tsx`) para visitantes e logados, com botões para a tela certa.
+- "Precisa de ajuda?" (Explore o sistema) agora abre o Kody; antes não levava a lugar nenhum.
+
+## 7. Carregamento mais leve (v1.4.0)
+
+- A animação do robô virou **WebP de ~1 MB** (antes GIF de 26 MB) e o palco encolhe em telas pequenas.
+- **Celular:** o loader não aparece mais a cada troca de tela (`src/mobile/carregamento.tsx`). Ele aparece só:
+  - na **1ª vez da sessão** em telas pesadas (cofre, chaves);
+  - quando uma tela demora **mais de 0,7 s**.
+  É um cartão compacto no meio da tela, não mais a tela cheia.
+- Os robôs usados nas telas viraram WebP (`src/assets/kody/`), bem mais leves que os PNG originais (que continuam em `src/assets/sprites/`).

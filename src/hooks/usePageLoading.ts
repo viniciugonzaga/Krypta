@@ -4,11 +4,14 @@ import { useLocation } from 'react-router-dom';
 interface Options {
   minDuration?: number;   // tempo mínimo visível
   maxDuration?: number;   // fallback de segurança
+  /** v1.4.0: desligado no modo celular (lá quem decide é mobile/carregamento.tsx) */
+  ativo?: boolean;
 }
 
 export function usePageLoading({
   minDuration = 350,   // v1.3.0: transição curta (antes 1,1 s)
   maxDuration = 1500,
+  ativo = true,
 }: Options = {}): boolean {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
@@ -20,6 +23,10 @@ export function usePageLoading({
       return;
     }
 
+    if (!ativo) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const startTime = Date.now();
 
@@ -43,7 +50,7 @@ export function usePageLoading({
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [location.pathname, minDuration, maxDuration]);
+  }, [location.pathname, minDuration, maxDuration, ativo]);
 
   return loading;
 }

@@ -1,6 +1,6 @@
 // src/ajuda/contexto.ts
 // ============================================================
-// KRYP — o que o assistente sabe sobre QUEM está perguntando
+// KODY — o que o assistente sabe sobre QUEM está perguntando
 //
 // Junta o que o app já sabe (nada é enviado para fora do Krypta):
 //   • conta: nome, plano (Free/Pro), status do cofre, herança, recursos

@@ -30,6 +30,7 @@ src/
 │   ├── Moldura.tsx                Mesma tela nos dois modos (app ou página do site)
 │   ├── ui.tsx                     Componentes do app (cards, botões, folhas, campos)
 │   ├── useCofre.ts                Estado do cofre: dispositivo deste aparelho + sessão remota
+│   ├── carregamento.tsx           v1.4.0: loader só em telas pesadas/lentas
 │   ├── TravaCofre.tsx             v1.3.0: criar / abrir / gerenciar o PIN e a biometria do cofre
 │   ├── credenciais.ts             Tipos de chave e campos (Free x Pro)
 │   ├── icones/                    Logos de marcas (simple-icons) e ícones padrão
@@ -37,7 +38,7 @@ src/
 ├── pages/                 Telas do site: Welcome, AuthPage, Device (Meu Krypta), Plans, Checkout,
 │                          Orders, Products, Profile, Settings, Aplicacoes, HowItWorks, InheritanceClaim,
 │                          Contact, RecoverPassword, ErrorPage, Suspended...
-├── ajuda/                 v1.3.0: Kryp, o robô de ajuda (contexto.ts, base.ts, motor.ts, KrypBot.tsx)
+├── ajuda/                 Kody, o assistente (contexto, base, motor, KodyBot, KodyCard, abrir)
 ├── components/            Navbar, Footer, botões, cards, transições, login social;
 │                          v1.3.0: AvisosApp (notificações), FotoPerfil, Dica
 ├── contexts/              AuthContext (sessão/usuário), ThemeContext (claro/escuro)

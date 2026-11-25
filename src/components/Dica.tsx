@@ -3,19 +3,17 @@
 // v1.3.0 — CARTÕES DE DICA ("Você sabia?")
 // Aparecem nas telas principais (site, app do Windows e celular) com uma
 // dica de uso que combina com a tela e com o plano. Fechou → não volta
-// neste aparelho. "Perguntar ao Kryp" abre o robô de ajuda já com a pergunta.
+// neste aparelho. "Perguntar ao Kody" abre o robô de ajuda já com a pergunta.
 // ============================================================
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Lightbulb, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { abrirKody } from '../ajuda/abrir';
 
 const CHAVE = (id: string) => `@Krypta:dica:${id}`;
 
-export function perguntarAoKryp(pergunta: string) {
-  window.dispatchEvent(new CustomEvent('krypta:kryp', { detail: pergunta }));
-}
 
 export function Dica({
   id,
@@ -29,7 +27,7 @@ export function Dica({
   titulo: string;
   children: ReactNode;
   acao?: { rotulo: string; para: string };
-  /** pergunta pronta para o Kryp */
+  /** pergunta pronta para o Kody */
   pergunta?: string;
   className?: string;
 }) {
@@ -80,8 +78,8 @@ export function Dica({
                   </Link>
                 )}
                 {pergunta && (
-                  <button type="button" onClick={() => perguntarAoKryp(pergunta)} className="underline underline-offset-4" style={{ color: cor }}>
-                    Perguntar ao Kryp
+                  <button type="button" onClick={() => abrirKody(pergunta)} className="underline underline-offset-4" style={{ color: cor }}>
+                    Perguntar ao Kody
                   </button>
                 )}
               </div>

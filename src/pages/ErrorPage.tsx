@@ -19,10 +19,10 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
-import spriteX from '../assets/sprites/sprite_robo_x.png';
-import spriteInterrogacao from '../assets/sprites/sprite_robo_interrogacao.png';
-import spriteDormindo from '../assets/sprites/sprite_robo_dormindo.png';
-import spriteExclamacao from '../assets/sprites/sprite_robo_exclamacao.png';
+import spriteX from '../assets/kody/kody_x.webp';
+import spriteInterrogacao from '../assets/kody/kody_interrogacao.webp';
+import spriteDormindo from '../assets/kody/kody_dormindo.webp';
+import spriteExclamacao from '../assets/kody/kody_exclamacao.webp';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 
