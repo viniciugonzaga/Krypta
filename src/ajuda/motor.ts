@@ -1,10 +1,10 @@
 // src/ajuda/motor.ts
 // ============================================================
-// KODY — o "cérebro" da conversa
+// CODY — o "cérebro" da conversa
 //
 // Sem IA externa: nada do que a pessoa escreve sai do aparelho.
 //   1. normaliza (minúsculas, sem acento, gírias e abreviações)
-//   2. se o Kody tinha feito uma pergunta, tenta entender a resposta
+//   2. se o Cody tinha feito uma pergunta, tenta entender a resposta
 //      ("sim", "não", "o celular"...) antes de qualquer outra coisa
 //   3. percebe o tom (irritado, com pressa) e responde com empatia
 //   4. pontua os assuntos: frase exata > palavra > palavra parecida
@@ -53,6 +53,7 @@ const SINONIMOS: [RegExp, string][] = [
   [/\b(obg|obgd|obrigadao)\b/g, 'obrigado'],
   [/\b(pfv|pfvr|plmds|pls)\b/g, 'por favor'],
   [/\b(cofri|cofrr)\b/g, 'cofre'],
+  [/\b(kody|kodi|codi|kryp)\b/g, 'cody'],
 ];
 
 function preparar(t: string): string {
@@ -220,7 +221,7 @@ export class Conversa {
 
     if (!texto) return this.fechar({ texto: 'Pode perguntar do seu jeito! Por exemplo: "como guardo uma senha?" 🙂', humor: 'oi' }, null, 'nenhuma');
 
-    // 1. resposta a uma pergunta do Kody
+    // 1. resposta a uma pergunta do Cody
     const op = this.casarOpcao(texto, pergunta);
     if (op) return this.usarOpcao(op, p, base);
 
@@ -350,13 +351,13 @@ export class Conversa {
   saudacao(p: PerfilAjuda): Resultado {
     const h = new Date().getHours();
     const periodo = h < 5 ? 'Boa madrugada' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-    const ola = `${periodo}${p.nome ? `, ${p.nome}` : ''}! Eu sou o **Kody**. 🤖`;
+    const ola = `${periodo}${p.nome ? `, ${p.nome}` : ''}! Eu sou o **Cody**. 🤖`;
     const ctx = this.ctx(p, { nome: '' });
     if (!p.logado) return this.fechar({ texto: [ola, 'Posso te mostrar como o Krypta protege suas senhas, comparar os planos ou tirar qualquer dúvida.'], sugestoes: sugestoesDaPagina(p), humor: 'oi' }, null, 'alta');
 
     const alerta: Partial<Record<PerfilAjuda['situacao'], string>> = {
       'sem-cofre': 'Vi que você ainda **não ativou o cofre**. Quer que eu te guie? Leva uns 3 minutos.',
-      'sem-trava': 'Vi que o cofre deste aparelho ainda **não tem PIN**. Isso é importante, vamos criar?',
+      'sem-trava': 'Vi que o cofre deste aparelho ainda **não tem trava** (senha ou PIN). Isso é importante, vamos criar?',
       bloqueado: 'Vi que o **Kill Switch** foi acionado na sua conta. Posso te ajudar a vincular um dispositivo novo.',
       recuperacao: 'Vi que há uma **recuperação em andamento**. Quer terminar agora?',
     };

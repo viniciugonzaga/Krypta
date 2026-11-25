@@ -1,12 +1,12 @@
 // src/ajuda/base.ts
 // ============================================================
-// KODY — o que ele sabe responder
+// CODY — o que ele sabe responder
 //
 // Cada assunto tem termos (com peso) e uma resposta que muda conforme
 // QUEM pergunta (plano, cofre, trava, aparelho, herança, compras,
 // questionário, página) e conforme a conversa (repetiu? está irritado?).
 // Respostas podem ter vários balões, botões que levam à tela certa e
-// OPÇÕES: o Kody faz uma pergunta e entende a resposta seguinte
+// OPÇÕES: o Cody faz uma pergunta e entende a resposta seguinte
 // ("sim", "não", "o celular", "a chave"...).
 // ============================================================
 import type { PerfilAjuda } from './contexto';
@@ -19,6 +19,9 @@ const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** "Vinícius, frase" ou "Frase" */
 export const com = (ctx: Ctx, frase: string) => (ctx.nome ? `${ctx.nome}, ${frase}` : maiuscula(frase));
 const pronto = (p: PerfilAjuda) => p.situacao === 'pronto';
+/** v1.5.0: biometria só no Pro e só no celular */
+const bioPode = (p: PerfilAjuda) => p.pro && p.plataforma === 'celular';
+const segredoNome = (p: PerfilAjuda) => (p.pro ? 'PIN ou senha' : 'senha');
 const temCofre = (p: PerfilAjuda) => !!p.estadoCofre && p.estadoCofre !== 'PENDENTE_PAREAMENTO';
 
 const SIM = ['sim', 's', 'quero', 'pode', 'claro', 'ok', 'bora', 'vamos', 'isso', 'aham', 'uhum', 'positivo', 'manda', 'por favor', 'yes'];
@@ -31,7 +34,7 @@ export const simNao = (sim: Omit<Opcao, 'rotulo' | 'termos'>, nao?: Omit<Opcao, 
 const proNao = (recurso: string, ctx: Ctx): Resposta => ({
   texto: [
     `${recurso} é do **Krypta Pro** (R$ 25/mês ou R$ 225/ano).`,
-    ctx.um(['No Free você já tem o cofre cifrado, o dispositivo de software, Login/Wi-Fi/Nota, a trava com PIN e 2 pontos de restauração.', 'O Free continua protegendo suas senhas com cifragem e PIN; o Pro adiciona os recursos de emergência e de vários aparelhos.']),
+    ctx.um(['No Free você já tem o cofre cifrado, a trava com senha, o cofre nos seus outros aparelhos (com senha), Login/Wi-Fi/Nota e 2 pontos de restauração.', 'O Free continua protegendo suas senhas com cifragem e senha; o Pro adiciona PIN, digital no celular e os recursos de emergência.']),
   ],
   acoes: [{ rotulo: 'Ver o Krypta Pro', para: '/plans' }],
   opcoes: simNao({ resposta: escolherPlano }, undefined, ['Me ajuda a decidir', 'Agora não']),
@@ -39,7 +42,7 @@ const proNao = (recurso: string, ctx: Ctx): Resposta => ({
 });
 
 // ------------------------------------------------------------
-// próximo passo (o "GPS" do Kody)
+// próximo passo (o "GPS" do Cody)
 // ------------------------------------------------------------
 export function proximoPasso(p: PerfilAjuda, ctx: Ctx): Resposta {
   if (!p.logado)
@@ -63,8 +66,8 @@ export function proximoPasso(p: PerfilAjuda, ctx: Ctx): Resposta {
       };
     case 'sem-trava':
       return {
-        texto: [com(ctx, 'falta uma coisa importante: **proteger o cofre neste aparelho** com um PIN.'), 'Sem ele, quem pegar o aparelho veria suas senhas. Leva 30 segundos (você vai precisar da chave de contingência).'],
-        opcoes: simNao({ para: '/device' }, undefined, ['Criar o PIN agora', 'Depois']),
+        texto: [com(ctx, `falta uma coisa importante: **proteger o cofre neste aparelho** com ${p.pro ? 'um PIN ou uma senha' : 'uma senha'}.`), 'Sem ele, quem pegar o aparelho veria suas senhas. Leva 30 segundos (você vai precisar da chave de contingência).'],
+        opcoes: simNao({ para: '/device' }, undefined, ['Proteger agora', 'Depois']),
         humor: 'alerta',
       };
     case 'trancado':
@@ -75,15 +78,13 @@ export function proximoPasso(p: PerfilAjuda, ctx: Ctx): Resposta {
         humor: 'ok',
       };
     case 'outro-aparelho':
-      return p.pro
-        ? {
-            texto: p.acessoRemoto
-              ? 'Seu cofre mora em outro aparelho, mas no Pro você abre aqui com a **senha de acesso (PIN)** e pode ver e editar tudo.'
-              : ['Seu cofre mora em outro aparelho e você ainda **não criou a senha de acesso**.', 'Com ela (e a chave de contingência uma vez) você abre e edita o cofre aqui também.'],
-            acoes: [{ rotulo: p.acessoRemoto ? 'Abrir com o PIN' : 'Criar a senha de acesso', para: '/cofre/acesso' }],
-            humor: 'ok',
-          }
-        : { texto: ['Seu cofre está no aparelho onde você pareou. No Free ele abre só lá.', 'Com o Pro, um PIN abre e edita o cofre em qualquer aparelho seu.'], acoes: [{ rotulo: 'Ver o Krypta Pro', para: '/plans' }], humor: 'pensando' };
+      return {
+        texto: p.acessoRemoto
+          ? [`Seu cofre está pareado em outro aparelho, mas você abre e edita aqui com a sua **${segredoNome(p)} de acesso**. 🔓`, bioPode(p) ? 'Depois de abrir, dá para ligar a **digital** neste celular.' : !p.pro ? 'No Pro também dá para usar um PIN de 6 dígitos e, no celular, a digital.' : '']
+          : ['Seu cofre está pareado em outro aparelho e você ainda **não criou a senha de acesso**.', `Ela vale em **todos os planos**: crie uma vez (com a chave de contingência) e abra o cofre aqui sempre que quiser.${p.pro ? ' No Pro pode ser um PIN de 6 dígitos.' : ''}`],
+        acoes: [{ rotulo: p.acessoRemoto ? 'Abrir o cofre aqui' : 'Criar a senha de acesso', para: '/cofre/acesso' }],
+        humor: 'ok',
+      };
     case 'bloqueado':
       return { texto: ['O **Kill Switch** foi acionado: o dispositivo antigo foi banido.', 'Para voltar a usar, vincule um dispositivo novo com a chave de contingência.'], acoes: [{ rotulo: 'Vincular dispositivo novo', para: '/device' }], humor: 'alerta' };
     case 'recuperacao':
@@ -91,9 +92,9 @@ export function proximoPasso(p: PerfilAjuda, ctx: Ctx): Resposta {
     default: {
       const dicas: string[] = [];
       if ((p.totalChaves ?? 0) === 0) dicas.push('guardar sua **primeira senha**');
-      if (!p.biometria) dicas.push('ligar a **biometria** para abrir mais rápido');
+      if (!p.biometria && bioPode(p)) dicas.push('ligar a **biometria** para abrir mais rápido');
       if (p.pro && !p.heranca) dicas.push('ativar a **herança digital**');
-      if (p.pro && p.acessoRemoto === false) dicas.push('criar a **senha de acesso** para os outros aparelhos');
+      if (p.acessoRemoto === false) dicas.push('criar a **senha de acesso** para os outros aparelhos');
       dicas.push('salvar um **ponto de restauração**');
       return {
         texto: [com(ctx, ctx.um(['seu cofre está pronto! ✅', 'tudo certo com o seu cofre. ✅', 'cofre aberto e funcionando. ✅'])), `Se quiser deixar ainda melhor: ${dicas.slice(0, 3).join(', ')}.`],
@@ -115,13 +116,11 @@ export function checkup(p: PerfilAjuda, ctx: Ctx): Resposta {
   if (!p.logado) return { texto: 'Entre na sua conta que eu faço um check-up completo da sua segurança. 🩺', acoes: [{ rotulo: 'Entrar', para: '/login' }], humor: 'oi' };
   const itens: [boolean, string][] = [
     [temCofre(p), 'Cofre ativado'],
-    [temCofre(p) && p.situacao !== 'sem-trava', 'PIN do cofre neste aparelho'],
-    [p.biometria, 'Biometria ligada'],
   ];
-  if (p.pro) {
-    itens.push([p.heranca, 'Herança digital']);
-    if (p.acessoRemoto !== null) itens.push([!!p.acessoRemoto, 'Senha de acesso para outros aparelhos']);
-  }
+  if (['pronto', 'trancado', 'sem-trava'].includes(p.situacao)) itens.push([p.situacao !== 'sem-trava', 'Trava do cofre (senha ou PIN) neste aparelho']);
+  if (bioPode(p)) itens.push([p.biometria, 'Biometria ligada']);
+  if (p.acessoRemoto !== null) itens.push([!!p.acessoRemoto, 'Senha de acesso para outros aparelhos']);
+  if (p.pro) itens.push([p.heranca, 'Herança digital']);
   const ok = itens.filter((i) => i[0]).length;
   const nota = Math.round((ok / itens.length) * 10);
   const lista = itens.map(([v, t]) => `${v ? '✅' : '⬜'} ${t}`).join('\n');
@@ -157,20 +156,20 @@ export function escolherPlano(_p: PerfilAjuda, ctx: Ctx): Resposta {
     humor: 'pensando',
   });
   const veredito = (vários: boolean, heranca: boolean, kill: boolean, c: Ctx): Resposta => {
-    const motivos = [vários && 'abrir o cofre em vários aparelhos', heranca && 'a herança digital', kill && 'o Kill Switch'].filter(Boolean) as string[];
+    const motivos = [vários && 'abrir o cofre com PIN ou digital', heranca && 'a herança digital', kill && 'o Kill Switch'].filter(Boolean) as string[];
     return motivos.length
       ? {
           texto: [`Pelo que você me contou, o **Pro** é o seu plano. 💜`, `Você quer ${motivos.join(', ').replace(/, ([^,]*)$/, ' e $1')}, e isso só existe no Pro. Custa R$ 25/mês ou R$ 225/ano (sai R$ 18,75/mês).`],
           acoes: [{ rotulo: 'Assinar o Pro', para: '/plans' }],
           humor: 'feliz',
         }
-      : { texto: [c.um(['O **Free** dá conta do recado para você! 🙌', 'Pode ficar no **Free** tranquilo. 🙌']), 'Ele já cifra tudo no aparelho e tem a trava com PIN. Se um dia precisar de herança ou de vários aparelhos, é só mudar.'], humor: 'feliz' };
+      : { texto: [c.um(['O **Free** dá conta do recado para você! 🙌', 'Pode ficar no **Free** tranquilo. 🙌']), 'Ele já cifra tudo, tranca com senha e abre o cofre nos seus outros aparelhos. Se um dia quiser herança, Kill Switch ou PIN/digital, é só mudar.'], humor: 'feliz' };
   };
   return {
-    texto: [ctx.um(['Bora descobrir! São 3 perguntas rápidas.', 'Te ajudo a escolher, são só 3 perguntas.']), 'Primeira: você quer usar o cofre em **mais de um aparelho** (celular e computador, por exemplo)?'],
+    texto: [ctx.um(['Bora descobrir! São 3 perguntas rápidas.', 'Te ajudo a escolher, são só 3 perguntas.']), 'Primeira: no dia a dia, você prefere abrir o cofre com um **PIN de 6 números ou a digital** (em vez de digitar uma senha)?'],
     opcoes: [
-      { rotulo: 'Sim, vários', termos: SIM.concat(['varios', 'mais de um', 'dois']), resposta: () => p2(true) },
-      { rotulo: 'Só um', termos: NAO.concat(['so um', 'um so', 'apenas um']), resposta: () => p2(false) },
+      { rotulo: 'Sim, PIN ou digital', termos: SIM.concat(['pin', 'digital', 'biometria']), resposta: () => p2(true) },
+      { rotulo: 'Senha está ótimo', termos: NAO.concat(['senha', 'tanto faz']), resposta: () => p2(false) },
     ],
     humor: 'pensando',
   };
@@ -267,11 +266,26 @@ export const ASSUNTOS: Assunto[] = [
   {
     id: 'quem',
     titulo: 'Quem é você?',
-    termos: [['quem e voce', 5], ['quem voce', 3], ['seu nome', 4], ['qual seu nome', 5], ['kody', 3], ['robo', 2], ['bot', 2]],
+    termos: [['quem e voce', 5], ['quem voce', 3], ['seu nome', 4], ['qual seu nome', 5], ['cody', 3], ['robo', 2], ['bot', 2]],
     resposta: () => ({
-      texto: ['Eu sou o **Kody**, o robô do Krypta! 🤖', 'Eu olho a situação da sua conta (plano, cofre, aparelho) para responder certinho e te levar à tela certa. E fica tranquilo: **eu nunca vejo suas senhas**. O cofre é cifrado e nem eu, nem o servidor, conseguimos abrir.'],
+      texto: ['Eu sou o **Cody**, o robô do Krypta! 🤖', 'Eu olho a situação da sua conta (plano, cofre, aparelho) para responder certinho e te levar à tela certa. E fica tranquilo: **eu nunca vejo suas senhas**. O cofre é cifrado e nem eu, nem o servidor, conseguimos abrir.'],
       sugestoes: ['O que você sabe fazer?', 'Vocês conseguem ver minhas senhas?'],
       humor: 'oi',
+    }),
+  },
+  {
+    id: 'esconder',
+    titulo: 'Como escondo o Cody do canto?',
+    termos: [['esconder o cody', 7], ['tirar o cody', 7], ['tiro o cody', 7], ['tira o cody', 7], ['esconde o cody', 7], ['cody do canto', 7], ['desligar o cody', 7], ['some o cody', 6], ['sumir com o cody', 7], ['esconder o robo', 6], ['tirar o robo', 6], ['botao flutuante', 6], ['cody flutuante', 6], ['atrapalhando', 4]],
+    resposta: (p) => ({
+      texto: [
+        'Sem problema, não fico chateado! 😅',
+        p.plataforma === 'celular'
+          ? 'Em **Ajustes → Mostrar o Cody flutuante**, desligue. Eu continuo no Início, no Perfil e no **balão de conversa** da barra de baixo.'
+          : 'Em **Configurações → Cody flutuante**, toque para esconder. Eu continuo no Início e no Perfil.',
+      ],
+      acoes: [{ rotulo: p.plataforma === 'celular' ? 'Ajustes' : 'Configurações', para: '/settings' }],
+      humor: 'triste',
     }),
   },
   {
@@ -386,9 +400,9 @@ export const ASSUNTOS: Assunto[] = [
     resposta: () => ({
       texto: [
         'As novidades mais recentes do Krypta:',
-        '• **PIN e biometria** trancam o cofre até no aparelho pareado\n• **Eu!** O Kody, para te ajudar em qualquer tela\n• **Notificações** de segurança no Windows, no navegador e no app\n• **Foto de perfil** com 12 avatares do Kody e a cor que você quiser\n• Telas mais rápidas no celular',
+        '• **Cofre em outros aparelhos com senha** em todos os planos (PIN e digital no Pro)\n• **Eu!** O Cody, agora também na barra do app\n• **Foto de perfil** com 12 avatares do Cody, a cor que você quiser ou sua foto ajustada\n• **Notificações** de segurança no Windows, no navegador e no app\n• Telas mais rápidas no celular',
       ],
-      sugestoes: ['O que é o PIN do cofre?', 'Como coloco foto no perfil?'],
+      sugestoes: ['Como abro o cofre em outro aparelho?', 'Como coloco foto no perfil?'],
       humor: 'feliz',
     }),
   },
@@ -481,12 +495,14 @@ export const ASSUNTOS: Assunto[] = [
     termos: [['pin', 4], ['trava', 4], ['trancado', 4], ['senha do cofre', 5], ['bloqueio do cofre', 4], ['abrir o cofre', 3], ['proteger o cofre', 4], ['tranca sozinho', 5]],
     resposta: (p) => ({
       texto: [
-        `O **PIN do cofre** (6 números) ou uma senha maior tranca o cofre **até no aparelho que pareou**: os dados ficam cifrados e só abrem com ele${p.pro ? '. No Pro, o mesmo PIN abre o cofre nos seus outros aparelhos' : ''}.`,
+        p.pro
+          ? 'A **trava do cofre** (PIN de 6 números ou senha) tranca o cofre **até no aparelho que pareou**: os dados ficam cifrados e só abrem com ela. O mesmo PIN pode abrir o cofre nos seus outros aparelhos.'
+          : 'A **trava do cofre** é uma **senha** (8+ caracteres) que tranca o cofre **até no aparelho que pareou**, e a mesma senha pode abrir o cofre nos seus outros aparelhos. PIN de 6 dígitos e biometria são do Pro.',
         'Ele tranca sozinho depois de **5 minutos** sem uso, ao recarregar a página e ao sair da conta.' + (p.situacao === 'sem-trava' ? '\n\n⚠️ Você ainda **não criou** o seu PIN neste aparelho.' : ''),
       ],
-      opcoes: p.situacao === 'sem-trava' ? simNao({ para: '/device' }, undefined, ['Criar o PIN agora', 'Depois']) : undefined,
+      opcoes: p.situacao === 'sem-trava' ? simNao({ para: '/device' }, undefined, ['Criar agora', 'Depois']) : undefined,
       acoes: p.situacao === 'sem-trava' ? undefined : [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }],
-      sugestoes: ['Como ligo a biometria?', 'Esqueci o PIN do cofre'],
+      sugestoes: bioPode(p) ? ['Como ligo a biometria?', 'Esqueci o PIN do cofre'] : ['Como abro o cofre em outro aparelho?', 'Esqueci o PIN do cofre'],
       humor: p.situacao === 'sem-trava' ? 'alerta' : 'ok',
     }),
   },
@@ -509,13 +525,18 @@ export const ASSUNTOS: Assunto[] = [
     id: 'biometria',
     titulo: 'Como ligo a biometria?',
     termos: [['biometria', 5], ['digital', 4], ['impressao digital', 5], ['face id', 5], ['rosto', 3], ['windows hello', 5], ['touch id', 5]],
-    resposta: (p) => ({
-      texto: p.biometria
-        ? ['Sua biometria **já está ligada** neste aparelho. ✅', 'Lembre: ela vale só neste aparelho. Em cada aparelho você liga de novo.']
-        : ['Abra o cofre com o PIN e vá em **Senha do cofre → Ligar biometria**. Confirme com a digital, o rosto ou o Windows Hello e pronto. 👆', 'Alguns navegadores ainda não oferecem; nesses o botão avisa e o PIN continua valendo.'],
-      acoes: [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }],
-      humor: p.biometria ? 'ok' : 'oi',
-    }),
+    resposta: (p, ctx) =>
+      !p.pro
+        ? proNao('Abrir o cofre com a digital ou o rosto', ctx)
+        : p.plataforma !== 'celular'
+          ? { texto: ['A biometria do Krypta funciona **no celular** (digital ou rosto). 📱', 'No computador, o cofre abre com o PIN ou a senha. Abra o Krypta no celular para ligar.'], acoes: [{ rotulo: 'Instalar no celular', para: '/aplicacoes' }], humor: 'ok' }
+          : {
+              texto: p.biometria
+                ? ['Sua biometria **já está ligada** neste celular. ✅', 'Ela vale só neste aparelho. Em cada celular você liga de novo.']
+                : ['No aparelho pareado: abra o cofre e vá em **Senha do cofre → Ligar biometria**. 👆', 'Num celular que abre o cofre com a senha de acesso: depois de abrir, toque em **"Ligar digital ou rosto"**.'],
+              acoes: [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }],
+              humor: p.biometria ? 'ok' : 'oi',
+            },
   },
   {
     id: 'trancar',
@@ -527,16 +548,13 @@ export const ASSUNTOS: Assunto[] = [
     id: 'remoto',
     titulo: 'Como abro o cofre em outro aparelho?',
     termos: [['outro aparelho', 5], ['outro dispositivo', 5], ['outro celular', 5], ['outro computador', 5], ['fora de casa', 4], ['senha de acesso', 5], ['acessar de outro', 5], ['no trabalho', 3], ['no computador', 3]],
-    resposta: (p, ctx) =>
-      !p.pro
-        ? proNao('Abrir e editar o cofre em outros aparelhos', ctx)
-        : {
-            texto: p.acessoRemoto
-              ? 'Sua **senha de acesso** já está criada. Em qualquer aparelho, entre na conta e abra **Senha do cofre**: digite o PIN e pronto, dá para ver e editar tudo.'
-              : ['Crie a **senha de acesso** (de preferência o mesmo PIN do cofre) usando a chave de contingência uma vez.', 'Depois, em qualquer aparelho logado, o PIN abre e edita o cofre.'],
-            acoes: [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }],
-            humor: 'ok',
-          },
+    resposta: (p) => ({
+      texto: p.acessoRemoto
+        ? [`Sua **senha de acesso** já está criada. ✅ Em qualquer aparelho, entre na conta e abra **Senha do cofre**: digite a ${segredoNome(p)} e pronto, dá para ver e editar tudo.`, bioPode(p) ? 'No celular, depois de abrir, você pode ligar a digital.' : '']
+        : [`Em **todos os planos** você cria uma **senha de acesso** (de preferência a mesma da trava do cofre) usando a chave de contingência uma vez.`, `Depois, em qualquer aparelho logado, ela abre e edita o cofre.${p.pro ? ' No Pro pode ser um PIN de 6 dígitos e, no celular, a digital.' : ' No Pro dá para usar PIN de 6 dígitos e digital.'}`],
+      acoes: [{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }],
+      humor: 'ok',
+    }),
   },
 
   // ======= chaves =======
@@ -703,7 +721,7 @@ export const ASSUNTOS: Assunto[] = [
       const quer = uso.includes('heranca') || uso.includes('familia') || p.onboarding?.nivel === 'maximo' || p.onboarding?.nivel === 'avancado' || (p.onboarding?.dispositivos ?? []).includes('multiplos');
       return {
         texto: [
-          '**Free:** cofre cifrado, PIN e biometria, dispositivo de software, Login/Wi-Fi/Nota, 2 pontos de restauração.\n**Pro (R$ 25/mês ou R$ 225/ano):** tudo do Free + cofre em qualquer aparelho com PIN, todos os tipos e campos, 20 pontos, Kill Switch, herança digital, alertas de acesso e o dispositivo físico.',
+          '**Free:** cofre cifrado com senha, cofre em outros aparelhos com senha, dispositivo de software, Login/Wi-Fi/Nota, 2 pontos de restauração.\n**Pro (R$ 25/mês ou R$ 225/ano):** tudo do Free + PIN de 6 dígitos e digital no celular, todos os tipos e campos, 20 pontos, Kill Switch, herança digital, alertas de acesso e o dispositivo físico.',
           p.logado ? (p.pro ? 'Você já está no **Pro**. 💜' : !p.pro && quer ? 'Pelas suas respostas no questionário (herança, família ou vários aparelhos), o **Pro** combina com você. Quer conferir comigo?' : 'Quer que eu te ajude a decidir?') : 'Quer que eu te ajude a decidir?',
         ],
         opcoes: p.pro ? undefined : simNao({ resposta: escolherPlano }, undefined, ['Me ajuda a decidir', 'Não precisa']),
@@ -820,7 +838,7 @@ export const ASSUNTOS: Assunto[] = [
     titulo: 'Como coloco foto no perfil?',
     termos: [['foto', 5], ['avatar', 5], ['imagem do perfil', 5], ['foto de perfil', 6], ['mudar cor', 3]],
     resposta: () => ({
-      texto: ['No **Perfil**, toque na sua foto. 📸', 'Você escolhe um dos **12 Kodys** (eu em várias versões! 😄) e a **cor do fundo**, ou envia uma foto sua. Também dá para voltar ao perfil anônimo.'],
+      texto: ['No **Perfil**, toque na sua foto. 📸', 'Você escolhe um dos **12 Codys** (eu em várias versões! 😄) e a **cor do fundo**, ou envia uma foto sua. Também dá para voltar ao perfil anônimo.'],
       acoes: [{ rotulo: 'Ir para o Perfil', para: '/profile' }],
       humor: 'feliz',
     }),

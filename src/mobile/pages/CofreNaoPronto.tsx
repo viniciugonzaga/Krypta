@@ -7,6 +7,7 @@ import { GRAD, MBotao, MCard, type MCores } from '../ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { CriarTrava, DesbloquearCofre, useTrava } from '../TravaCofre';
 import { isProPlan } from '../../utils/plan';
+import { AvisoOutroAparelho } from '../AvisoOutroAparelho';
 
 /** Quando o cofre ainda não está pronto neste aparelho */
 export function CofreNaoPronto({ c, estado, aqui }: { c: MCores; estado?: string; aqui: boolean }) {
@@ -17,6 +18,8 @@ export function CofreNaoPronto({ c, estado, aqui }: { c: MCores; estado?: string
   // v1.3.0: o cofre está neste aparelho, mas trancado (ou ainda sem PIN)
   if (estado === 'ATIVA' && aqui && situacao === 'trancado') return <div className="mb-4"><DesbloquearCofre contaId={contaId} /></div>;
   if (estado === 'ATIVA' && aqui && situacao === 'sem-trava') return <div className="mb-4"><CriarTrava contaId={contaId} isPro={isProPlan(user?.plan)} /></div>;
+  // v1.5.0: cofre pareado em outro aparelho → explica como abrir aqui (senha / PIN / biometria)
+  if (estado === 'ATIVA' && !aqui) return <AvisoOutroAparelho className="mb-4" />;
   const textos: Record<string, [string, string]> = {
     PENDENTE_PAREAMENTO: ['Seu cofre ainda não foi ativado', 'Pareie este aparelho (ou um dispositivo Krypta) e gere sua chave de contingência.'],
     REVOGADA: ['Dispositivo bloqueado', 'O Kill Switch foi acionado. Vincule este aparelho para recuperar o cofre.'],

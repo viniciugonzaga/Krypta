@@ -316,6 +316,8 @@ export interface ContaCofre {
     alertasAcesso: boolean;
     multiAparelho?: boolean;
     acessoRemoto?: boolean;
+    /** v1.5.0: PIN de 6 dígitos e biometria (Pro) */
+    pinCofre?: boolean;
     pontosRestauracao?: number;
     camposExtras?: boolean;
   };
@@ -332,6 +334,8 @@ export interface EventoCofre {
 
 export interface EstadoAcessoRemoto {
   disponivel: boolean;
+  /** v1.5.0: false no Free (só senha) */
+  pinPermitido?: boolean;
   configurado: boolean;
   bloqueado: boolean;
   tipo: 'PIN' | 'SENHA' | null;

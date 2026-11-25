@@ -9,11 +9,11 @@ import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { abrirKody } from '../../ajuda/abrir';
-import kVerificado from '../../assets/kody/kody_verificado.webp';
-import kAcenando from '../../assets/kody/kody_acenando.webp';
-import kExclamacao from '../../assets/kody/kody_exclamacao.webp';
-import av7 from '../../assets/kody/avatar7.webp';
+import { abrirCody } from '../../ajuda/abrir';
+import kVerificado from '../../assets/cody/cody_verificado.webp';
+import kAcenando from '../../assets/cody/cody_acenando.webp';
+import kExclamacao from '../../assets/cody/cody_exclamacao.webp';
+import av7 from '../../assets/cody/avatar7.webp';
 
 const FONTE = "'Quicksand', 'Poppins', sans-serif";
 
@@ -26,15 +26,15 @@ export function Novidades() {
   const cards = [
     {
       img: kVerificado,
-      titulo: 'PIN e biometria no cofre',
-      texto: 'O cofre tranca até no aparelho que você usa. Abre com PIN, digital, rosto ou Windows Hello, e tranca sozinho em 5 minutos.',
-      botao: logado ? (ativo ? { rotulo: 'Configurar', para: '/cofre/acesso' } : { rotulo: 'Ativar meu cofre', para: '/device' }) : { rotulo: 'Criar conta grátis', para: '/register' },
+      titulo: 'Seu cofre em qualquer aparelho',
+      texto: 'Em todos os planos, o cofre tranca com senha e abre nos seus outros aparelhos com ela. No Pro: PIN de 6 dígitos e digital no celular.',
+      botao: logado ? (ativo ? { rotulo: 'Senha do cofre', para: '/cofre/acesso' } : { rotulo: 'Ativar meu cofre', para: '/device' }) : { rotulo: 'Criar conta grátis', para: '/register' },
     },
     {
       img: kAcenando,
-      titulo: 'Kody, seu assistente',
+      titulo: 'Cody, seu assistente',
       texto: 'Um robô que conhece a sua conta, resolve problemas passo a passo e te leva para a tela certa. Sem ver suas senhas.',
-      kody: true,
+      cody: true,
     },
     {
       img: kExclamacao,
@@ -45,7 +45,7 @@ export function Novidades() {
     {
       img: av7,
       titulo: 'Seu avatar do seu jeito',
-      texto: 'Escolha um dos 12 Kodys e a cor do fundo, ou use uma foto sua. Aparece no site, no celular e no Windows.',
+      texto: 'Escolha um dos 12 Codys e a cor do fundo, ou use uma foto sua. Aparece no site, no celular e no Windows.',
       botao: logado ? { rotulo: 'Escolher avatar', para: '/profile' } : { rotulo: 'Criar conta grátis', para: '/register' },
     },
   ];
@@ -89,9 +89,9 @@ export function Novidades() {
               <p className="text-sm mt-2 leading-relaxed flex-1" style={{ color: muted }}>
                 {card.texto}
               </p>
-              {card.kody ? (
-                <button type="button" onClick={() => abrirKody()} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: roxo }}>
-                  Falar com o Kody <ArrowRight className="w-4 h-4" />
+              {card.cody ? (
+                <button type="button" onClick={() => abrirCody()} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: roxo }}>
+                  Falar com o Cody <ArrowRight className="w-4 h-4" />
                 </button>
               ) : (
                 card.botao && (

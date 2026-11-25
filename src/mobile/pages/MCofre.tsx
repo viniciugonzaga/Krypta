@@ -121,7 +121,7 @@ export function MCofre() {
           )}
           {ativo && (
             <>
-              <MLinhaAcao c={c} i={4} icone={<Smartphone className="w-5 h-5" />} titulo="Senha de acesso ao cofre" texto={aqui ? 'Crie o PIN para abrir e editar nos seus outros aparelhos.' : 'Abra e edite o cofre aqui com o seu PIN.'} to="/cofre/acesso" trava={!r?.acessoRemoto} />
+              <MLinhaAcao c={c} i={4} icone={<Smartphone className="w-5 h-5" />} titulo="Senha de acesso ao cofre" texto={aqui ? `Crie a senha${r?.pinCofre ? ' (ou o PIN)' : ''} para abrir e editar nos seus outros aparelhos.` : `Abra e edite o cofre aqui com a sua senha${r?.pinCofre ? ' ou PIN' : ''}.`} to="/cofre/acesso" />
               <MLinhaAcao c={c} i={4} icone={<History className="w-5 h-5" />} titulo="Pontos de restauração" texto="Salve o estado do cofre e volte a ele com a chave de contingência." to="/cofre/pontos" />
             </>
           )}

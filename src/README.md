@@ -38,7 +38,7 @@ src/
 ├── pages/                 Telas do site: Welcome, AuthPage, Device (Meu Krypta), Plans, Checkout,
 │                          Orders, Products, Profile, Settings, Aplicacoes, HowItWorks, InheritanceClaim,
 │                          Contact, RecoverPassword, ErrorPage, Suspended...
-├── ajuda/                 Kody, o assistente (contexto, base, motor, KodyBot, KodyCard, abrir)
+├── ajuda/                 Cody, o assistente (contexto, base, motor, CodyBot, CodyCard, abrir)
 ├── components/            Navbar, Footer, botões, cards, transições, login social;
 │                          v1.3.0: AvisosApp (notificações), FotoPerfil, Dica
 ├── contexts/              AuthContext (sessão/usuário), ThemeContext (claro/escuro)

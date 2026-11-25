@@ -5,7 +5,7 @@
 //   • cartão do cofre que muda conforme a situação (ativar, criar PIN,
 //     trancado, aberto, em outro aparelho) e leva à tela certa
 //   • resumo da conta (mesma regra do app: utils/resumoConta.ts)
-//   • atividades recentes, cartão do Kody e atalhos
+//   • atividades recentes, cartão do Cody e atalhos
 // Itens que ainda não valem para a pessoa (PIN, herança, pontos antes do
 // cofre existir; recursos Pro no Free) não aparecem.
 // ============================================================
@@ -20,9 +20,9 @@ import { VirtualDevice } from '../../services/virtualDevice';
 import { useTrava } from '../../mobile/TravaCofre';
 import { fmtQuando } from '../../mobile/ui';
 import { resumoConta } from '../../utils/resumoConta';
-import { KodyCard } from '../../ajuda/KodyCard';
+import { CodyCard } from '../../ajuda/CodyCard';
 import { FotoPerfil } from '../../components/FotoPerfil';
-import kAcenando from '../../assets/kody/kody_acenando.webp';
+import kAcenando from '../../assets/cody/cody_acenando.webp';
 
 const FONTE = "'Quicksand', 'Poppins', sans-serif";
 const GRAD = 'linear-gradient(135deg, #5100BD 0%, #8d51ff 100%)';
@@ -93,9 +93,9 @@ export function PainelInicio() {
     : !aqui
       ? {
           icone: <Smartphone className="w-6 h-6" />,
-          titulo: 'Seu cofre está em outro aparelho',
-          texto: pro ? 'Abra aqui com a senha de acesso (PIN) para ver e editar as suas chaves.' : 'No Free o cofre abre só no aparelho pareado. Com o Pro, um PIN abre o cofre em qualquer aparelho seu.',
-          botoes: pro ? [{ rotulo: 'Abrir com o PIN', para: '/cofre/acesso', icone: <LockOpen className="w-4 h-4" /> }] : [{ rotulo: 'Conhecer o Pro', para: '/plans', icone: <Crown className="w-4 h-4" /> }],
+          titulo: 'Seu cofre está pareado em outro aparelho',
+          texto: pro ? 'Abra e edite aqui com a sua senha de acesso ou o PIN de 6 dígitos.' : 'Abra e edite aqui com a sua senha de acesso (todos os planos). PIN de 6 dígitos e biometria são do Pro.',
+          botoes: [{ rotulo: 'Abrir o cofre aqui', para: '/cofre/acesso', icone: <LockOpen className="w-4 h-4" /> }, { rotulo: 'Só ver com a chave de contingência', para: '/cofre/ver' }],
         }
       : trava.situacao === 'sem-trava'
         ? {
@@ -260,9 +260,9 @@ export function PainelInicio() {
             )}
           </Bloco>
 
-          {/* Kody */}
+          {/* Cody */}
           <div className="lg:col-span-2">
-            <KodyCard variante="site" atalhos={ativo ? ['Minha conta está segura?', 'Gera uma senha forte', 'O que tem de novo?'] : ['O que eu faço agora?', 'O que é parear?', 'O que é a chave de contingência?']} className="h-full" />
+            <CodyCard variante="site" sprite="animado" atalhos={ativo ? ['Minha conta está segura?', 'Gera uma senha forte', 'O que tem de novo?'] : ['O que eu faço agora?', 'O que é parear?', 'O que é a chave de contingência?']} className="h-full" />
           </div>
         </div>
 

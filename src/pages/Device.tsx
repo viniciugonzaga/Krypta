@@ -56,6 +56,8 @@ import { CriarTrava, DesbloquearCofre } from '../mobile/TravaCofre';
 import * as Flows from '../services/vaultFlows';
 import { gerarSegredo, normalizarSegredo, segredoValido } from '../crypto/kryptaCrypto';
 import { Dica } from '../components/Dica';
+import { tiposDeSegredo } from '../utils/plan';
+import { AvisoOutroAparelho } from '../mobile/AvisoOutroAparelho';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 
@@ -547,6 +549,10 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
   const usavel = temDispositivoAqui && !travado && !semTrava;
   const recursos = conta?.recursos;
   const isPro = conta?.plano === 'pro';
+  // v1.5.0: no Free o cofre usa senha (PIN de 6 dígitos é do Pro)
+  useEffect(() => {
+    if (conta && !isPro && tipoPin === 'PIN') setTipoPin('SENHA');
+  }, [conta, isPro, tipoPin]);
   const disponiveis = compras.filter((d) => d.status === 'DISPONIVEL');
   const emTransporte = compras.filter((d) => d.status === 'EM_TRANSPORTE').length;
   const serialValido = serialEscolhido && disponiveis.some((d) => d.serial === serialEscolhido) ? serialEscolhido : null;
@@ -713,13 +719,13 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
           </Dica>
         )}
         {!carregando && estado === 'ATIVA' && temDispositivoAqui && !travado && !semTrava && (
-          <Dica id="device-ativo" titulo="Abra o cofre mais rápido" pergunta="Como ligo a biometria?" acao={{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }} className="mb-6">
-            Ligue a <strong>biometria</strong> (digital, rosto ou Windows Hello) e salve um <strong>ponto de restauração</strong> antes de grandes mudanças. O cofre tranca sozinho depois de 5 minutos.
+          <Dica id="device-ativo" titulo="Seu cofre está protegido" pergunta="O que é ponto de restauração?" acao={{ rotulo: 'Senha do cofre', para: '/cofre/acesso' }} className="mb-6">
+            Salve um <strong>ponto de restauração</strong> antes de grandes mudanças. O cofre tranca sozinho depois de 5 minutos.{isPro ? ' No celular, dá para abrir com a digital.' : ''}
           </Dica>
         )}
         {!carregando && estado === 'ATIVA' && !temDispositivoAqui && (
           <Dica id="device-outro" titulo="Seu cofre está em outro aparelho" pergunta="Como abro o cofre em outro aparelho?" className="mb-6">
-            {isPro ? 'Com a senha de acesso (PIN) você vê e edita o cofre aqui também.' : 'No Free ele abre só no aparelho pareado. O Pro libera abrir com PIN em qualquer aparelho seu.'}
+            Com a <strong>senha de acesso</strong> você vê e edita o cofre aqui também (todos os planos).{isPro ? ' No Pro, também com o PIN de 6 dígitos.' : ' PIN de 6 dígitos e biometria são do Pro.'}
           </Dica>
         )}
 
@@ -772,12 +778,13 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                 />
                 {confirmado && (
                   <div className="rounded-xl p-4 space-y-3" style={{ border: `1px solid ${c.border}`, background: c.isDark ? 'rgba(141,81,255,0.05)' : 'rgba(81,0,189,0.03)' }}>
-                    <p className="text-xs font-bold tracking-[0.15em] uppercase" style={{ color: c.bright }}>3. Crie o PIN do cofre</p>
+                    <p className="text-xs font-bold tracking-[0.15em] uppercase" style={{ color: c.bright }}>3. Crie {isPro ? 'o PIN' : 'a senha'} do cofre</p>
                     <p className="text-xs" style={{ color: c.muted }}>
-                      O cofre só abre com ele, <strong>mesmo neste aparelho</strong>.{isPro && ' No Krypta Pro, o mesmo PIN abre o cofre nos seus outros aparelhos.'} Não use a senha da conta.
+                      O cofre só abre com {isPro ? 'ele' : 'ela'}, <strong>mesmo neste aparelho</strong>, e {isPro ? 'o mesmo PIN' : 'a mesma senha'} pode abrir o cofre nos seus outros aparelhos. Não use a senha da conta.
+                      {!isPro && <> PIN de 6 dígitos e biometria são do <Link to="/plans" className="underline font-semibold">Krypta Pro</Link>.</>}
                     </p>
                     <div className="flex gap-2">
-                      {(['PIN', 'SENHA'] as const).map((t) => (
+                      {tiposDeSegredo(conta?.plano).length > 1 && (['PIN', 'SENHA'] as const).map((t) => (
                         <button key={t} type="button" onClick={() => { setTipoPin(t); setPin(''); setPin2(''); }} className="flex-1 py-2 rounded-lg text-xs font-semibold" style={tipoPin === t ? { background: 'linear-gradient(135deg, #5100BD, #8d51ff)', color: '#fff' } : { border: `1px solid ${c.border}`, color: c.muted }}>
                           {t === 'PIN' ? 'PIN (6 números)' : 'Senha (mais forte)'}
                         </button>
@@ -789,12 +796,10 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                     </div>
                     {pin && erroPin && <p className="text-xs text-red-400">{erroPin}</p>}
                     {pin && !erroPin && pin2 && pin !== pin2 && <p className="text-xs text-red-400">Os dois não são iguais.</p>}
-                    {isPro && (
-                      <label className="flex items-start gap-2 text-xs">
-                        <input type="checkbox" checked={pinRemoto} onChange={(e) => setPinRemoto(e.target.checked)} className="mt-0.5 accent-purple-600" />
-                        Usar o mesmo {tipoPin === 'PIN' ? 'PIN' : 'senha'} nos meus outros aparelhos
-                      </label>
-                    )}
+                    <label className="flex items-start gap-2 text-xs">
+                      <input type="checkbox" checked={pinRemoto} onChange={(e) => setPinRemoto(e.target.checked)} className="mt-0.5 accent-purple-600" />
+                      Usar {tipoPin === 'PIN' ? 'o mesmo PIN' : 'a mesma senha'} para abrir o cofre nos meus outros aparelhos
+                    </label>
                   </div>
                 )}
                 <Botao
@@ -811,7 +816,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                         }
                         // v1.3.0: tranca o cofre neste aparelho e (Pro) cria a senha para os outros aparelhos
                         await Trava.criar(contaId, { tipo: tipoPin, segredo: pin, ccp: segredoNovo });
-                        if (isPro && pinRemoto) await configurarAcesso(contaId, segredoNovo, tipoPin, pin).catch(() => undefined);
+                        if (pinRemoto) await configurarAcesso(contaId, segredoNovo, tipoPin, pin).catch(() => undefined);
                         setPin('');
                         setPin2('');
                       },
@@ -873,12 +878,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                     </p>
                   </div>
                 ) : (
-                <p className="text-sm rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: c.isDark ? '#fcd34d' : '#92400e' }}>
-                  O dispositivo desta conta não está neste navegador.{' '}
-                  <Link to="/cofre/acesso" className="underline font-semibold">Abra o cofre aqui com a sua senha de acesso</Link> (Pro: ver e editar)
-                  {' '}ou <Link to="/cofre/ver" className="underline font-semibold">veja com a chave de contingência</Link> (só leitura).
-                  Perdeu a chave de contingência? <Link to="/perdi-ccp" className="underline font-semibold">Veja as opções</Link>. As ações de emergência abaixo continuam disponíveis.
-                </p>
+<AvisoOutroAparelho />
                 )
               ) : travado ? (
                 <DesbloquearCofre contaId={contaId} />
@@ -927,7 +927,7 @@ export function Device({ embutido = false }: { embutido?: boolean } = {}) {
                 <Smartphone className="w-5 h-5 mt-0.5 shrink-0" style={{ color: c.bright }} />
                 <span>
                   <span className="block text-sm font-semibold">Senha de acesso ao cofre {!recursos?.acessoRemoto && <span className="text-[10px] ml-1 px-1.5 py-0.5 rounded" style={{ background: 'rgba(141,81,255,0.15)', color: c.bright }}>Pro</span>}</span>
-                  <span className="block text-xs" style={{ color: c.muted }}>Abra e edite o cofre em qualquer aparelho, com um PIN.</span>
+                  <span className="block text-xs" style={{ color: c.muted }}>Abra e edite o cofre em qualquer aparelho com a senha{isPro ? " ou o PIN" : ""}.</span>
                 </span>
               </Link>
               <Link to="/cofre/pontos" className="rounded-xl p-4 flex items-start gap-3" style={{ background: c.isDark ? 'rgba(141,81,255,0.06)' : 'rgba(81,0,189,0.04)', border: `1px solid ${c.border}` }}>

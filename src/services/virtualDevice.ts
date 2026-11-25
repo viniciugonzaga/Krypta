@@ -598,3 +598,6 @@ export const DeviceAPI = {
       body,
     }),
 };
+
+/** v1.5.0: a mesma biometria (WebAuthn PRF) para lembrar a senha de acesso nos outros aparelhos */
+export const biometriaPrf = prfDaBiometria;

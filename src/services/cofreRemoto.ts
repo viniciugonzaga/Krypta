@@ -1,6 +1,7 @@
 // src/services/cofreRemoto.ts
 // ============================================================
-// v1.2.0 — COFRE EM QUALQUER APARELHO (Krypta Pro) + PONTOS DE RESTAURAÇÃO
+// v1.2.0 — COFRE EM QUALQUER APARELHO + PONTOS DE RESTAURAÇÃO
+// v1.5.0 — todos os planos abrem com SENHA; PIN de 6 dígitos e biometria (celular) são do Pro
 //
 // SENHA DE ACESSO AO COFRE
 //   Criar (uma vez, em qualquer aparelho logado):  CCP + PIN novo
@@ -19,7 +20,11 @@ import { VaultAPI, type ResumoMudancas } from './api';
 import {
   abrirCofre,
   abrirEnvelope,
+  aleatorio,
+  b64ParaBytes,
+  bytesParaB64,
   cifrar,
+  decifrar,
   derivar,
   derivarPin,
   lerCredenciais,
@@ -28,7 +33,7 @@ import {
   type Cifrado,
   type Credencial,
 } from '../crypto/kryptaCrypto';
-import { VirtualDevice } from './virtualDevice';
+import { VirtualDevice, biometriaPrf } from './virtualDevice';
 import { sincronizarDispositivo, type MudancaCofre } from './vaultFlows';
 
 export type TipoAcesso = 'PIN' | 'SENHA';
@@ -229,3 +234,52 @@ export async function restaurarPonto(contaId: string, id: string, ccp: string) {
 export async function apagarPonto(contaId: string, id: string, ccp: string) {
   return VaultAPI.apagarPonto(id, await provaCcp(contaId, ccp));
 }
+
+// ============================================================
+// v1.5.0 — BIOMETRIA NOS OUTROS APARELHOS (Krypta Pro, celular)
+// Depois de abrir com o PIN/senha, a pessoa pode "lembrar com a digital".
+// O PIN fica guardado SÓ neste aparelho, cifrado com uma chave que só a
+// biometria (WebAuthn PRF do próprio aparelho) devolve. O servidor continua
+// conferindo o PIN normalmente (5 erros = bloqueio).
+// ============================================================
+const K_BIO = (contaId: string) => `@Krypta:acesso-bio:${contaId}`;
+type BioGuardada = { credId: string; prfSalt: string; c: Cifrado };
+
+function lerBio(contaId: string): BioGuardada | null {
+  try {
+    const raw = localStorage.getItem(K_BIO(contaId));
+    return raw ? (JSON.parse(raw) as BioGuardada) : null;
+  } catch {
+    return null;
+  }
+}
+
+export const BioAcesso = {
+  ligada(contaId: string): boolean {
+    return !!lerBio(contaId);
+  },
+  async ligar(contaId: string, segredo: string, quem: { nome: string; email: string }): Promise<void> {
+    const prfSalt = aleatorio(32);
+    const { credId, chave } = await biometriaPrf(null, prfSalt, quem);
+    const c = await cifrar(chave, new TextEncoder().encode(segredo));
+    localStorage.setItem(K_BIO(contaId), JSON.stringify({ credId, prfSalt: bytesParaB64(prfSalt), c } satisfies BioGuardada));
+  },
+  /** Pede a biometria e devolve o PIN/senha guardado */
+  async segredo(contaId: string): Promise<string> {
+    const g = lerBio(contaId);
+    if (!g) throw new Error('A biometria não está ligada neste aparelho.');
+    const { chave } = await biometriaPrf(g.credId, b64ParaBytes(g.prfSalt));
+    try {
+      return new TextDecoder().decode(await decifrar(chave, g.c));
+    } catch {
+      throw new Error('A biometria não abriu. Use o PIN.');
+    }
+  },
+  desligar(contaId: string): void {
+    try {
+      localStorage.removeItem(K_BIO(contaId));
+    } catch {
+      /* ok */
+    }
+  },
+};

@@ -9,7 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { PlanAPI } from '../services/api';
 import { normalizePlan, getPlanLabel, type PlanId } from '../utils/plan';
 
-import spriteRoboEncolhido from '../assets/kody/kody_encolhido.webp';
+import spriteRoboEncolhido from '../assets/cody/cody_encolhido.webp';
 import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
@@ -44,6 +44,7 @@ const FALLBACK_PLANS: PlanItem[] = [
       'Gerenciamento básico de senhas',
       'Aplicativo Krypta',
       'Acesso pelo software',
+      'Cofre em outros aparelhos com senha',
       'Capacidade limitada de armazenamento',
     ],
   },
@@ -62,6 +63,7 @@ const FALLBACK_PLANS: PlanItem[] = [
       'Aplicativo Krypta',
       'Acesso pelo software',
       'Autenticação multifator',
+      'PIN de 6 dígitos e biometria no celular',
       'Chave de segurança física',
       'Alertas de acesso',
       'Proteção reforçada para credenciais',

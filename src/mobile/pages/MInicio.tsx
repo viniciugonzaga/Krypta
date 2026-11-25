@@ -14,9 +14,9 @@ import { isProPlan } from '../../utils/plan';
 import { Avisos } from '../../services/avisos';
 import { FONTE, GRAD, MCard, MFaixa, MTitulo, MobileShell, fmtQuando, useMCores } from '../ui';
 
-import roboAcenando from '../../assets/kody/kody_acenando.webp';
+import roboAcenando from '../../assets/cody/cody_acenando.webp';
 import { Dica } from '../../components/Dica';
-import { KodyCard } from '../../ajuda/KodyCard';
+import { CodyCard } from '../../ajuda/CodyCard';
 import { useTrava } from '../TravaCofre';
 import { useCarregandoTela } from '../carregamento';
 import { resumoConta } from '../../utils/resumoConta';
@@ -150,8 +150,8 @@ export function MHome() {
         )}
       </MCard>
 
-      {/* Kody */}
-      <KodyCard className="mb-4" atalhos={ativo ? ['Minha conta está segura?', 'Gera uma senha forte'] : ['O que eu faço agora?', 'O que é parear?']} />
+      {/* Cody */}
+      <CodyCard className="mb-4" sprite="animado" atalhos={ativo ? ['Minha conta está segura?', 'Gera uma senha forte'] : ['O que eu faço agora?', 'O que é parear?']} />
 
       {/* Plano e dispositivo */}
       <div className="grid grid-cols-2 gap-4">

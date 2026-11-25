@@ -8,7 +8,7 @@ import { usePageLoading } from './hooks/usePageLoading';
 import { ModoProvider, useModo } from './mobile/ModoContext';
 import { MobileRoutes } from './mobile/MobileRoutes';
 import { CarregadorApp } from './mobile/carregamento';
-import { KodyBot } from './ajuda/KodyBot';
+import { CodyBot } from './ajuda/CodyBot';
 import { AvisosApp } from './components/AvisosApp';
 
 function AppContent() {
@@ -25,7 +25,7 @@ function AppContent() {
       </AnimatePresence>
       {modo === 'mobile' ? <MobileRoutes /> : <AppRoutes />}
       {modo === 'mobile' && <CarregadorApp />}
-      <KodyBot />
+      <CodyBot />
       <AvisosApp />
     </>
   );

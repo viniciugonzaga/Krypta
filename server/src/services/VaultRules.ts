@@ -18,6 +18,7 @@ const NOME_RECURSO: Record<RecursoPro, string> = {
   alertasAcesso: 'Os alertas de acesso',
   multiAparelho: 'Abrir o cofre em outros aparelhos',
   acessoRemoto: 'A senha de acesso ao cofre em outros aparelhos',
+  pinCofre: 'O PIN de 6 dígitos do cofre',
   camposExtras: 'Chaves com mais campos',
 };
 

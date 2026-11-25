@@ -1,6 +1,6 @@
 // src/ajuda/tipos.ts
 // ============================================================
-// KODY — tipos da conversa
+// CODY — tipos da conversa
 // ============================================================
 import type { PerfilAjuda } from './contexto';
 
@@ -11,7 +11,7 @@ export interface Acao {
   para: string;
 }
 
-/** Opção de resposta rápida. Quando o Kody faz uma pergunta, a próxima
+/** Opção de resposta rápida. Quando o Cody faz uma pergunta, a próxima
  *  mensagem é comparada primeiro com estas opções (rótulo + termos). */
 export interface Opcao {
   rotulo: string;

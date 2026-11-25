@@ -42,8 +42,9 @@ import Krypta2 from '../assets/Produtos/Krypta2.png';
 import Krypta3 from '../assets/Produtos/Krypta3.png';
 import Krypta4 from '../assets/Produtos/Krypta4.png';
 import Krypta6 from '../assets/Produtos/Krypta6.png';
-import spriteRoboVerificado from '../assets/kody/kody_verificado.webp';
-import spriteRoboAnimado from '../assets/kody/kody_animado.webp';
+import spriteRoboVerificado from '../assets/cody/cody_verificado.webp';
+import spriteRoboAnimado from '../assets/cody/cody_animado.webp';
+import { Camada } from '../components/Camada';
 
 // ============================================================
 // ESTILOS DOS TÍTULOS (iguais ao Welcome)
@@ -1126,6 +1127,7 @@ export function Products() {
       <Footer />
 
       {/* Toast */}
+      <Camada>
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -1145,6 +1147,7 @@ export function Products() {
           </motion.div>
         )}
       </AnimatePresence>
+      </Camada>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // src/ajuda/contexto.ts
 // ============================================================
-// KODY — o que o assistente sabe sobre QUEM está perguntando
+// CODY — o que o assistente sabe sobre QUEM está perguntando
 //
 // Junta o que o app já sabe (nada é enviado para fora do Krypta):
 //   • conta: nome, plano (Free/Pro), status do cofre, herança, recursos
@@ -35,7 +35,7 @@ export interface PerfilAjuda {
   biometria: boolean;
   totalChaves: number | null;
   heranca: boolean;
-  acessoRemoto: boolean | null; // null = não se aplica (Free) ou desconhecido
+  acessoRemoto: boolean | null; // null = desconhecido (v1.5.0: todos os planos têm)
   dispositivoFisico: 'nenhum' | 'em-transporte' | 'disponivel' | 'pareado';
   hardwareReal: boolean;
   onboarding: RespostasOnboarding | null;
@@ -76,7 +76,7 @@ export async function montarPerfil(params: {
     DevicesAPI.list().catch(() => [] as DispositivoComprado[]),
     OnboardingAPI.obter().catch(() => null),
   ]);
-  const remoto = pro && conta?.status === 'ATIVA' ? await VaultAPI.remotoEstado().catch(() => null) : null;
+  const remoto = conta?.status === 'ATIVA' ? await VaultAPI.remotoEstado().catch(() => null) : null;
 
   const d = VirtualDevice.carregar(contaId);
   const aqui = !!d && !!conta && d.publicKey === conta.public_key;

@@ -8,7 +8,7 @@
 
 Site · App do celular (PWA) · App para Windows · API · Dispositivo ESP32
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-1.4.0-6d28d9)
+![versão](https://img.shields.io/badge/vers%C3%A3o-1.5.0-6d28d9)
 ![front](https://img.shields.io/badge/front-React%2019%20%2B%20Vite%20%2B%20TS-61dafb)
 ![api](https://img.shields.io/badge/API-Node%20%2B%20Express%20%2B%20MySQL-339933)
 ![desktop](https://img.shields.io/badge/desktop-Tauri%202-ffc131)
@@ -47,7 +47,7 @@ A chave do cofre mora num **dispositivo** (o navegador/app onde o cofre foi pare
 com leitor NFC). Para emergências existem a **chave de contingência** (do dono), o **Kill Switch** (bloqueio
 remoto), a **herança digital** (o **código de herança**, com a chave do herdeiro) e, desde a v1.2.0, a **senha de acesso** para abrir
 e editar o cofre em qualquer aparelho e os **pontos de restauração**. Na v1.3.0 o cofre ganhou uma **trava no
-próprio aparelho** (PIN, senha ou biometria) e o app ganhou o **Kody**, um assistente de ajuda.
+próprio aparelho** (PIN, senha ou biometria) e o app ganhou o **Cody**, um assistente de ajuda.
 
 > Nos textos do app, "CCP" passou a se chamar **chave de contingência** e "kit do herdeiro" virou **código de herança**.
 > No código e na API os nomes técnicos (`ccp`, `cch`) continuam os mesmos.
@@ -60,11 +60,11 @@ próprio aparelho** (PIN, senha ou biometria) e o app ganhou o **Kody**, um assi
 | **Cofre** | Chaves com tipos (Login, Cartão, Endereço, Wi-Fi, Documento, Nota, Personalizado), campos secretos, ícones de marcas reconhecidos pelo nome, busca, gerador de senha forte |
 | **Dispositivo** | Pareamento de dispositivo de software (navegador/app) ou do Krypta físico (ESP32 + NFC), login por assinatura Ed25519 (challenge-response) |
 | **Chave de contingência** (CCP) | 160 bits, mostrada uma vez; recupera o cofre, troca de dispositivo, aciona o Kill Switch, abre a trava se esquecer o PIN |
-| **Trava do cofre** (v1.3.0) | PIN de 6 dígitos ou senha (e biometria opcional) que tranca o cofre **até no aparelho pareado**; criada no pareamento; tranca sozinha em 5 min |
-| **Kody** (v1.3.0, v1.4.0) | Assistente no site, no celular e no Windows: conversa de verdade (perguntas de volta, fluxos guiados, check-up, gerador de senha), com base no plano, no cofre, no aparelho e no questionário |
+| **Trava do cofre** (v1.3.0, v1.5.0) | Senha (todos os planos) ou PIN de 6 dígitos e digital no celular (Pro) que tranca o cofre **até no aparelho pareado**; criada no pareamento; tranca sozinha em 5 min |
+| **Cody** (v1.3.0, v1.4.0) | Assistente no site, no celular e no Windows: conversa de verdade (perguntas de volta, fluxos guiados, check-up, gerador de senha), com base no plano, no cofre, no aparelho e no questionário |
 | **Notificações** (v1.3.0) | Avisos de segurança no Windows (notificação do sistema), no navegador e dentro do app; sino com não lidas |
-| **Foto de perfil** (v1.4.0) | Anônimo por padrão; 12 avatares do Kody com a cor de fundo à escolha, ou foto própria |
-| **Início** (v1.4.0) | Site e Windows com o mesmo Início do app: cofre, resumo, atividades, Kody e atalhos |
+| **Foto de perfil** (v1.4.0) | Anônimo por padrão; 12 avatares do Cody com a cor de fundo à escolha, ou foto própria |
+| **Início** (v1.4.0) | Site e Windows com o mesmo Início do app: cofre, resumo, atividades, Cody e atalhos |
 | **Kill Switch** (Pro) | Bane o dispositivo perdido para sempre e permite vincular outro com a CCP |
 | **Herança digital** (Pro) | Código de herança (ID da conta + chave do herdeiro); o herdeiro resgata o cofre sem ter conta |
 | **Senha de acesso** (Pro, v1.2.0) | PIN de 6 dígitos ou senha para **ver e editar** o cofre em qualquer aparelho logado |
@@ -226,14 +226,15 @@ Um **push na `main`** atualiza o site (Hostinger) e a API (Render) sozinhos. Mig
 | [docs/DESKTOP.md](docs/DESKTOP.md) | App Windows (Tauri) e publicação do .exe |
 | [docs/PRODUCAO.md](docs/PRODUCAO.md) | Como o Krypta foi hospedado e como funciona no ar |
 | [docs/HOSPEDAGEM.md](docs/HOSPEDAGEM.md) | Passo a passo para refazer a hospedagem |
-| [docs/TRAVA-AJUDA-AVISOS.md](docs/TRAVA-AJUDA-AVISOS.md) | v1.3.0/1.4.0: trava do cofre (PIN/biometria), Kody, notificações, foto de perfil, Início e carregamento |
+| [docs/TRAVA-AJUDA-AVISOS.md](docs/TRAVA-AJUDA-AVISOS.md) | v1.3.0/1.4.0: trava do cofre (PIN/biometria), Cody, notificações, foto de perfil, Início e carregamento |
 | [docs/ATUALIZAR.md](docs/ATUALIZAR.md) | **Como publicar uma versão nova** (site, API, banco, celular e Windows) |
 
 ## 12. Histórico de versões
 | Versão | Principais mudanças |
 |---|---|
-| **1.4.0** | Kody (novo nome e muito mais esperto: perguntas de volta, fluxos guiados, check-up, gerador de senha); cartão "Fale com o Kody" no Início e no Perfil; Início do site igual ao do app; seção Novidades; avatares do Kody com cor de fundo; loader leve (WebP) e só quando precisa no celular |
-| **1.3.0** | Trava do cofre no aparelho (PIN/senha + biometria) criada no pareamento; Kody, o robô de ajuda; notificações de verdade (Windows, navegador, app); foto de perfil/avatar padrão; cartões de dica; "chave de contingência" e "código de herança" nos textos; carregamento mais curto; fundo das telas de entrada nítido e animado; mais espaço entre os cartões |
+| **1.5.0** | Cofre em outros aparelhos **com senha em todos os planos** (PIN de 6 dígitos e digital no celular são Pro); aviso novo "cofre pareado em outro aparelho"; biometria só no celular (some no site/Windows); Kody virou **Cody**, com balão de conversa na barra do app (Início · Cody · + · Cofre · Ajustes) e opção de esconder o botão flutuante; ajuste de posição e zoom na foto de perfil; janelas sempre por cima da barra do app |
+| **1.4.0** | Cody (novo nome e muito mais esperto: perguntas de volta, fluxos guiados, check-up, gerador de senha); cartão "Fale com o Cody" no Início e no Perfil; Início do site igual ao do app; seção Novidades; avatares do Cody com cor de fundo; loader leve (WebP) e só quando precisa no celular |
+| **1.3.0** | Trava do cofre no aparelho (PIN/senha + biometria) criada no pareamento; Cody, o robô de ajuda; notificações de verdade (Windows, navegador, app); foto de perfil/avatar padrão; cartões de dica; "chave de contingência" e "código de herança" nos textos; carregamento mais curto; fundo das telas de entrada nítido e animado; mais espaço entre os cartões |
 | **1.2.1** | No ar: site em `krypta.website` (Hostinger) e API no Render; e-mails pela API HTTP da Brevo; imports com o nome exato das pastas (build no Linux); dependências atualizadas |
 | **1.2.0** | Senha de acesso ao cofre (Pro), edição em qualquer aparelho com sincronia, relatório de edições, pontos de restauração com a CCP, campos extras só no Pro, editor completo no site, cofre abandonado não leva mais chaves para o novo |
 | **1.1.0** | Ver o cofre com a CCP em outro aparelho, "Perdi minha CCP" (nova CCP / abandonar), tipos de chave, campos e ícones de marcas |

@@ -64,7 +64,8 @@ import {
   type SimulatedOrder,
 } from '../services/fakePayment';
 
-import spriteRoboAbraco from '../assets/kody/kody_abraco.webp';
+import spriteRoboAbraco from '../assets/cody/cody_abraco.webp';
+import { Camada } from '../components/Camada';
 
 const PURPLE = '#8d51ff';
 const DEEP = '#5100BD';
@@ -273,6 +274,7 @@ function ProcessingOverlay({
 }) {
   const progress = Math.min(1, current / steps.length);
   return (
+    <Camada>
     <motion.div
       className="fixed inset-0 z-[70] flex items-center justify-center p-4"
       initial={{ opacity: 0 }}
@@ -373,6 +375,7 @@ function ProcessingOverlay({
         </ul>
       </motion.div>
     </motion.div>
+    </Camada>
   );
 }
 
@@ -422,6 +425,7 @@ function SuccessOverlay({
   ];
 
   return (
+    <Camada>
     <motion.div
       className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto"
       initial={{ opacity: 0 }}
@@ -529,6 +533,7 @@ function SuccessOverlay({
         </div>
       </motion.div>
     </motion.div>
+    </Camada>
   );
 }
 
@@ -554,6 +559,7 @@ function ErrorOverlay({
     kind === 'declined' ? 'Pagamento recusado' : kind === 'session' ? 'Sua sessão expirou' : 'Algo deu errado';
 
   return (
+    <Camada>
     <motion.div
       className="fixed inset-0 z-[70] flex items-center justify-center p-4"
       initial={{ opacity: 0 }}
@@ -624,6 +630,7 @@ function ErrorOverlay({
         </div>
       </motion.div>
     </motion.div>
+    </Camada>
   );
 }
 

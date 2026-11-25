@@ -1,7 +1,7 @@
 // src/ajuda/abrir.ts
-// Abre o Kody de qualquer tela (cartões, dicas, botões), opcionalmente já com uma pergunta.
-export const EVENTO_KODY = 'krypta:kody';
+// Abre o Cody de qualquer tela (cartões, dicas, botões), opcionalmente já com uma pergunta.
+export const EVENTO_CODY = 'krypta:cody';
 
-export function abrirKody(pergunta?: string) {
-  window.dispatchEvent(new CustomEvent(EVENTO_KODY, { detail: pergunta ?? '' }));
+export function abrirCody(pergunta?: string) {
+  window.dispatchEvent(new CustomEvent(EVENTO_CODY, { detail: pergunta ?? '' }));
 }

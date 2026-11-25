@@ -7,11 +7,16 @@
 //  • GerenciarTrava   → trocar PIN, ligar/desligar biometria, trancar agora
 //  • GuardaTrava      → envolve as telas do cofre e mostra o que faltar
 //
-// Mesmo no aparelho que pareou, o cofre só abre com o PIN ou a biometria.
+// Mesmo no aparelho que pareou, o cofre só abre com a senha, o PIN ou a biometria.
+// v1.5.0: SENHA em todos os planos; PIN de 6 dígitos e biometria (só no celular) no Pro.
+// No site e no app do Windows a biometria não aparece.
 // Os dados ficam cifrados no aparelho (ver services/virtualDevice.ts).
 // ============================================================
 import { useEffect, useState, type ReactNode } from 'react';
-import { Fingerprint, KeyRound, Lock, LockOpen, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Crown, Fingerprint, KeyRound, Lock, LockOpen, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useModo } from './ModoContext';
+import { biometriaPermitida, tipoPadrao, tiposDeSegredo } from '../utils/plan';
 import { useAuth } from '../contexts/AuthContext';
 import { Trava, type TipoTrava } from '../services/virtualDevice';
 import { configurarAcesso, validarSenhaAcesso } from '../services/cofreRemoto';
@@ -28,7 +33,26 @@ export function useTrava(contaId: string) {
   return { situacao: contaId ? Trava.situacao(contaId) : ('sem-dispositivo' as const), info: Trava.info(contaId) };
 }
 
+/** O que esta pessoa pode usar para trancar/abrir o cofre */
+export function usePoderesTrava() {
+  const { user } = useAuth();
+  const { modo } = useModo();
+  return { tipos: tiposDeSegredo(user?.plan), padrao: tipoPadrao(user?.plan), bio: biometriaPermitida(user?.plan, modo === 'mobile'), mobile: modo === 'mobile' };
+}
+
 function SeletorTipo({ c, tipo, onChange }: { c: MCores; tipo: TipoTrava; onChange: (t: TipoTrava) => void }) {
+  const { tipos } = usePoderesTrava();
+  if (tipos.length === 1) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl px-3 py-2 text-[12px]" style={{ background: c.faixa, color: c.suave }}>
+        <Crown className="w-4 h-4 shrink-0" style={{ color: c.roxo }} />
+        <span className="flex-1">
+          No Free o cofre abre com uma <strong style={{ color: c.texto }}>senha</strong>. PIN de 6 dígitos e biometria são do{' '}
+          <Link to="/plans" className="underline font-semibold" style={{ color: c.roxo }}>Krypta Pro</Link>.
+        </span>
+      </div>
+    );
+  }
   return (
     <div className="flex p-1 rounded-full" style={{ border: `1.5px solid ${c.borda}` }}>
       {(['PIN', 'SENHA'] as const).map((t) => (
@@ -66,6 +90,7 @@ export function CampoSegredoTrava({ c, tipo, valor, onChange, rotulo, autoFocus 
 export function DesbloquearCofre({ contaId, onAberto }: { contaId: string; onAberto?: () => void }) {
   const c = useMCores();
   const { info } = useTrava(contaId);
+  const poderes = usePoderesTrava();
   const tipo: TipoTrava = info.tipo ?? 'PIN';
   const [valor, setValor] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -100,7 +125,7 @@ export function DesbloquearCofre({ contaId, onAberto }: { contaId: string; onAbe
   const abrirCcp = async () => {
     if (await rodar('ccp', () => Trava.abrirComCcp(contaId, normalizarSegredo(ccp)))) {
       setCcp('');
-      setNovoPin({ tipo, valor: '', repetir: '' });
+      setNovoPin({ tipo: poderes.tipos.includes(tipo) ? tipo : poderes.padrao, valor: '', repetir: '' });
     }
   };
   const salvarNovo = async () => {
@@ -149,7 +174,7 @@ export function DesbloquearCofre({ contaId, onAberto }: { contaId: string; onAbe
             <LockOpen className="w-4 h-4" /> Abrir o cofre
           </MBotao>
           {ocupado === 'pin' && <p className="text-[11px] text-center" style={{ color: c.suave }}>Conferindo... leva alguns segundos de propósito.</p>}
-          {info.biometria && (
+          {info.biometria && poderes.bio && (
             <MBotao type="button" variante="secundario" carregando={ocupado === 'bio'} disabled={!!ocupado} onClick={abrirBio}>
               <Fingerprint className="w-4 h-4" /> Usar biometria
             </MBotao>
@@ -178,11 +203,12 @@ export function DesbloquearCofre({ contaId, onAberto }: { contaId: string; onAbe
 // ============================================================
 export function CriarTrava({ contaId, ccpInicial, isPro, onPronto }: { contaId: string; ccpInicial?: string; isPro: boolean; onPronto?: () => void }) {
   const c = useMCores();
-  const [tipo, setTipo] = useState<TipoTrava>('PIN');
+  const poderes = usePoderesTrava();
+  const [tipo, setTipo] = useState<TipoTrava>(poderes.padrao);
   const [valor, setValor] = useState('');
   const [repetir, setRepetir] = useState('');
   const [ccp, setCcp] = useState(ccpInicial ?? '');
-  const [remoto, setRemoto] = useState(isPro);
+  const [remoto, setRemoto] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -197,7 +223,7 @@ export function CriarTrava({ contaId, ccpInicial, isPro, onPronto }: { contaId: 
     try {
       const chave = normalizarSegredo(ccp);
       await Trava.criar(contaId, { tipo, segredo: valor, ccp: chave });
-      if (isPro && remoto) {
+      if (remoto) {
         try {
           await configurarAcesso(contaId, chave, tipo, valor);
         } catch (err) {
@@ -220,14 +246,12 @@ export function CriarTrava({ contaId, ccpInicial, isPro, onPronto }: { contaId: 
         <CampoSegredoTrava c={c} tipo={tipo} valor={valor} onChange={setValor} rotulo={tipo === 'PIN' ? 'Crie um PIN de 6 números' : 'Crie uma senha (8+ caracteres)'} />
         <CampoSegredoTrava c={c} tipo={tipo} valor={repetir} onChange={setRepetir} rotulo="Repita" />
         {!ccpInicial && <CampoCcp c={c} valor={ccp} onChange={setCcp} rotulo="Sua chave de contingência (para recuperar se esquecer)" />}
-        {isPro && (
-          <label className="flex items-start gap-2 text-[12.5px]">
-            <input type="checkbox" checked={remoto} onChange={(e) => setRemoto(e.target.checked)} className="accent-purple-600 w-4 h-4 mt-0.5" />
-            Usar o mesmo {NOME_SEGREDO[tipo]} para abrir o cofre nos meus outros aparelhos (Krypta Pro)
-          </label>
-        )}
+        <label className="flex items-start gap-2 text-[12.5px]">
+          <input type="checkbox" checked={remoto} onChange={(e) => setRemoto(e.target.checked)} className="accent-purple-600 w-4 h-4 mt-0.5" />
+          Usar {tipo === 'PIN' ? 'o mesmo PIN' : 'a mesma senha'} para abrir o cofre nos meus outros aparelhos
+        </label>
         <p className="text-[11.5px]" style={{ color: c.suave }}>
-          Não use a senha da sua conta. Depois você pode ligar a biometria (digital, rosto ou Windows Hello).
+          Não use a senha da sua conta.{poderes.bio ? ' Depois você pode ligar a biometria (digital ou rosto).' : isPro && !poderes.mobile ? ' No celular, você também pode usar a digital.' : ''}
         </p>
         {erro && <MAviso tipo="erro">{erro}</MAviso>}
         {aviso && <MAviso tipo="info">{aviso}</MAviso>}
@@ -246,6 +270,7 @@ export function CriarTrava({ contaId, ccpInicial, isPro, onPronto }: { contaId: 
 export function GerenciarTrava({ contaId }: { contaId: string }) {
   const c = useMCores();
   const { user } = useAuth();
+  const poderes = usePoderesTrava();
   const { situacao, info } = useTrava(contaId);
   const [bioOk, setBioOk] = useState<boolean | null>(null);
   const [trocar, setTrocar] = useState<{ tipo: TipoTrava; valor: string; repetir: string } | null>(null);
@@ -278,18 +303,24 @@ export function GerenciarTrava({ contaId }: { contaId: string }) {
 
   return (
     <MCard c={c}>
-      <MFaixa c={c} icone={<ShieldCheck className="w-5 h-5" />} titulo="Trava deste aparelho" sub={`${info.tipo === 'SENHA' ? 'Senha' : 'PIN'}${info.biometria ? ' + biometria' : ''} · tranca sozinha após 5 min sem uso`} />
+      <MFaixa c={c} icone={<ShieldCheck className="w-5 h-5" />} titulo="Trava deste aparelho" sub={`${info.tipo === 'SENHA' ? 'Senha' : 'PIN'}${info.biometria && poderes.mobile ? ' + biometria' : ''} · tranca sozinha após 5 min sem uso`} />
       {ok && <MAviso tipo="ok">{ok}</MAviso>}
       {erro && <MAviso tipo="erro">{erro}</MAviso>}
       {!trocar ? (
         <div className="grid grid-cols-1 gap-2 mt-2">
-          <MBotao variante="secundario" onClick={() => setTrocar({ tipo: info.tipo ?? 'PIN', valor: '', repetir: '' })}>
+          <MBotao variante="secundario" onClick={() => setTrocar({ tipo: info.tipo && poderes.tipos.includes(info.tipo) ? info.tipo : poderes.padrao, valor: '', repetir: '' })}>
             <KeyRound className="w-4 h-4" /> Trocar o {info.tipo === 'SENHA' ? 'senha' : 'PIN'}
           </MBotao>
           {info.biometria ? (
             <MBotao variante="secundario" carregando={ocupado === 'bio'} disabled={!!ocupado} onClick={() => rodar('bio', () => Trava.desligarBiometria(contaId), 'Biometria desligada.')}>
               <Fingerprint className="w-4 h-4" /> Desligar biometria
             </MBotao>
+          ) : !poderes.mobile ? null : !poderes.bio ? (
+            <Link to="/plans" className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[12.5px]" style={{ background: c.faixa, color: c.suave }}>
+              <Fingerprint className="w-4 h-4" style={{ color: c.roxo }} />
+              <span className="flex-1">Abrir com a <strong style={{ color: c.texto }}>digital ou o rosto</strong></span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold" style={{ color: c.roxo }}><Crown className="w-3.5 h-3.5" /> Pro</span>
+            </Link>
           ) : (
             <MBotao
               variante="secundario"
@@ -324,9 +355,11 @@ export function GerenciarTrava({ contaId }: { contaId: string }) {
           <button type="button" onClick={() => setTrocar(null)} className="w-full text-[13px]" style={{ color: c.suave }}>Cancelar</button>
         </div>
       )}
-      <p className="text-[11px] mt-3" style={{ color: c.suave }}>
-        A biometria usa o Windows Hello, a digital ou o rosto do aparelho. Ela nunca sai do aparelho: o Krypta só recebe uma chave que abre a trava.
-      </p>
+      {poderes.mobile && (
+        <p className="text-[11px] mt-3" style={{ color: c.suave }}>
+          A biometria usa a digital ou o rosto do celular. Ela nunca sai do aparelho: o Krypta só recebe uma chave que abre a trava.
+        </p>
+      )}
     </MCard>
   );
 }

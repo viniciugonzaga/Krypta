@@ -2,7 +2,7 @@
 // ============================================================
 // v1.2.0 — COFRE EM QUALQUER APARELHO + PONTOS DE RESTAURAÇÃO
 //
-// A) SENHA DE ACESSO AO COFRE (Krypta Pro)
+// A) SENHA DE ACESSO AO COFRE (v1.5.0: todos os planos com SENHA; PIN de 6 dígitos só no Pro)
 //    O usuário cria um PIN de 6 dígitos (ou uma senha) UMA vez, provando a CCP.
 //    Depois, em qualquer aparelho logado na conta, o PIN abre o cofre com
 //    leitura E edição, sem precisar da CCP.
@@ -148,6 +148,7 @@ export const VaultRemotoController = {
       success: true,
       data: {
         disponivel: regrasDe(req.user!.plan).acessoRemoto,
+        pinPermitido: regrasDe(req.user!.plan).pinCofre,
         configurado: !!a?.ativo,
         bloqueado: !!a?.bloqueado,
         tipo: a?.ativo ? a.tipo : null,
@@ -183,6 +184,9 @@ export const VaultRemotoController = {
     const provaPin = validarProva(req.body?.prova_pin, 'prova_pin');
     const envelope = validarEnvelope(req.body?.envelope);
     const tipo = req.body?.tipo === 'SENHA' ? 'SENHA' : 'PIN';
+    if (tipo === 'PIN' && !regrasDe(req.user!.plan).pinCofre) {
+      throw new ApiError(403, 'O PIN de 6 dígitos é do Krypta Pro. No Free, crie uma senha de acesso (8+ caracteres).', { motivo: 'PLANO', recurso: 'pinCofre' });
+    }
     await exigirAtiva(userId);
     await conferirProvaDono(userId, prova, 'Chave de contingência incorreta.');
 
@@ -210,6 +214,10 @@ export const VaultRemotoController = {
     const a = await CofreRemotoModel.obter(userId);
     if (!a?.ativo || !a.hash_prova || !a.envelope) throw new ApiError(404, 'Você ainda não criou a senha de acesso ao cofre.');
     if (a.bloqueado) throw new ApiError(423, 'Senha de acesso bloqueada por tentativas erradas. Crie outra com a chave de contingência.', { motivo: 'BLOQUEADO' });
+    // v1.5.0: quem voltou para o Free com um PIN de acesso precisa criar uma senha
+    if (a.tipo === 'PIN' && !regrasDe(req.user!.plan).pinCofre) {
+      throw new ApiError(403, 'Seu acesso é um PIN, que é do Krypta Pro. Crie uma senha de acesso (8+ caracteres) com a chave de contingência.', { motivo: 'PLANO', recurso: 'pinCofre' });
+    }
 
     const user = req.user!;
     if (!(await compararComPepper(provaPin, a.hash_prova))) {

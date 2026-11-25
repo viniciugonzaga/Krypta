@@ -9,8 +9,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { ContactAPI } from '../services/api';
 
 // Imagem do robô com interrogação
-import spriteRoboDuvida from '../assets/kody/kody_interrogacao.webp';
-import spriteRoboAcenando from '../assets/kody/kody_acenando.webp';
+import spriteRoboDuvida from '../assets/cody/cody_interrogacao.webp';
+import spriteRoboAcenando from '../assets/cody/cody_acenando.webp';
 
 // Link do botão "Conversar com o Cody" (troque pela rota/URL do chat)
 const CODY_HREF = '#';

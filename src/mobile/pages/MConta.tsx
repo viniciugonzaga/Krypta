@@ -42,7 +42,9 @@ import { motivoDoModo, type PreferenciaModo } from '../modo';
 import { FONTE, GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MInterruptor, MTitulo, MobileShell, fmtQuando, useMCores } from '../ui';
 import { useNotificacoesAparelho } from '../../components/AvisosApp';
 import { EditorFoto, FotoPerfil } from '../../components/FotoPerfil';
-import { KodyCard } from '../../ajuda/KodyCard';
+import { CodyCard } from '../../ajuda/CodyCard';
+import { useCodyFlutuante } from '../../ajuda/preferencias';
+import codyIcone from '../../assets/cody/cody_acenando.webp';
 
 const ICONE_CLIENTE = { web: Globe, mobile: Smartphone, pwa: Smartphone, desktop: Monitor };
 const NOME_CLIENTE = { web: 'Site', mobile: 'Celular (navegador)', pwa: 'App do celular', desktop: 'App para Windows' };
@@ -151,7 +153,7 @@ export function MPerfil() {
           </button>
         </div>
         <button type="button" onClick={() => setEditarFoto(true)} className="text-[12.5px] font-semibold underline underline-offset-4 mb-1" style={{ color: c.roxo }}>
-          {user.avatarUrl ? 'Trocar foto ou avatar' : 'Escolher um avatar do Kody'}
+          {user.avatarUrl ? 'Trocar foto ou avatar' : 'Escolher um avatar do Cody'}
         </button>
         <p className="text-[13px]" style={{ color: c.suave }}>{user.email}</p>
         <span className="inline-flex items-center gap-1 mt-2 px-3 py-1 rounded-full text-[11.5px] text-white" style={{ background: GRAD }}>
@@ -241,7 +243,7 @@ export function MPerfil() {
       </MCard>
 
       {/* Ajuda */}
-      <KodyCard className="mb-4" titulo="Dúvidas sobre a sua conta?" sub="O Kody responde na hora." atalhos={['Como coloco foto no perfil?', 'Como ligo as notificações?', 'Onde minha conta está aberta?']} />
+      <CodyCard className="mb-4" titulo="Dúvidas sobre a sua conta?" sub="O Cody responde na hora." atalhos={['Como coloco foto no perfil?', 'Como ligo as notificações?', 'Onde minha conta está aberta?']} />
 
       <MBotao variante="secundario" onClick={() => { signOut(); navigate('/', { replace: true }); }}><LogOut className="w-4 h-4" /> Sair da conta</MBotao>
 
@@ -272,6 +274,7 @@ export function MPerfil() {
 export function MConfig() {
   const c = useMCores();
   const notif = useNotificacoesAparelho();
+  const [codyFlutuante, setCodyFlutuante] = useCodyFlutuante();
   const navigate = useNavigate();
   const { toggleTheme } = useTheme();
   const { modo, preferencia, mudarPreferencia } = useModo();
@@ -345,6 +348,16 @@ export function MConfig() {
         </div>
         <p className="text-[11.5px]" style={{ color: c.suave }}>{notif.texto}</p>
         <p className="text-[11.5px] mt-1" style={{ color: c.suave }}>Sempre ligados: Kill Switch, resgate de herança e inatividade do cofre são avisos de segurança.</p>
+      </MCard>
+
+      {/* Cody */}
+      <MCard c={c} i={3} className="mb-4">
+        <MFaixa c={c} icone={<img src={codyIcone} alt="" className="w-6 h-6 object-contain" />} titulo="Cody, o assistente" sub="Ele também fica na barra de baixo (balão de conversa)." />
+        <div className="flex items-center justify-between py-2 text-[14px]">
+          <span>Mostrar o Cody flutuante</span>
+          <MInterruptor ligado={codyFlutuante} onChange={setCodyFlutuante} />
+        </div>
+        <p className="text-[11.5px]" style={{ color: c.suave }}>Desligado, o botão do canto some. O Cody continua no Início, no Perfil e na barra.</p>
       </MCard>
 
       {/* Atualizações */}

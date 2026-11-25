@@ -12,7 +12,7 @@ Comece pelo [README principal](../README.md). Aqui estão os documentos técnico
 | 6 | [DESKTOP.md](DESKTOP.md) | Front / deploy | App Windows (Tauri) e publicação do `.exe` |
 | 7 | [PRODUCAO.md](PRODUCAO.md) | Todos | Como o Krypta foi hospedado e como funciona no ar (endereços, fluxo, operação) |
 | 8 | [HOSPEDAGEM.md](HOSPEDAGEM.md) | Deploy | Passo a passo para refazer a hospedagem (Hostinger + Render + Brevo) |
-| 9 | [TRAVA-AJUDA-AVISOS.md](TRAVA-AJUDA-AVISOS.md) | Todos | v1.3.0/1.4.0: trava do cofre, Kody, notificações, foto de perfil, Início e carregamento |
+| 9 | [TRAVA-AJUDA-AVISOS.md](TRAVA-AJUDA-AVISOS.md) | Todos | v1.3.0/1.4.0: trava do cofre, Cody, notificações, foto de perfil, Início e carregamento |
 | 10 | [ATUALIZAR.md](ATUALIZAR.md) | Deploy | **Publicar uma versão nova**: banco, push, site, API, celular e Windows |
 
 ## Documentação por pasta

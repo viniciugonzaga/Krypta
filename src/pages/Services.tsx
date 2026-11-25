@@ -18,9 +18,9 @@ import {
   Layers,
 } from 'lucide-react';
 
-import spriteRoboX from '../assets/kody/kody_x.webp';
-import spriteRoboVerificado from '../assets/kody/kody_verificado.webp';
-import spriteRoboAnimado from '../assets/kody/kody_animado.webp';
+import spriteRoboX from '../assets/cody/cody_x.webp';
+import spriteRoboVerificado from '../assets/cody/cody_verificado.webp';
+import spriteRoboAnimado from '../assets/cody/cody_animado.webp';
 
 import logoTextoClaro from '../assets/Logos/Krypta_de_texto.png';
 import logoTextoEscuro from '../assets/Logos/Krypta_de_texto2.png';
@@ -844,6 +844,7 @@ const PLANS_MONTHLY: PlanData[] = [
       'Gerenciamento básico de senhas',
       'Aplicativo Krypta',
       'Acesso pelo software',
+      'Cofre em outros aparelhos com senha',
       'Capacidade limitada de armazenamento',
     ],
     cta: 'Experimente Gratuitamente',
@@ -864,6 +865,7 @@ const PLANS_MONTHLY: PlanData[] = [
       'Aplicativo Krypta',
       'Acesso pelo software',
       'Autenticação multifator',
+      'PIN de 6 dígitos e biometria no celular',
       'Chave de segurança física',
       'Alertas de acesso',
       'Proteção reforçada para credenciais',

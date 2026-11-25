@@ -2,8 +2,10 @@
 // ============================================================
 // v1.2.0 (modo Mobile e site)
 //
-//   /cofre/acesso → SENHA DE ACESSO AO COFRE (Krypta Pro)
-//                   • criar/trocar (uma vez, com a CCP): PIN de 6 dígitos ou senha
+//   /cofre/acesso → SENHA DE ACESSO AO COFRE
+//                   v1.5.0: SENHA em todos os planos; PIN de 6 dígitos e
+//                   biometria (só no celular) no Krypta Pro
+//                   • criar/trocar (uma vez, com a CCP): senha ou PIN
 //                   • abrir o cofre em qualquer aparelho logado, com VER e EDITAR
 //                   • remover (senha da conta)
 //
@@ -13,17 +15,18 @@
 //
 //   FaixaRemota   → faixa "Cofre aberto com a senha de acesso · fecha às HH:MM"
 // ============================================================
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Crown, History, Info, KeyRound, Loader2, Lock, LockOpen, RotateCcw, Save, ShieldAlert, Smartphone, Trash2, Unlock } from 'lucide-react';
+import { Clock, Crown, Fingerprint, History, Info, KeyRound, Loader2, Lock, LockOpen, RotateCcw, Save, ShieldAlert, Smartphone, Trash2, Unlock } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { VaultAPI, handleApiError, type EstadoAcessoRemoto, type PontoRestauracao } from '../../services/api';
-import { SessaoCofre, configurarAcesso, removerAcesso, validarSenhaAcesso, criarPonto, restaurarPonto, apagarPonto, type SessaoPublica, type TipoAcesso } from '../../services/cofreRemoto';
+import { BioAcesso, SessaoCofre, configurarAcesso, removerAcesso, validarSenhaAcesso, criarPonto, restaurarPonto, apagarPonto, type SessaoPublica, type TipoAcesso } from '../../services/cofreRemoto';
 import { normalizarSegredo, segredoValido } from '../../crypto/kryptaCrypto';
 import { useCofre } from '../useCofre';
 import { GRAD, MAviso, MBotao, MCampo, MCard, MFaixa, MFolha, MTitulo, fmtQuando, useMCores, type MCores } from '../ui';
 import { Moldura } from '../Moldura';
 import { CampoCcp } from './MAcesso';
-import { GerenciarTrava, GuardaTrava } from '../TravaCofre';
+import { GerenciarTrava, GuardaTrava, usePoderesTrava } from '../TravaCofre';
 
 const hora = (ms: number) => new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
@@ -70,7 +73,14 @@ export function MAcessoCofre() {
   const c = useMCores();
   const navigate = useNavigate();
   const { contaId, conta, carregando, aqui, ativo, remoto } = useCofre();
+  const { user } = useAuth();
+  const poderes = usePoderesTrava();
   const [estado, setEstado] = useState<EstadoAcessoRemoto | null>(null);
+  // v1.5.0: o PIN/senha que acabou de abrir (só na memória) para ligar a biometria sem digitar de novo
+  const ultimoSegredo = useRef<string | null>(null);
+  const [bioLigada, setBioLigada] = useState(() => BioAcesso.ligada(contaId));
+  const [pinBio, setPinBio] = useState('');
+  useEffect(() => setBioLigada(BioAcesso.ligada(contaId)), [contaId]);
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -79,7 +89,10 @@ export function MAcessoCofre() {
   const [pin, setPin] = useState('');
   // configurar
   const [config, setConfig] = useState(false);
-  const [tipo, setTipo] = useState<TipoAcesso>('PIN');
+  const [tipo, setTipo] = useState<TipoAcesso>(poderes.padrao);
+  useEffect(() => {
+    if (!poderes.tipos.includes(tipo)) setTipo(poderes.padrao);
+  }, [poderes.tipos, poderes.padrao, tipo]);
   const [novo, setNovo] = useState('');
   const [repetir, setRepetir] = useState('');
   const [ccp, setCcp] = useState('');
@@ -118,10 +131,46 @@ export function MAcessoCofre() {
     if (!estado?.salt || !estado.tipo) return;
     const e = validarSenhaAcesso(estado.tipo, pin);
     if (e) return setErro(e);
-    rodar('abrir', () => SessaoCofre.abrir(contaId, pin, estado.salt!), () => {
+    const segredo = pin;
+    rodar('abrir', () => SessaoCofre.abrir(contaId, segredo, estado.salt!), () => {
+      ultimoSegredo.current = segredo;
       setPin('');
-      navigate('/cofre/chaves');
+      // Pro no celular sem biometria ainda: fica na tela para oferecer "ligar a digital"
+      if (!(poderes.bio && !bioLigada)) navigate('/cofre/chaves');
     });
+  };
+
+  const abrirComBio = () => {
+    if (!estado?.salt) return;
+    rodar(
+      'bio',
+      async () => {
+        const segredo = await BioAcesso.segredo(contaId);
+        try {
+          await SessaoCofre.abrir(contaId, segredo, estado.salt!);
+        } catch (e) {
+          // PIN trocado em outro aparelho: a digital guardada não vale mais
+          BioAcesso.desligar(contaId);
+          setBioLigada(false);
+          throw e;
+        }
+      },
+      () => navigate('/cofre/chaves'),
+    );
+  };
+
+  const ligarBio = () => {
+    const segredo = ultimoSegredo.current ?? pinBio;
+    if (!segredo) return setErro(`Digite ${estado?.tipo === 'PIN' ? 'o PIN' : 'a senha'} para ligar a biometria.`);
+    rodar(
+      'ligar-bio',
+      () => BioAcesso.ligar(contaId, segredo, { nome: user?.name ?? 'Krypta', email: user?.email ?? 'krypta' }),
+      () => {
+        setBioLigada(true);
+        setPinBio('');
+        setOk('Pronto! Da próxima vez, abra o cofre neste celular com a digital ou o rosto.');
+      },
+    );
   };
 
   const salvarConfig = () => {
@@ -152,7 +201,15 @@ export function MAcessoCofre() {
 
   return (
     <Moldura voltar="/device">
-      <MTitulo c={c} titulo="Senha do cofre" sub="O PIN (ou a biometria) abre o cofre neste aparelho. No Pro, o mesmo PIN abre e edita o cofre nos seus outros aparelhos." />
+      <MTitulo
+        c={c}
+        titulo="Senha do cofre"
+        sub={
+          poderes.tipos.length > 1
+            ? `Abra o cofre com a senha, o PIN${poderes.bio ? ' ou a digital' : ''}, neste e nos seus outros aparelhos.`
+            : 'Abra o cofre com a sua senha, neste e nos seus outros aparelhos. PIN e biometria são do Krypta Pro.'
+        }
+      />
       {!carregando && aqui && ativo && (
         <div className="mb-3">
           <GuardaTrava contaId={contaId} aqui={aqui} ativo={ativo} isPro={conta?.plano === 'pro'}>
@@ -171,10 +228,9 @@ export function MAcessoCofre() {
         /* ---------------- FREE ---------------- */
         <div className="space-y-3">
           <MCard c={c} destaque>
-            <MFaixa c={c} icone={<Crown className="w-5 h-5" />} titulo="Recurso do Krypta Pro" sub="No Free, o cofre abre só no aparelho pareado." />
+            <MFaixa c={c} icone={<Crown className="w-5 h-5" />} titulo="Indisponível no momento" sub="O servidor ainda não liberou a senha de acesso para a sua conta." />
             <p className="text-[13px] leading-relaxed" style={{ color: c.suave }}>
-              Com o Pro você cria um <strong style={{ color: c.texto }}>PIN de 6 dígitos</strong> (ou uma senha) e abre o cofre no celular, no
-              notebook do trabalho ou no app Windows, com tudo: ver, criar, editar e remover chaves. Sem precisar da chave de contingência no dia a dia.
+              Tente de novo em alguns minutos. Enquanto isso, o cofre abre no aparelho pareado.
             </p>
             <MBotao className="mt-4" onClick={() => navigate('/plans')}>Ver o Krypta Pro</MBotao>
           </MCard>
@@ -195,18 +251,42 @@ export function MAcessoCofre() {
             </MCard>
           )}
 
+          {/* ---------------- BIOMETRIA NESTE CELULAR (Pro) ---------------- */}
+          {!aqui && remoto && poderes.bio && !bioLigada && (
+            <MCard c={c}>
+              <MFaixa c={c} icone={<Fingerprint className="w-5 h-5" />} titulo="Abrir com a digital neste celular?" sub="Da próxima vez, sem digitar" />
+              {!ultimoSegredo.current && <CampoAcesso c={c} tipo={estado.tipo ?? 'PIN'} valor={pinBio} onChange={setPinBio} rotulo={estado.tipo === 'PIN' ? 'Confirme seu PIN' : 'Confirme sua senha de acesso'} />}
+              <MBotao className="mt-3" carregando={ocupado === 'ligar-bio'} disabled={!!ocupado} onClick={ligarBio}><Fingerprint className="w-4 h-4" /> Ligar digital ou rosto</MBotao>
+              <p className="text-[11px] mt-2" style={{ color: c.suave }}>
+                {estado.tipo === 'PIN' ? 'O PIN' : 'A senha'} fica guardado(a) só neste celular, cifrado(a) com uma chave que só a sua biometria libera.
+              </p>
+            </MCard>
+          )}
+          {!aqui && poderes.bio && bioLigada && (
+            <button type="button" onClick={() => { BioAcesso.desligar(contaId); setBioLigada(false); setOk('Biometria desligada neste celular.'); }} className="w-full text-[12px] font-semibold" style={{ color: c.suave }}>
+              Desligar a digital neste celular
+            </button>
+          )}
+
           {/* ---------------- ABRIR ---------------- */}
           {!aqui && !remoto && estado.configurado && !estado.bloqueado && (
             <MCard c={c}>
               <MFaixa c={c} icone={<Unlock className="w-5 h-5" />} titulo={estado.tipo === 'PIN' ? 'Digite seu PIN' : 'Digite sua senha de acesso'} sub={`${estado.tentativasRestantes} tentativa(s) antes de bloquear`} />
               <CampoAcesso c={c} tipo={estado.tipo ?? 'PIN'} valor={pin} onChange={setPin} rotulo={estado.tipo === 'PIN' ? 'PIN de 6 dígitos' : 'Senha de acesso'} />
               <MBotao className="mt-4" carregando={ocupado === 'abrir'} disabled={!!ocupado} onClick={abrir}><Unlock className="w-4 h-4" /> Abrir meu cofre</MBotao>
+              {poderes.bio && bioLigada && (
+                <MBotao className="mt-2" variante="secundario" carregando={ocupado === 'bio'} disabled={!!ocupado} onClick={abrirComBio}><Fingerprint className="w-4 h-4" /> Usar digital ou rosto</MBotao>
+              )}
               {ocupado === 'abrir' && <p className="text-[11px] text-center mt-2" style={{ color: c.suave }}>Conferindo... leva alguns segundos de propósito (protege contra força bruta).</p>}
             </MCard>
           )}
 
+          {estado.configurado && estado.tipo === 'PIN' && estado.pinPermitido === false && (
+            <MAviso tipo="info">Seu acesso é um PIN de 6 dígitos, que é do Krypta Pro. Para continuar abrindo o cofre nos outros aparelhos, troque por uma senha abaixo.</MAviso>
+          )}
+
           {aqui && (
-            <MAviso tipo="info">Este é o aparelho pareado: aqui o cofre abre pela trava acima. A senha de acesso abaixo é para os seus OUTROS aparelhos — use o mesmo PIN para não precisar decorar dois.</MAviso>
+            <MAviso tipo="info">Este é o aparelho pareado: aqui o cofre abre pela trava acima. A senha de acesso abaixo é para os seus OUTROS aparelhos — use a mesma da trava para não precisar decorar duas.</MAviso>
           )}
 
           {estado.bloqueado && (
@@ -237,6 +317,11 @@ export function MAcessoCofre() {
               </div>
             ) : (
               <div className="space-y-3">
+                {poderes.tipos.length === 1 ? (
+                  <p className="flex items-center gap-2 rounded-xl px-3 py-2 text-[12px]" style={{ background: c.faixa, color: c.suave }}>
+                    <Crown className="w-4 h-4 shrink-0" style={{ color: c.roxo }} /> No Free o acesso é por senha (8+ caracteres). PIN de 6 dígitos e biometria são do Krypta Pro.
+                  </p>
+                ) : (
                 <div className="flex p-1 rounded-full" style={{ border: `1.5px solid ${c.borda}` }}>
                   {(['PIN', 'SENHA'] as const).map((t) => (
                     <button key={t} type="button" onClick={() => { setTipo(t); setNovo(''); setRepetir(''); }} className="flex-1 h-9 rounded-full text-[13px] font-semibold" style={tipo === t ? { background: GRAD, color: '#fff' } : { color: c.suave }}>
@@ -244,6 +329,7 @@ export function MAcessoCofre() {
                     </button>
                   ))}
                 </div>
+                )}
                 <CampoAcesso c={c} tipo={tipo} valor={novo} onChange={setNovo} rotulo={tipo === 'PIN' ? 'Novo PIN' : 'Nova senha de acesso (8+ caracteres)'} />
                 <CampoAcesso c={c} tipo={tipo} valor={repetir} onChange={setRepetir} rotulo="Repita" />
                 <CampoCcp c={c} valor={ccp} onChange={setCcp} rotulo="Sua chave de contingência (só para criar ou trocar)" />
@@ -268,10 +354,11 @@ export function MAcessoCofre() {
           <MCard c={c} style={{ background: c.faixa }}>
             <p className="font-semibold text-[13.5px] mb-2 flex items-center gap-2"><Info className="w-4 h-4" style={{ color: c.roxo }} /> Como fica seguro</p>
             <ul className="text-[12px] space-y-1.5" style={{ color: c.suave }}>
-              <li>• O PIN nunca sai deste aparelho: o servidor guarda só uma prova dele e a chave do cofre cifrada.</li>
-              <li>• A chave que abre o cofre depende do PIN <strong style={{ color: c.texto }}>e</strong> de um segredo do servidor, liberado só depois do PIN certo.</li>
+              <li>• A senha (ou o PIN) nunca sai deste aparelho: o servidor guarda só uma prova dela e a chave do cofre cifrada.</li>
+              <li>• A chave que abre o cofre depende da senha <strong style={{ color: c.texto }}>e</strong> de um segredo do servidor, liberado só depois da senha certa.</li>
+              <li>• Todos os planos usam senha. No Pro, dá para usar um PIN de 6 dígitos e, no celular, a digital ou o rosto.</li>
               <li>• 5 erros seguidos bloqueiam. Desbloquear exige a chave de contingência.</li>
-              <li>• Precisa estar logado na conta: PIN sozinho não abre nada.</li>
+              <li>• Precisa estar logado na conta: a senha de acesso sozinha não abre nada.</li>
               <li>• Cada abertura e cada edição aparecem nos alertas e você recebe e-mail.</li>
               <li>• O cofre fecha sozinho em 15 minutos, ao recarregar a página ou ao sair da conta.</li>
               <li>• Por que não usar a senha da conta? Porque o servidor recebe a senha da conta no login: se ela abrisse o cofre, o servidor também conseguiria.</li>

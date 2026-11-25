@@ -1,4 +1,4 @@
-# v1.3.0 / v1.4.0 — Trava do cofre, Kody, notificações, foto de perfil, Início e carregamento
+# v1.3.0 → v1.5.0 — Trava do cofre, Cody, notificações, foto de perfil, Início e carregamento
 
 ## 1. Trava do cofre neste aparelho (PIN, senha ou biometria)
 
@@ -32,22 +32,22 @@ cofre, porque o dispositivo de software ficava pronto no navegador.
 > Biometria depende do navegador ter WebAuthn com a extensão PRF (Chrome/Edge recentes, Android, Safari 18+).
 > Onde não há, o botão avisa e o PIN continua valendo.
 
-## 2. Kody — o robô de ajuda (melhorado na v1.4.0)
+## 2. Cody — o robô de ajuda (melhorado na v1.4.0)
 
-O Kody aparece em três lugares: no **botão flutuante** (canto da tela), no cartão **"Fale com o Kody"** do Início
-e do Perfil (app e site) e nas **dicas** ("Perguntar ao Kody"). No celular, o botão flutuante some no Início e no
+O Cody aparece em três lugares: no **botão flutuante** (canto da tela), no cartão **"Fale com o Cody"** do Início
+e do Perfil (app e site) e nas **dicas** ("Perguntar ao Cody"). No celular, o botão flutuante some no Início e no
 Perfil, porque lá já tem o cartão. Arquivos em `src/ajuda/`:
 
 | Arquivo | Papel |
 |---|---|
 | `contexto.ts` | Monta o **perfil** de quem pergunta: plano, situação do cofre (sem cofre, sem PIN, trancado, pronto, em outro aparelho, bloqueado), biometria, nº de chaves, herança, senha de acesso, dispositivo físico, questionário, página e plataforma |
 | `base.ts` | ~60 assuntos com várias formas de responder. Inclui **fluxos guiados** (cofre não abre, perdi algo, escolher o plano em 3 perguntas), **check-up** da conta com nota, **gerador de senha**, dicas, conversa (oi, tudo bem, piada, obrigado, tchau) e perguntas sobre a própria conta (meu plano, quantas senhas) |
-| `motor.ts` | A conversa: entende a resposta às perguntas que o Kody faz ("sim", "não", "o celular"), percebe irritação e responde com calma, entende duas perguntas na mesma mensagem, "outra!", "não entendi", continuação do assunto, tolera erros de digitação, não repete a mesma frase, usa o nome de vez em quando e, depois de 3 tentativas sem entender, oferece falar com a equipe |
-| `KodyBot.tsx` | A janela: respostas em vários balões com "digitando…", rosto do Kody que muda com o humor, opções clicáveis, botões e navegação automática. Conversa guardada só na aba (senhas geradas não ficam) |
-| `KodyCard.tsx` | Cartão "Fale com o Kody" com atalhos de pergunta |
-| `abrir.ts` | `abrirKody('pergunta')` abre o Kody de qualquer tela |
+| `motor.ts` | A conversa: entende a resposta às perguntas que o Cody faz ("sim", "não", "o celular"), percebe irritação e responde com calma, entende duas perguntas na mesma mensagem, "outra!", "não entendi", continuação do assunto, tolera erros de digitação, não repete a mesma frase, usa o nome de vez em quando e, depois de 3 tentativas sem entender, oferece falar com a equipe |
+| `CodyBot.tsx` | A janela: respostas em vários balões com "digitando…", rosto do Cody que muda com o humor, opções clicáveis, botões e navegação automática. Conversa guardada só na aba (senhas geradas não ficam) |
+| `CodyCard.tsx` | Cartão "Fale com o Cody" com atalhos de pergunta |
+| `abrir.ts` | `abrirCody('pergunta')` abre o Cody de qualquer tela |
 
-Nada sai do aparelho: não há IA externa e o Kody **nunca** vê o conteúdo do cofre.
+Nada sai do aparelho: não há IA externa e o Cody **nunca** vê o conteúdo do cofre.
 
 ## 3. Notificações
 
@@ -65,15 +65,15 @@ Antes, "Notificações no aplicativo" era só um texto. Agora (`src/services/avi
 ## 4. Foto de perfil (v1.4.0)
 
 - Conta nova: perfil **anônimo** (fundo roxo + ícone branco de pessoa).
-- **Perfil → toque na foto**: escolha um dos **12 avatares do Kody** e a **cor do fundo** (12 cores prontas ou qualquer
+- **Perfil → toque na foto**: escolha um dos **12 avatares do Cody** e a **cor do fundo** (12 cores prontas ou qualquer
   outra), ou envie uma **foto sua** (o app recorta e reduz para 320×320 JPEG). Dá para **baixar** o avatar em PNG e voltar ao anônimo.
-- Fica salvo na conta (`users.avatar_url`): `kody:<1-12>:#RRGGBB` ou `data:image/jpeg;base64,...`. Aparece no site, no celular e no Windows.
+- Fica salvo na conta (`users.avatar_url`): `cody:<1-12>:#RRGGBB` ou `data:image/jpeg;base64,...`. Aparece no site, no celular e no Windows.
 - Banco: migração `008_avatar_perfil.sql` (já rodada na v1.3.0). API: `PUT /api/users/me { avatar }`.
 
 ## 5. Dicas e ajustes visuais
 
 - Cartões **"Você sabia?"** (`src/components/Dica.tsx`) em Meu Krypta, Minhas chaves, Nova chave, Início do celular,
-  Planos, Aplicações e Perfil. Fechou, não volta naquele aparelho. "Perguntar ao Kody" abre o robô já com a pergunta.
+  Planos, Aplicações e Perfil. Fechou, não volta naquele aparelho. "Perguntar ao Cody" abre o robô já com a pergunta.
 - Textos: **CCP → chave de contingência**, **kit do herdeiro → código de herança**, **CCH → chave do herdeiro**
   (só nos textos; no código e na API continuam `ccp`/`cch`).
 - "Recebi um código de herança" com o ícone de chave e sublinhado na abertura do celular e no login.
@@ -88,10 +88,10 @@ Antes, "Notificações no aplicativo" era só um texto. Agora (`src/services/avi
 
 - Logado, a página inicial do site e do Windows mostra o **Início** (`src/pages/inicio/PainelInicio.tsx`): cartão do
   cofre que muda com a situação (ativar, criar PIN, trancado, aberto, em outro aparelho), **resumo da conta**, atividades,
-  cartão do Kody e atalhos. O resumo usa a mesma regra do app (`src/utils/resumoConta.ts`).
+  cartão do Cody e atalhos. O resumo usa a mesma regra do app (`src/utils/resumoConta.ts`).
 - Itens que ainda não valem (PIN, biometria, herança, pontos antes do cofre existir; recursos Pro no Free) não aparecem.
 - Seção **Novidades** (`src/pages/inicio/Novidades.tsx`) para visitantes e logados, com botões para a tela certa.
-- "Precisa de ajuda?" (Explore o sistema) agora abre o Kody; antes não levava a lugar nenhum.
+- "Precisa de ajuda?" (Explore o sistema) agora abre o Cody; antes não levava a lugar nenhum.
 
 ## 7. Carregamento mais leve (v1.4.0)
 
@@ -100,4 +100,30 @@ Antes, "Notificações no aplicativo" era só um texto. Agora (`src/services/avi
   - na **1ª vez da sessão** em telas pesadas (cofre, chaves);
   - quando uma tela demora **mais de 0,7 s**.
   É um cartão compacto no meio da tela, não mais a tela cheia.
-- Os robôs usados nas telas viraram WebP (`src/assets/kody/`), bem mais leves que os PNG originais (que continuam em `src/assets/sprites/`).
+- Os robôs usados nas telas viraram WebP (`src/assets/cody/`), bem mais leves que os PNG originais (que continuam em `src/assets/sprites/`).
+
+## 8. v1.5.0 — quem abre o cofre com o quê
+
+| Forma de abrir | Free | Pro | Onde aparece |
+|---|---|---|---|
+| **Senha** (8+ caracteres) | ✓ | ✓ | aparelho pareado e outros aparelhos |
+| **PIN de 6 dígitos** | — | ✓ | aparelho pareado e outros aparelhos |
+| **Digital ou rosto** | — | ✓ | **só no celular** (no site e no Windows a opção nem aparece) |
+| **Chave de contingência** (só ver) | ✓ | ✓ | qualquer aparelho, só leitura |
+
+- Servidor: `config/planos.ts` → `acessoRemoto: true` e `multiAparelho: true` no Free; novo `pinCofre` (Pro).
+  `POST /vault/remoto/ativar` recusa `tipo: PIN` no Free; `abrir` pede para trocar por senha quem voltou ao Free com um PIN.
+- Quem já tinha PIN no Free (v1.3/1.4) continua abrindo a trava do aparelho pareado; ao trocar, escolhe senha.
+- Biometria nos outros aparelhos (Pro, celular): depois de abrir com a senha/PIN, "Ligar digital ou rosto" guarda a senha
+  **só naquele celular**, cifrada com uma chave que só a biometria libera (`BioAcesso` em `services/cofreRemoto.ts`).
+- O aviso "Seu cofre está pareado em outro aparelho" (`src/mobile/AvisoOutroAparelho.tsx`) mostra as formas de abrir,
+  o que já está ativo e o que é Pro, no app e no site.
+
+## 9. v1.5.0 — app
+
+- **Barra de baixo:** Início · **Cody** (balão de conversa) · **+** · Cofre · Ajustes. O Perfil abre pela foto no topo.
+- **Cody flutuante:** pode ser escondido em Ajustes (app) e Configurações (site/Windows) — `src/ajuda/preferencias.ts`.
+- **Janelas por cima da barra:** folhas, foto de perfil e pagamento abrem direto no `<body>` (`src/components/Camada.tsx`)
+  e o conteúdo das telas tem mais espaço no fim, para a barra nunca tapar texto ou botões.
+- **Foto de perfil:** depois de escolher a imagem, arraste para posicionar e use o zoom.
+- Início: o cartão do Cody usa o Cody **animado** (a saudação do Perfil continua com o Cody acenando).

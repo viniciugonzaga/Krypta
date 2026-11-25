@@ -17,8 +17,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { OnboardingAPI, handleApiError, type Recomendacao, type RecursoSugerido, type RespostasOnboarding } from '../../services/api';
 import { FONTE, GRAD, MAviso, MBotao, MFolha, OndaFundo, useMCores } from '../ui';
 
-import roboVerificado from '../../assets/kody/kody_verificado.webp';
-import roboAcenando from '../../assets/kody/kody_acenando.webp';
+import roboVerificado from '../../assets/cody/cody_verificado.webp';
+import roboAcenando from '../../assets/cody/cody_acenando.webp';
 
 type Opcao = { id: string; rotulo: string; desc?: string };
 type Pergunta = {

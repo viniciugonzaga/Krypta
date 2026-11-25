@@ -13,7 +13,8 @@
 //  Kill Switch (bloqueio remoto)          —           ✓
 //  Herança digital                        —           ✓
 //  Alertas de acesso (histórico)          —           ✓
-//  Abrir o cofre em outros aparelhos      —           ✓   (só leitura, com a CCP)
+//  Abrir/editar o cofre em outros aparelhos com SENHA   ✓   ✓   (v1.5.0: liberado no Free)
+//  PIN de 6 dígitos (e biometria no celular)            —   ✓
 //  CCP nova pelo dispositivo / abandonar  ✓           ✓
 //
 // Para mudar uma regra (ex.: liberar o Kill Switch no Free), troque aqui.
@@ -28,8 +29,10 @@ export interface RegrasPlano {
   alertasAcesso: boolean;
   /** Ver o cofre em outro aparelho da mesma conta, com a CCP */
   multiAparelho: boolean;
-  /** Senha de acesso (PIN) para abrir E EDITAR o cofre em qualquer aparelho */
+  /** Senha de acesso para abrir E EDITAR o cofre em qualquer aparelho (v1.5.0: todos os planos) */
   acessoRemoto: boolean;
+  /** v1.5.0: PIN de 6 dígitos no lugar da senha (e biometria no celular) — Pro */
+  pinCofre: boolean;
   /** Quantos pontos de restauração (cópias do cofre) podem existir */
   pontosRestauracao: number;
   /** Chaves com mais de 3 campos (cartão, endereço, campos extras) */
@@ -43,8 +46,9 @@ export const REGRAS_PLANO: Record<UserPlan, RegrasPlano> = {
     killSwitch: false,
     heranca: false,
     alertasAcesso: false,
-    multiAparelho: false,
-    acessoRemoto: false,
+    multiAparelho: true, // v1.5.0: ver com a CCP (só leitura) em qualquer aparelho, todos os planos
+    acessoRemoto: true,
+    pinCofre: false,
     pontosRestauracao: 2,
     camposExtras: false,
   },
@@ -56,6 +60,7 @@ export const REGRAS_PLANO: Record<UserPlan, RegrasPlano> = {
     alertasAcesso: true,
     multiAparelho: true,
     acessoRemoto: true,
+    pinCofre: true,
     pontosRestauracao: 20,
     camposExtras: true,
   },

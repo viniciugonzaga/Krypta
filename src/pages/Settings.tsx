@@ -13,7 +13,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, ChevronRight, Crown, Lock, Moon, Sun } from 'lucide-react';
+import { Bell, ChevronRight, Crown, Lock, MessageCircle, Moon, Sun } from 'lucide-react';
+import { useCodyFlutuante } from '../ajuda/preferencias';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
@@ -22,7 +23,7 @@ import { useModo } from '../mobile/ModoContext';
 import { useNotificacoesAparelho } from '../components/AvisosApp';
 import { getPlanFullName, recursosDoPlano } from '../utils/plan';
 
-import spriteRoboConfig from '../assets/kody/kody_configuracao.webp';
+import spriteRoboConfig from '../assets/cody/cody_configuracao.webp';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
 
@@ -155,6 +156,7 @@ export function Settings() {
   const { user } = useAuth();
   const { preferencia, mudarPreferencia } = useModo();
   const notif = useNotificacoesAparelho();
+  const [codyFlutuante, setCodyFlutuante] = useCodyFlutuante();
 
   const recursos = recursosDoPlano(user?.plan);
   const accent = isDark ? '#8d51ff' : '#5100BD';
@@ -303,6 +305,14 @@ export function Settings() {
                     <span className="text-[13px]">{notif.ligado ? 'Ligadas' : 'Desligadas'}</span>
                   </PillButton>
                   <MutedText isDark={isDark}>{notif.texto}</MutedText>
+                </SettingRow>
+
+                <SettingRow label="Cody flutuante" isDark={isDark} delay={0.545}>
+                  <PillButton isDark={isDark} onClick={() => setCodyFlutuante(!codyFlutuante)} ariaLabel="Mostrar ou esconder o Cody no canto da tela">
+                    <MessageCircle size={13} />
+                    <span className="text-[13px]">{codyFlutuante ? 'Visível' : 'Escondido'}</span>
+                  </PillButton>
+                  <MutedText isDark={isDark}>{codyFlutuante ? 'O botão do Cody aparece no canto da tela.' : 'O botão do canto está escondido. O Cody continua no Início e no Perfil.'}</MutedText>
                 </SettingRow>
 
                 <SettingRow label="Avisos por e-mail" isDark={isDark} delay={0.56}>

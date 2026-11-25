@@ -5,7 +5,7 @@ import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { abrirKody } from '../ajuda/abrir';
+import { abrirCody } from '../ajuda/abrir';
 import { PainelInicio } from './inicio/PainelInicio';
 import { Novidades } from './inicio/Novidades';
 import {
@@ -26,9 +26,9 @@ import logoTextoClaro from '../assets/Logos/Krypta_de_texto.png';
 import logoTextoEscuro from '../assets/Logos/Krypta_de_texto2.png';
 import iconCadeado from '../assets/Logos/icon_cadeado.png';
 
-import spriteRoboAnimado from '../assets/kody/kody_animado.webp';
-import spriteRoboVerificado from '../assets/kody/kody_verificado.webp';
-import spriteRoboInterrogacao from '../assets/kody/kody_interrogacao.webp';
+import spriteRoboAnimado from '../assets/cody/cody_animado.webp';
+import spriteRoboVerificado from '../assets/cody/cody_verificado.webp';
+import spriteRoboInterrogacao from '../assets/cody/cody_interrogacao.webp';
 
 // ============================================================
 // FONTE DOS TÍTULOS — QUICKSAND (ARREDONDADA)
@@ -1085,7 +1085,7 @@ interface ExploreCardProps {
 
 function ExploreCard({ sprite, title, desc, href, isDark, delay }: ExploreCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const ehKody = href === 'kody';
+  const ehCody = href === 'cody';
 
   const content = (
     <motion.div
@@ -1248,9 +1248,9 @@ function ExploreCard({ sprite, title, desc, href, isDark, delay }: ExploreCardPr
     </motion.div>
   );
 
-  if (ehKody) {
+  if (ehCody) {
     return (
-      <button type="button" onClick={() => abrirKody()} className="block h-full w-full text-left">
+      <button type="button" onClick={() => abrirCody()} className="block h-full w-full text-left">
         {content}
       </button>
     );
@@ -1285,9 +1285,9 @@ function ExploreSection({
     },
     {
       sprite: spriteRoboInterrogacao,
-      title: 'Precisa de ajuda? Fale com o Kody.',
+      title: 'Precisa de ajuda? Fale com o Cody.',
       desc: 'O assistente do Krypta responde na hora, resolve problemas passo a passo e te leva para a tela certa. Se precisar, ele te passa para a nossa equipe.',
-      href: 'kody',
+      href: 'cody',
     },
   ];
 
@@ -1657,7 +1657,7 @@ export function Welcome() {
     >
       <Navbar />
 
-      {/* v1.4.0: logado → Início com o cofre, resumo, atividades e o Kody (igual ao app) */}
+      {/* v1.4.0: logado → Início com o cofre, resumo, atividades e o Cody (igual ao app) */}
       {user && (
         <div className="relative">
           <div className="absolute inset-0 bg-grid-pattern bg-[size:60px_60px] opacity-20 pointer-events-none" />

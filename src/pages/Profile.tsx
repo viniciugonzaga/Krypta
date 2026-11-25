@@ -48,10 +48,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { OrdersAPI, UserAPI, handleApiError, type EventoConta, type Pedido } from '../services/api';
 import { Avisos } from '../services/avisos';
 import { EditorFoto, FotoPerfil } from '../components/FotoPerfil';
-import { KodyCard } from '../ajuda/KodyCard';
+import { CodyCard } from '../ajuda/CodyCard';
 import { getPlanFullName, isProPlan, recursosDoPlano } from '../utils/plan';
 
-import spriteRoboAcenando from '../assets/kody/kody_acenando.webp';
+import spriteRoboAcenando from '../assets/cody/cody_acenando.webp';
 import { Dica } from '../components/Dica';
 
 const ROUNDED_FONT = "'Quicksand', 'Poppins', sans-serif";
@@ -483,7 +483,7 @@ export function Profile() {
 
       <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pt-40 pb-16">
         <Dica id="perfil-foto-v14" titulo="Escolha seu avatar (opcional)" className="mb-6">
-          Toque na foto para escolher um dos 12 Kodys e a cor do fundo, ou enviar uma foto sua. Em <strong>Segurança da conta</strong> você vê onde a conta está aberta e pode sair de todos os aparelhos.
+          Toque na foto para escolher um dos 12 Codys e a cor do fundo, ou enviar uma foto sua. Em <strong>Segurança da conta</strong> você vê onde a conta está aberta e pode sair de todos os aparelhos.
         </Dica>
         {/* ============ TÍTULO + ROBÔ ============ */}
         <motion.header initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="relative mb-8">
@@ -599,7 +599,7 @@ export function Profile() {
                     <h2 className="text-xl" style={{ fontFamily: ROUNDED_FONT, fontWeight: 600 }}>{user.name}</h2>
                     <p className="text-sm break-all" style={{ color: c.muted }}>{user.email}</p>
                     <button type="button" onClick={() => setEditarFoto(true)} className="mt-1 text-xs font-semibold underline underline-offset-4" style={{ color: c.bright }}>
-                      {user.avatarUrl ? 'Trocar foto ou avatar' : 'Escolher um avatar do Kody'}
+                      {user.avatarUrl ? 'Trocar foto ou avatar' : 'Escolher um avatar do Cody'}
                     </button>
                     <span
                       className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-xs font-bold"
@@ -676,8 +676,8 @@ export function Profile() {
               </div>
             </Cartao>
 
-            {/* Kody */}
-            <KodyCard variante="site" titulo="Dúvidas sobre a sua conta?" sub="Pergunte ao Kody, o assistente do Krypta." atalhos={['Minha conta está segura?', 'Como coloco foto no perfil?', 'Como ligo as notificações?']} />
+            {/* Cody */}
+            <CodyCard variante="site" titulo="Dúvidas sobre a sua conta?" sub="Pergunte ao Cody, o assistente do Krypta." atalhos={['Minha conta está segura?', 'Como coloco foto no perfil?', 'Como ligo as notificações?']} />
           </div>
 
           {/* ================= COLUNA DIREITA ================= */}
