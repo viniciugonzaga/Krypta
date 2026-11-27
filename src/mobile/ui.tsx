@@ -9,14 +9,13 @@
 import { useEffect, useMemo, useRef, type CSSProperties, type InputHTMLAttributes, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Bell, ChevronLeft, ChevronRight, Home, Loader2, Lock, Moon, Plus, Settings, Sun, X } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, Home, Loader2, Lock, MessageCircle, Moon, Plus, Settings, Sun, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNaoLidas } from '../components/AvisosApp';
 import { FotoPerfil } from '../components/FotoPerfil';
 import { Camada } from '../components/Camada';
 import { abrirCody } from '../ajuda/abrir';
-import codyMini from '../assets/cody/cody_acenando.webp';
 
 import logoBranco from '../assets/Logos/Krypta_Nav_Branco.png';
 import logoPreto from '../assets/Logos/Krypta_Nav_Preto.png';
@@ -199,22 +198,11 @@ const ABAS: { to: string; icone: typeof Home; rotulo: string; centro?: boolean; 
   { to: '/settings', icone: Settings, rotulo: 'Ajustes' },
 ];
 
-/** Aba do Cody: carinha dele num balão de conversa, com "pulinho" de vez em quando */
+/** Aba do Cody: ícone padrão de balão de conversa, igual às outras abas */
 function AbaCody({ c }: { c: MCores }) {
-  const reduzir = useReducedMotion();
   return (
-    <button type="button" onClick={() => abrirCody()} aria-label="Conversar com o Cody" className="flex flex-col items-center gap-1 w-14 py-1">
-      <motion.span
-        className="relative w-[34px] h-[30px] flex items-center justify-center"
-        animate={reduzir ? undefined : { y: [0, -3, 0, 0, 0], rotate: [0, -6, 6, 0, 0] }}
-        transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 3.5 }}
-      >
-        <svg viewBox="0 0 34 30" className="absolute inset-0 w-full h-full" aria-hidden>
-          <path d="M5 2h24a4 4 0 0 1 4 4v13a4 4 0 0 1-4 4H14l-6 5v-5H5a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z" fill={c.isDark ? 'rgba(141,81,255,0.22)' : '#F1E9FF'} stroke={c.roxo} strokeWidth="1.6" strokeLinejoin="round" />
-        </svg>
-        <img src={codyMini} alt="" className="relative w-[22px] h-[22px] object-contain -mt-1.5" draggable={false} />
-        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full" style={{ background: '#22c55e', border: `2px solid ${c.isDark ? '#0d0320' : '#fff'}` }} />
-      </motion.span>
+    <button type="button" onClick={() => abrirCody()} aria-label="Conversar com o Cody" className="flex flex-col items-center gap-1 w-14 py-1" style={{ color: c.suave }}>
+      <MessageCircle className="w-[22px] h-[22px]" />
       <span className="w-1 h-1" />
     </button>
   );
