@@ -1,9 +1,55 @@
 // src/services/api.ts
 // Endereço da API. Em desenvolvimento usa o localhost; em produção vem do
 // .env do front:  VITE_API_URL=https://api.seudominio.com.br/api
+//
+// v1.5.2: o endereço é "limpo" (espaços, barra no fim, /api faltando) e, num
+// build de produção sem VITE_API_URL (ex.: .exe gerado sem a variável no
+// GitHub), usa a API oficial em vez de localhost — antes isso dava "Failed to fetch".
 import { clienteAtual } from '../mobile/modo';
 
-export const API_URL: string = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3333/api';
+const API_OFICIAL = 'https://krypta-api.onrender.com/api';
+
+function limparApi(bruto: string | undefined): string | null {
+  let u = (bruto ?? '').trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  if (!/\/api$/i.test(u)) u = `${u}/api`;
+  return u;
+}
+
+export const API_URL: string = (() => {
+  const doEnv = limparApi(import.meta.env.VITE_API_URL as string | undefined);
+  // build de produção apontando para localhost não funciona em nenhum aparelho
+  if (doEnv && !(import.meta.env.PROD && /\/\/(localhost|127\.0\.0\.1)[:/]/i.test(doEnv))) return doEnv;
+  return import.meta.env.PROD ? API_OFICIAL : 'http://localhost:3333/api';
+})();
+
+/** Mensagem clara quando o aparelho não consegue falar com a API */
+export const MSG_SEM_CONEXAO = 'Não foi possível conectar ao servidor do Krypta. Confira sua internet e tente de novo em alguns segundos.';
+
+const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * fetch com tolerância a falha de rede:
+ *  • GET: tenta de novo 2 vezes (o servidor gratuito pode estar "acordando")
+ *  • outros métodos: não repete (para não duplicar nada) e devolve mensagem clara
+ */
+async function fetchSeguro(url: string, init: RequestInit): Promise<Response> {
+  const tentativas = (init.method ?? 'GET').toUpperCase() === 'GET' ? 3 : 1;
+  for (let i = 0; ; i++) {
+    try {
+      return await fetch(url, init);
+    } catch (e) {
+      if (i + 1 >= tentativas) {
+        const err = new Error(MSG_SEM_CONEXAO) as ApiError;
+        err.code = 0;
+        err.details = { causa: (e as Error)?.message, api: API_URL };
+        throw err;
+      }
+      await espera(i === 0 ? 2000 : 5000);
+    }
+  }
+}
 
 // Chaves do localStorage (as mesmas do AuthContext)
 export const STORAGE_KEYS = {
@@ -76,7 +122,7 @@ export function refreshAccessToken(): Promise<string | null> {
     const refreshToken = localStorage.getItem(STORAGE_KEYS.refresh);
     if (!refreshToken) return null;
 
-    const res = await fetch(`${API_URL}/auth/refresh`, {
+    const res = await fetchSeguro(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Krypta-Cliente': clienteAtual() },
       body: JSON.stringify({ refreshToken }),
@@ -116,7 +162,7 @@ async function doFetch(path: string, method: string, body: any, auth: boolean, e
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetchSeguro(`${API_URL}${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

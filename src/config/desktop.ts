@@ -25,7 +25,9 @@ export const IS_DESKTOP: boolean = typeof window !== 'undefined' && !!window.__T
 export const SITE_URL: string | null = (() => {
   const env = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
   if (env) return env.replace(/\/+$/, '');
-  return IS_DESKTOP || typeof window === 'undefined' ? null : window.location.origin;
+  // v1.5.2: app desktop de produção sem VITE_SITE_URL → site oficial
+  if (IS_DESKTOP) return import.meta.env.PROD ? 'https://krypta.website' : null;
+  return typeof window === 'undefined' ? null : window.location.origin;
 })();
 
 /** Versão do Krypta (site e app desktop usam a mesma) */

@@ -101,3 +101,12 @@ A versão do app vem do `package.json` (`"version"`). Suba o número a cada vers
 - **API (Render):** muda regra de plano (Free abre o cofre em outros aparelhos com senha; PIN é Pro) e aceita avatares `cody:`. Atualiza sozinha com o push.
 - **Windows:** gere o `.exe` de novo (Run workflow).
 - Apague do projeto, se ainda existirem: `src/ajuda/KrypBot.tsx`, `src/ajuda/KodyBot.tsx`, `src/ajuda/KodyCard.tsx` e a pasta `src/assets/kody/` (viraram `CodyBot`, `CodyCard` e `src/assets/cody/`).
+
+## Notas da versão 1.5.2 (app do Windows "Failed to fetch")
+
+- O workflow do Windows agora **limpa e testa** o endereço da API antes de gerar o `.exe`. Sem a variável `VITE_API_URL`
+  (ou com ela errada/apontando para localhost), usa a API oficial `https://krypta-api.onrender.com/api`.
+  Se a API não responder, o build para com um erro claro, em vez de gerar um app que não conecta.
+- O app também se protege sozinho: build de produção sem endereço usa a API oficial, e falha de rede vira a mensagem
+  "Não foi possível conectar ao servidor do Krypta..." (com novas tentativas automáticas nas consultas).
+- Banco e API: nada muda. Basta push + **Run workflow** + reinstalar o `.exe`.

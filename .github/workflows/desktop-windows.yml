@@ -2,9 +2,12 @@
 # KRYPTA — gera o instalador do app desktop (.exe) no GitHub
 #
 # Como usar (não precisa de Rust no seu PC):
-#   1. GitHub → Settings → Secrets and variables → Actions → aba "Variables":
-#        VITE_API_URL  = https://api.seudominio.com.br/api   (API pública)
-#        VITE_SITE_URL = https://seudominio.com.br            (opcional)
+#   1. (Opcional) GitHub → Settings → Secrets and variables → Actions → aba "Variables":
+#        VITE_API_URL  = https://krypta-api.onrender.com/api
+#        VITE_SITE_URL = https://krypta.website
+#      Sem elas, o workflow usa esses mesmos endereços oficiais (v1.5.2).
+#      O endereço é limpo (espaços, barra no fim, /api faltando) e TESTADO antes
+#      de gerar o .exe: se a API não responder, o build para com um erro claro.
 #   2. Crie uma tag de versão e envie:   git tag v1.0.0  →  git push origin v1.0.0
 #      (ou: aba Actions → "App desktop (Windows)" → Run workflow)
 #   3. Em ~10 min o .exe aparece em Releases, também como "Krypta-Setup.exe".
@@ -46,10 +49,31 @@ jobs:
           API: ${{ vars.VITE_API_URL }}
           SITE: ${{ vars.VITE_SITE_URL }}
         run: |
-          : > .env.desktop
-          if [ -n "$API" ]; then echo "VITE_API_URL=$API" >> .env.desktop; else echo "::warning::VITE_API_URL não definida: o app vai procurar a API em http://localhost:3333/api"; fi
-          if [ -n "$SITE" ]; then echo "VITE_SITE_URL=$SITE" >> .env.desktop; fi
-          cat .env.desktop
+          # limpa: tira espaços/aspas e barra no fim; põe https:// e /api se faltarem
+          limpar() { echo "$1" | tr -d '[:space:]"'"'" | sed -E 's#/+$##'; }
+          API=$(limpar "$API"); SITE=$(limpar "$SITE")
+          if [ -z "$API" ] || echo "$API" | grep -qiE '//(localhost|127\.0\.0\.1)'; then
+            echo "::notice::VITE_API_URL vazia ou localhost: usando a API oficial"
+            API="https://krypta-api.onrender.com/api"
+          fi
+          echo "$API" | grep -qiE '^https?://' || API="https://$API"
+          echo "$API" | grep -qiE '/api$' || API="$API/api"
+          [ -n "$SITE" ] || SITE="https://krypta.website"
+          echo "$SITE" | grep -qiE '^https?://' || SITE="https://$SITE"
+          printf 'VITE_API_URL=%s\nVITE_SITE_URL=%s\n' "$API" "$SITE" > .env.desktop
+          echo "API_TESTE=${API%/api}/health" >> "$GITHUB_ENV"
+          echo "----- .env.desktop -----"; cat .env.desktop
+
+      - name: Testar a API antes de gerar o .exe
+        shell: bash
+        run: |
+          echo "Testando $API_TESTE (o Render grátis pode levar até 1 min para acordar)..."
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 60 "$API_TESTE"; then echo; echo "API respondeu ✅"; exit 0; fi
+            echo "Tentativa $i falhou, esperando 15 s..."; sleep 15
+          done
+          echo "::error::A API não respondeu em $API_TESTE. Confira VITE_API_URL e se o serviço está no ar no Render."
+          exit 1
 
       - name: Gerar o instalador e publicar na Release
         id: tauri
